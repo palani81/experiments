@@ -801,10 +801,27 @@ function App() {
   const completedCount = Object.keys(completed).filter(k => completed[k]).length;
   const totalProjects = PROJECTS.length;
   const xp = completedCount * 100;
-  const level = Math.floor(xp / 200) + 1;
+  const level = Math.floor(xp / 100) + 1;
 
-  const titleNames = ["Recruit", "Apprentice", "Tinkerer", "Builder", "Inventor", "Engineer", "Master Engineer", "City Hero"];
+  const titleNames = [
+    "New Recruit",
+    "Circuit Cadet",
+    "Wire Wrangler",
+    "Signal Scout",
+    "Spark Apprentice",
+    "Sensor Specialist",
+    "Code Commander",
+    "Motor Mechanic",
+    "Systems Engineer",
+    "Robotics Expert",
+    "Master Inventor",
+    "Spark City Guardian",
+    "City Hero"
+  ];
   const title = titleNames[Math.min(level - 1, titleNames.length - 1)];
+  const nextTitle = titleNames[Math.min(level, titleNames.length - 1)];
+  const xpForNextLevel = level * 100;
+  const xpProgress = xp % 100;
 
   const toggleComplete = (id) => {
     if (!completed[id]) {
@@ -861,16 +878,17 @@ function App() {
             React.createElement("p", { style: { fontSize: 12, color: "#94a3b8", margin: 0 }}, player + " the " + title)
           )
         ),
-        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 24, flex: 1, justifyContent: "flex-end" }},
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 20, flex: 1, justifyContent: "flex-end" }},
           React.createElement("div", { style: { textAlign: "right" }},
             React.createElement("div", { style: { fontSize: 20, fontWeight: 800, color: "#22c55e" }}, xp + " XP"),
-            React.createElement("div", { style: { fontSize: 12, color: "#64748b" }}, "Level " + level)
+            React.createElement("div", { style: { fontSize: 11, color: "#64748b" }}, "Level " + level + " \u2022 " + completedCount + "/" + totalProjects + " quests")
           ),
-          React.createElement("div", { style: { width: 140, height: 10, background: "#1e293b", borderRadius: 6, overflow: "hidden", border: "1px solid #334155" }},
-            React.createElement("div", { style: { width: ((xp % 200) / 200 * 100) + "%", height: "100%", background: "linear-gradient(90deg, #22c55e, #3b82f6)", borderRadius: 6, transition: "width 0.5s" }})
-          ),
-          React.createElement("div", { style: { textAlign: "right", fontSize: 12, color: "#64748b" }},
-            completedCount + "/" + totalProjects + " quests"
+          React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, minWidth: 160 }},
+            React.createElement("div", { style: { width: "100%", height: 10, background: "#1e293b", borderRadius: 6, overflow: "hidden", border: "1px solid #334155" }},
+              React.createElement("div", { style: { width: (level >= titleNames.length ? 100 : xpProgress) + "%", height: "100%", background: "linear-gradient(90deg, #22c55e, #3b82f6)", borderRadius: 6, transition: "width 0.5s" }})
+            ),
+            React.createElement("div", { style: { fontSize: 10, color: "#475569", textAlign: "center" }},
+              level >= titleNames.length ? "\u{1F3C6} Max Level!" : "Next: " + nextTitle + " (" + (xpForNextLevel - xp) + " XP)")
           )
         )
       )
