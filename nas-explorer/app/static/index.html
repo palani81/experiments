@@ -651,37 +651,259 @@ function FileModal({ file, onClose }) {
   );
 }
 
+function BarChart({ items, labelKey, valueKey, formatValue, maxValue }) {
+  const max = maxValue || Math.max(...items.map(i => i[valueKey] || 0), 1);
+  return (
+    <div className="chart-bar-container">
+      {items.map((item, i) => (
+        <div key={item[labelKey] || i} className="chart-bar-row">
+          <div className="chart-bar-label">{item[labelKey]}</div>
+          <div className="chart-bar">
+            <div className="chart-bar-fill" style={{width:`${(item[valueKey]/max)*100}%`,background:getBarColor(i)}} />
+          </div>
+          <div className="chart-bar-value">{formatValue ? formatValue(item) : item[valueKey]?.toLocaleString()}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState('overview'); // overview | storage | files | duplicates
   useEffect(() => { API.get('/api/dashboard').then(d=>{if(d)setData(d);setLoading(false);}).catch(()=>setLoading(false)); }, []);
   if (loading) return <div className="loading">Loading dashboard...</div>;
   if (!data) return <div className="loading">Failed to load dashboard</div>;
-  const maxTypeSize = Math.max(...(data.by_type?.map(t=>t.total_size)||[1]));
+
+  const tabs = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'storage', label: 'Storage' },
+    { id: 'files', label: 'Files' },
+    { id: 'duplicates', label: 'Duplicates' },
+  ];
+
   return (
     <div>
-      <div className="dash-grid">
-        <div className="stat-card"><div className="stat-label">Total Storage</div><div className="stat-value">{formatBytes(data.total_size)}</div><div className="stat-sub">{data.total_files.toLocaleString()} files, {data.total_directories.toLocaleString()} folders</div></div>
-        <div className="stat-card"><div className="stat-label">Unique Files</div><div className="stat-value">{data.unique_hashes.toLocaleString()}</div><div className="stat-sub">{data.duplicate_groups} duplicate groups</div></div>
-        <div className="stat-card"><div className="stat-label">Wasted by Duplicates</div><div className="stat-value" style={{color:'var(--orange)'}}>{formatBytes(data.duplicate_wasted_bytes)}</div><div className="stat-sub">Reclaimable space</div></div>
+      {/* Tab bar */}
+      <div style={{display:'flex',gap:'4px',marginBottom:'20px',borderBottom:'1px solid var(--border)',paddingBottom:'0'}}>
+        {tabs.map(t => (
+          <div key={t.id} onClick={()=>setTab(t.id)} style={{
+            padding:'8px 16px', fontSize:'13px', fontWeight: tab===t.id ? '600' : '400', cursor:'pointer',
+            color: tab===t.id ? 'var(--accent)' : 'var(--text-dim)',
+            borderBottom: tab===t.id ? '2px solid var(--accent)' : '2px solid transparent',
+            marginBottom:'-1px', transition:'all 0.15s',
+          }}>{t.label}</div>
+        ))}
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'24px'}}>
-        <div className="dash-section"><h3>Storage by Type</h3><div className="chart-bar-container">{data.by_type?.map((t,i)=>(
-          <div key={t.category} className="chart-bar-row"><div className="chart-bar-label">{t.category}</div><div className="chart-bar"><div className="chart-bar-fill" style={{width:`${(t.total_size/maxTypeSize)*100}%`,background:getBarColor(i)}} /></div><div className="chart-bar-value">{formatBytes(t.total_size)} ({t.count})</div></div>
-        ))}</div></div>
-        <div className="dash-section"><h3>Top Tags</h3><div className="chart-bar-container">{data.tag_counts?.slice(0,10).map((t,i)=>{
-          const maxTag=data.tag_counts[0]?.count||1;
-          return (<div key={t.tag} className="chart-bar-row"><div className="chart-bar-label">{t.tag}</div><div className="chart-bar"><div className="chart-bar-fill" style={{width:`${(t.count/maxTag)*100}%`,background:getBarColor(i)}} /></div><div className="chart-bar-value">{t.count.toLocaleString()}</div></div>);
-        })}</div></div>
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'24px',marginTop:'8px'}}>
-        <div className="dash-section"><h3>Largest Files</h3><table className="table-compact"><thead><tr><th>Name</th><th>Size</th></tr></thead><tbody>{data.largest_files?.slice(0,10).map(f=>(<tr key={f.id}><td style={{maxWidth:'200px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={f.path}>{f.name}</td><td>{formatBytes(f.size)}</td></tr>))}</tbody></table></div>
-        <div className="dash-section"><h3>Recently Modified</h3><table className="table-compact"><thead><tr><th>Name</th><th>Modified</th></tr></thead><tbody>{data.recent_files?.slice(0,10).map(f=>(<tr key={f.id}><td style={{maxWidth:'200px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={f.path}>{f.name}</td><td>{formatDate(f.modified_at)}</td></tr>))}</tbody></table></div>
-      </div>
-      {data.duplicates?.length > 0 && (
-        <div className="dash-section" style={{marginTop:'8px'}}><h3>Duplicates (by wasted space)</h3><table className="table-compact"><thead><tr><th>Files</th><th>Copies</th><th>Each</th><th>Wasted</th></tr></thead><tbody>{data.duplicates.slice(0,10).map((d,i)=>(
-          <tr key={i}><td style={{maxWidth:'300px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={d.names}>{d.names}</td><td>{d.count}</td><td>{formatBytes(d.size)}</td><td style={{color:'var(--orange)'}}>{formatBytes(d.wasted_bytes)}</td></tr>
-        ))}</tbody></table></div>
+
+      {/* ─── Overview Tab ─── */}
+      {tab === 'overview' && (
+        <div>
+          <div className="dash-grid">
+            <div className="stat-card">
+              <div className="stat-label">Total Storage</div>
+              <div className="stat-value">{formatBytes(data.total_size)}</div>
+              <div className="stat-sub">{data.total_files.toLocaleString()} files, {data.total_directories.toLocaleString()} folders</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Average File Size</div>
+              <div className="stat-value">{formatBytes(data.avg_file_size)}</div>
+              <div className="stat-sub">Median: {formatBytes(data.median_file_size)}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Unique Files</div>
+              <div className="stat-value">{data.unique_hashes.toLocaleString()}</div>
+              <div className="stat-sub">{data.duplicate_groups} duplicate groups</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Wasted by Duplicates</div>
+              <div className="stat-value" style={{color:'var(--orange)'}}>{formatBytes(data.duplicate_wasted_bytes)}</div>
+              <div className="stat-sub">Reclaimable space</div>
+            </div>
+            {data.empty_files > 0 && (
+              <div className="stat-card">
+                <div className="stat-label">Empty Files</div>
+                <div className="stat-value" style={{color:'var(--text-dim)'}}>{data.empty_files.toLocaleString()}</div>
+                <div className="stat-sub">0 bytes each</div>
+              </div>
+            )}
+          </div>
+
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'24px'}}>
+            <div className="dash-section">
+              <h3>Storage by Type</h3>
+              <BarChart items={data.by_type || []} labelKey="category" valueKey="total_size"
+                formatValue={t => `${formatBytes(t.total_size)} (${t.count})`} />
+            </div>
+            <div className="dash-section">
+              <h3>Top Tags</h3>
+              <BarChart items={(data.tag_counts || []).slice(0, 10)} labelKey="tag" valueKey="count" />
+            </div>
+          </div>
+
+          {/* File Age Distribution */}
+          {data.file_age_buckets?.length > 0 && (
+            <div className="dash-section" style={{marginTop:'8px'}}>
+              <h3>How Old Are Your Files?</h3>
+              <BarChart items={data.file_age_buckets} labelKey="age_bucket" valueKey="count"
+                formatValue={b => `${b.count.toLocaleString()} files (${formatBytes(b.total_size)})`} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── Storage Tab ─── */}
+      {tab === 'storage' && (
+        <div>
+          {/* Storage by source */}
+          {data.size_by_source?.length > 0 && (
+            <div className="dash-section">
+              <h3>Storage by Source</h3>
+              <BarChart items={data.size_by_source} labelKey="source" valueKey="total_size"
+                formatValue={s => `${formatBytes(s.total_size)} (${s.count.toLocaleString()} files)`} />
+            </div>
+          )}
+
+          {/* Size by extension */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'24px',marginTop:'8px'}}>
+            <div className="dash-section">
+              <h3>Space by Extension</h3>
+              <BarChart items={(data.size_by_extension || []).slice(0, 12)} labelKey="extension" valueKey="total_size"
+                formatValue={e => `${formatBytes(e.total_size)} (${e.count})`} />
+            </div>
+            <div className="dash-section">
+              <h3>Most Common Extensions</h3>
+              <BarChart items={(data.extension_counts || []).slice(0, 12)} labelKey="extension" valueKey="count" />
+            </div>
+          </div>
+
+          {/* Activity timeline */}
+          {data.files_by_month?.length > 0 && (
+            <div className="dash-section" style={{marginTop:'8px'}}>
+              <h3>Activity Timeline (files modified per month)</h3>
+              <div style={{display:'flex',alignItems:'flex-end',gap:'3px',height:'120px',padding:'8px 0'}}>
+                {[...data.files_by_month].reverse().map((m, i) => {
+                  const maxCount = Math.max(...data.files_by_month.map(x => x.count), 1);
+                  const pct = (m.count / maxCount) * 100;
+                  return (
+                    <div key={m.month} title={`${m.month}: ${m.count.toLocaleString()} files (${formatBytes(m.total_size)})`}
+                      style={{flex:1, minWidth:'8px', background:'var(--accent)', borderRadius:'2px 2px 0 0',
+                        height:`${Math.max(pct, 2)}%`, opacity: 0.4 + (pct / 100) * 0.6, transition:'height 0.3s'}} />
+                  );
+                })}
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:'10px',color:'var(--text-muted)'}}>
+                <span>{data.files_by_month[data.files_by_month.length - 1]?.month}</span>
+                <span>{data.files_by_month[0]?.month}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── Files Tab ─── */}
+      {tab === 'files' && (
+        <div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'24px'}}>
+            <div className="dash-section">
+              <h3>Largest Files</h3>
+              <table className="table-compact"><thead><tr><th>Name</th><th>Size</th><th>Source</th></tr></thead><tbody>
+                {data.largest_files?.slice(0,12).map(f => (
+                  <tr key={f.id}>
+                    <td style={{maxWidth:'180px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={f.path}>{f.name}</td>
+                    <td>{formatBytes(f.size)}</td>
+                    <td style={{fontSize:'11px',color:'var(--text-muted)'}}>{f.path?.split('/')[1]}</td>
+                  </tr>
+                ))}
+              </tbody></table>
+            </div>
+            <div className="dash-section">
+              <h3>Recently Modified</h3>
+              <table className="table-compact"><thead><tr><th>Name</th><th>Modified</th><th>Source</th></tr></thead><tbody>
+                {data.recent_files?.slice(0,12).map(f => (
+                  <tr key={f.id}>
+                    <td style={{maxWidth:'180px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={f.path}>{f.name}</td>
+                    <td>{formatDate(f.modified_at)}</td>
+                    <td style={{fontSize:'11px',color:'var(--text-muted)'}}>{f.path?.split('/')[1]}</td>
+                  </tr>
+                ))}
+              </tbody></table>
+            </div>
+          </div>
+
+          {/* Oldest files */}
+          {data.oldest_files?.length > 0 && (
+            <div className="dash-section" style={{marginTop:'8px'}}>
+              <h3>Oldest Files</h3>
+              <table className="table-compact"><thead><tr><th>Name</th><th>Last Modified</th><th>Size</th><th>Source</th></tr></thead><tbody>
+                {data.oldest_files.slice(0,10).map(f => (
+                  <tr key={f.id}>
+                    <td style={{maxWidth:'200px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={f.path}>{f.name}</td>
+                    <td>{formatDate(f.modified_at)}</td>
+                    <td>{formatBytes(f.size)}</td>
+                    <td style={{fontSize:'11px',color:'var(--text-muted)'}}>{f.path?.split('/')[1]}</td>
+                  </tr>
+                ))}
+              </tbody></table>
+            </div>
+          )}
+
+          {/* Deepest nested paths */}
+          {data.deep_paths?.length > 0 && (
+            <div className="dash-section" style={{marginTop:'8px'}}>
+              <h3>Most Deeply Nested Files</h3>
+              <table className="table-compact"><thead><tr><th>Path</th><th>Depth</th><th>Size</th></tr></thead><tbody>
+                {data.deep_paths.slice(0,8).map((f, i) => (
+                  <tr key={i}>
+                    <td style={{maxWidth:'350px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:'11px'}} title={f.path}>{f.path}</td>
+                    <td>{f.depth} levels</td>
+                    <td>{formatBytes(f.size)}</td>
+                  </tr>
+                ))}
+              </tbody></table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── Duplicates Tab ─── */}
+      {tab === 'duplicates' && (
+        <div>
+          <div className="dash-grid" style={{marginBottom:'20px'}}>
+            <div className="stat-card">
+              <div className="stat-label">Duplicate Groups</div>
+              <div className="stat-value" style={{color:'var(--orange)'}}>{data.duplicate_groups.toLocaleString()}</div>
+              <div className="stat-sub">Sets of identical files</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Wasted Space</div>
+              <div className="stat-value" style={{color:'var(--orange)'}}>{formatBytes(data.duplicate_wasted_bytes)}</div>
+              <div className="stat-sub">Could be reclaimed</div>
+            </div>
+          </div>
+          {data.duplicates?.length > 0 ? (
+            <div className="dash-section">
+              <h3>Top Duplicates by Wasted Space</h3>
+              <table className="table-compact">
+                <thead><tr><th>Files</th><th>Copies</th><th>Each</th><th>Wasted</th></tr></thead>
+                <tbody>{data.duplicates.slice(0,15).map((d,i) => (
+                  <tr key={i}>
+                    <td style={{maxWidth:'300px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={d.paths}>{d.names}</td>
+                    <td>{d.count}</td>
+                    <td>{formatBytes(d.size)}</td>
+                    <td style={{color:'var(--orange)',fontWeight:'500'}}>{formatBytes(d.wasted_bytes)}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          ) : (
+            <div style={{textAlign:'center',padding:'40px',color:'var(--text-muted)'}}>
+              <div style={{fontSize:'36px',marginBottom:'8px'}}>{'\\u2705'}</div>
+              <p>No duplicate files found. Your NAS is clean!</p>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -891,7 +1113,14 @@ function MainApp() {
 
   const handleSort = (col) => { if (sortBy===col) setSortOrder(o=>o==='asc'?'desc':'asc'); else { setSortBy(col); setSortOrder('asc'); } };
   const handleNavigate = (path) => { setCurrentPath(path); setSearchQuery(''); setPage('files'); };
-  const triggerScan = (full) => { API.post(`/api/admin/scan?full_scan=${full}`).catch(()=>{}); };
+  const [confirmScan, setConfirmScan] = useState(null); // null | 'incremental' | 'full'
+  const triggerScan = (full) => { setConfirmScan(full ? 'full' : 'incremental'); };
+  const doScan = () => {
+    const full = confirmScan === 'full';
+    setConfirmScan(null);
+    API.post(`/api/admin/scan?full_scan=${full}`).catch(()=>{});
+  };
+  const stopScan = () => { API.post('/api/admin/scan-stop').catch(()=>{}); };
 
   const parts = currentPath==='/'?[]:currentPath.split('/').filter(Boolean);
   const breadcrumb = [{name:'Root',path:'/'}];
@@ -911,12 +1140,20 @@ function MainApp() {
           <div className={`nav-item ${page==='dashboard'?'active':''}`} onClick={()=>setPage('dashboard')}>
             {'\uD83D\uDCCA'} Dashboard
           </div>
-          <div className="nav-item" onClick={()=>triggerScan(false)} title="Incremental scan">
-            {'\uD83D\uDD04'} Scan Now
-          </div>
-          <div className="nav-item" onClick={()=>triggerScan(true)} title="Full rescan">
-            {'\uD83D\uDD0D'} Full Rescan
-          </div>
+          {scanStatus?.status==='scanning' ? (
+            <div className="nav-item" onClick={stopScan} style={{color:'var(--red)'}}>
+              {'\u23F9'} Stop Scan
+            </div>
+          ) : (
+            <>
+              <div className="nav-item" onClick={()=>triggerScan(false)} title="Incremental scan">
+                {'\uD83D\uDD04'} Scan Now
+              </div>
+              <div className="nav-item" onClick={()=>triggerScan(true)} title="Full rescan">
+                {'\uD83D\uDD0D'} Full Rescan
+              </div>
+            </>
+          )}
         </div>
         {connStatus && connStatus.sources && (
           <div style={{padding:'8px 12px',borderTop:'1px solid var(--border)',fontSize:'11px',color:'var(--text-muted)'}}>
@@ -994,6 +1231,30 @@ function MainApp() {
       </div>
       {selectedFile && <FileModal file={selectedFile} onClose={()=>setSelectedFile(null)} />}
       {showAddSource && <AddSourceModal onClose={()=>setShowAddSource(false)} onAdded={refreshStatus} />}
+      {confirmScan && (
+        <div className="modal-overlay" onClick={()=>setConfirmScan(null)}>
+          <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:'400px'}}>
+            <div className="modal-header">
+              <h2>{confirmScan === 'full' ? 'Full Rescan' : 'Scan Now'}</h2>
+              <button className="modal-close" onClick={()=>setConfirmScan(null)}>{'\u2715'}</button>
+            </div>
+            <div className="modal-body" style={{textAlign:'center'}}>
+              <div style={{fontSize:'36px',marginBottom:'12px'}}>{confirmScan === 'full' ? '\uD83D\uDD0D' : '\uD83D\uDD04'}</div>
+              <p style={{fontSize:'14px',color:'var(--text-dim)',marginBottom:'20px'}}>
+                {confirmScan === 'full'
+                  ? 'This will re-index all files from scratch across all sources. It may take a while for large libraries.'
+                  : 'This will scan for new and changed files since the last scan.'}
+              </p>
+              <div style={{display:'flex',gap:'10px',justifyContent:'center'}}>
+                <button className="btn btn-secondary" onClick={()=>setConfirmScan(null)}>Cancel</button>
+                <button className="btn btn-primary" onClick={doScan}>
+                  {confirmScan === 'full' ? 'Start Full Rescan' : 'Start Scan'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

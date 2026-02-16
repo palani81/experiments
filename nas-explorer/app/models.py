@@ -88,6 +88,15 @@ class DashboardData(BaseModel):
     tag_counts: list[dict] = []
     size_by_extension: list[dict] = []
     files_by_month: list[dict] = []
+    # Extended insights
+    oldest_files: list[dict] = []
+    avg_file_size: int = 0
+    median_file_size: int = 0
+    size_by_source: list[dict] = []
+    file_age_buckets: list[dict] = []
+    extension_counts: list[dict] = []
+    empty_files: int = 0
+    deep_paths: list[dict] = []
 
 
 class ScanStatus(BaseModel):

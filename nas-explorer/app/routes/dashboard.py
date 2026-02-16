@@ -133,6 +133,88 @@ async def get_dashboard(_auth=Depends(require_auth)):
         LIMIT 24
     """)
 
+    # ─── Extended Insights ─────────────────────────────────
+
+    # Oldest files (top 15)
+    oldest = query("""
+        SELECT id, name, path, size, mime_type, modified_at
+        FROM files WHERE is_directory = 0 AND modified_at IS NOT NULL
+        ORDER BY modified_at ASC LIMIT 15
+    """)
+
+    # Average file size
+    avg_row = query("""
+        SELECT COALESCE(AVG(size), 0) as avg_size FROM files WHERE is_directory = 0
+    """)
+    avg_size = int(avg_row[0]["avg_size"]) if avg_row else 0
+
+    # Median file size
+    median_row = query("""
+        SELECT size FROM files WHERE is_directory = 0
+        ORDER BY size LIMIT 1
+        OFFSET (SELECT COUNT(*) / 2 FROM files WHERE is_directory = 0)
+    """)
+    median_size = median_row[0]["size"] if median_row else 0
+
+    # Size by source (top-level folder = source label)
+    size_by_source = query("""
+        SELECT
+            CASE
+                WHEN INSTR(SUBSTR(path, 2), '/') > 0
+                THEN SUBSTR(path, 2, INSTR(SUBSTR(path, 2), '/') - 1)
+                ELSE SUBSTR(path, 2)
+            END as source,
+            COUNT(*) as count,
+            SUM(size) as total_size
+        FROM files
+        WHERE is_directory = 0 AND path LIKE '/%'
+        GROUP BY source
+        ORDER BY total_size DESC
+    """)
+
+    # File age buckets
+    file_age = query("""
+        SELECT
+            CASE
+                WHEN modified_at >= date('now', '-30 days') THEN 'Last 30 days'
+                WHEN modified_at >= date('now', '-90 days') THEN '1-3 months'
+                WHEN modified_at >= date('now', '-1 year') THEN '3-12 months'
+                WHEN modified_at >= date('now', '-3 years') THEN '1-3 years'
+                WHEN modified_at >= date('now', '-5 years') THEN '3-5 years'
+                ELSE '5+ years'
+            END as age_bucket,
+            COUNT(*) as count,
+            SUM(size) as total_size
+        FROM files
+        WHERE is_directory = 0 AND modified_at IS NOT NULL
+        GROUP BY age_bucket
+        ORDER BY MIN(modified_at) DESC
+    """)
+
+    # Top extensions by count
+    ext_counts = query("""
+        SELECT
+            LOWER(SUBSTR(name, INSTR(name, '.'))) as extension,
+            COUNT(*) as count
+        FROM files
+        WHERE is_directory = 0 AND INSTR(name, '.') > 0
+        GROUP BY extension
+        ORDER BY count DESC
+        LIMIT 15
+    """)
+
+    # Empty files
+    empty = query("SELECT COUNT(*) as cnt FROM files WHERE is_directory = 0 AND size = 0")
+    empty_count = empty[0]["cnt"] if empty else 0
+
+    # Deepest nested paths
+    deep_paths = query("""
+        SELECT path, LENGTH(path) - LENGTH(REPLACE(path, '/', '')) as depth, name, size
+        FROM files WHERE is_directory = 0
+        ORDER BY depth DESC
+        LIMIT 10
+    """)
+
     return DashboardData(
         total_size=s["total_size"],
         total_files=s["total_files"],
@@ -147,6 +229,14 @@ async def get_dashboard(_auth=Depends(require_auth)):
         tag_counts=[dict(r) for r in tag_counts],
         size_by_extension=[dict(r) for r in size_by_ext],
         files_by_month=[dict(r) for r in by_month],
+        oldest_files=[dict(r) for r in oldest],
+        avg_file_size=avg_size,
+        median_file_size=median_size,
+        size_by_source=[dict(r) for r in size_by_source],
+        file_age_buckets=[dict(r) for r in file_age],
+        extension_counts=[dict(r) for r in ext_counts],
+        empty_files=empty_count,
+        deep_paths=[dict(r) for r in deep_paths],
     )
 
 
