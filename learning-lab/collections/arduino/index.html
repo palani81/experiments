@@ -52,7 +52,7 @@ code { font-family:'Fira Code','Courier New',monospace; }
 </div>
 <script>
 
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
 // ─── PROJECT DATA ───────────────────────────────────────────
 const PROJECTS = [
@@ -784,54 +784,65 @@ function highlightArduinoCode(code) {
 
 // ─── MINI-GAME FUNCTIONS ───────────────────────────────────
 function generateComponentMatchGame(questId) {
-  const pairs = [
+  const pairsPool = [
     { img: "💡", label: "LED" },
     { img: "🔌", label: "Resistor" },
-    { img: "🎚️", label: "Button" },
-    { img: "⚙️", label: "Motor" }
+    { img: "🎚️", label: "Potentiometer" },
+    { img: "⚙️", label: "Motor" },
+    { img: "📡", label: "Sensor" },
+    { img: "🔊", label: "Buzzer" },
+    { img: "🖥️", label: "LCD Display" },
+    { img: "🎛️", label: "Servo" },
+    { img: "🌡️", label: "Thermistor" },
+    { img: "📸", label: "IR Receiver" }
   ];
 
-  let cards = [...pairs, ...pairs].sort(() => Math.random() - 0.5);
+  // Shuffle and pick 4 random pairs
+  const shuffled = pairsPool.sort(() => Math.random() - 0.5).slice(0, 4);
+  let cards = [...shuffled, ...shuffled].sort(() => Math.random() - 0.5);
   return { type: "match", cards, matched: 0, attempts: 0, startTime: Date.now() };
 }
 
 function generateDebugCodeGame(questId) {
-  const bugs = [
+  const bugsPool = [
+    { code: "for (int i = 0; i < 10, i++) {\n  Serial.println(i);\n}", bugLine: 0, bugDesc: "Comma instead of semicolon in for loop", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "int sensorValue = analogRead(A0);\nif (sensorValue = 500) {\n  digitalWrite(13, HIGH);\n}", bugLine: 1, bugDesc: "Using = instead of == in comparison", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "void setup() {\n  pinmode(13, OUTPUT);\n}", bugLine: 1, bugDesc: "Wrong case: pinmode should be pinMode", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "Serial.begin(9600);\nSerial.Println(\"Hello\");", bugLine: 1, bugDesc: "Wrong case: Println should be println", answers: ["Line 1", "Line 2"] },
+    { code: "int led = 13;\ndigitalWrite(led HIGH);", bugLine: 1, bugDesc: "Missing comma between arguments", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "void loop() {\n  int x = analogRead(A0)\n  Serial.println(x);\n}", bugLine: 1, bugDesc: "Missing semicolon after analogRead", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "int val = digitalread(A0);\npinMode(13, OUTPUT);", bugLine: 0, bugDesc: "Wrong case: digitalread should be digitalRead", answers: ["Line 1", "Line 2"] },
     { code: "digitalWrite(13, HIGH)\ndelay(1000)\ndigitalWrite(13, LOW)", bugLine: 0, bugDesc: "Missing semicolon on line 1", answers: ["Line 1", "Line 2", "Line 3"] },
     { code: "pinMode(13, OUTPUT);\ndigitalWrite(14, HIGH);", bugLine: 1, bugDesc: "Wrong pin number (14 instead of 13)", answers: ["Line 1", "Line 2", "Line 3"] },
     { code: "int x = 5\nint y = x + 3;", bugLine: 0, bugDesc: "Missing semicolon on line 1", answers: ["Line 1", "Line 2", "Line 3"] }
   ];
-  const bug = bugs[questId % bugs.length];
-  return { type: "debug", ...bug, score: 0, round: 1 };
+
+  // Shuffle and pick 3 unique bugs
+  const shuffled = bugsPool.sort(() => Math.random() - 0.5).slice(0, 3);
+  return { type: "debug", bugs: shuffled, score: 0, round: 0 };
 }
 
 function generateQuizGame(questId) {
-  const quizzes = [
-    {
-      questions: [
-        { q: "What does digitalWrite(13, HIGH) do?", a: "Turns pin 13 ON", wrong: ["Turns pin 13 OFF", "Reads pin 13 value"] },
-        { q: "How long does delay(1000) wait?", a: "1 second", wrong: ["1 millisecond", "1 minute"] },
-        { q: "What does pinMode(13, OUTPUT) do?", a: "Sets pin 13 as output", wrong: ["Sets pin 13 as input", "Connects a resistor"] }
-      ]
-    },
-    {
-      questions: [
-        { q: "What is an LED?", a: "Light Emitting Diode", wrong: ["Low Energy Device", "Light Emitting Display"] },
-        { q: "Why do we use resistors with LEDs?", a: "To limit current", wrong: ["To increase voltage", "To store energy"] },
-        { q: "What is GND?", a: "Ground (return path)", wrong: ["General Negative Device", "Ground Network Distributor"] }
-      ]
-    },
-    {
-      questions: [
-        { q: "What sensor detects light?", a: "Photoresistor", wrong: ["Thermometer", "Ultrasonic sensor"] },
-        { q: "What is analogRead() used for?", a: "Reading analog values 0-1023", wrong: ["Turning something on/off", "Measuring distance"] },
-        { q: "What does threshold mean?", a: "A limit value to compare against", wrong: ["A type of sensor", "A programming language"] }
-      ]
-    }
+  const questionPool = [
+    { q: "What does digitalWrite(13, HIGH) do?", a: "Turns pin 13 ON", wrong: ["Turns pin 13 OFF", "Reads pin 13 value"] },
+    { q: "How long does delay(1000) wait?", a: "1 second", wrong: ["1 millisecond", "1 minute"] },
+    { q: "What does pinMode(13, OUTPUT) do?", a: "Sets pin 13 as output", wrong: ["Sets pin 13 as input", "Connects a resistor"] },
+    { q: "What is an LED?", a: "Light Emitting Diode", wrong: ["Low Energy Device", "Light Emitting Display"] },
+    { q: "Why do we use resistors with LEDs?", a: "To limit current", wrong: ["To increase voltage", "To store energy"] },
+    { q: "What is GND?", a: "Ground (return path)", wrong: ["General Negative Device", "Ground Network Distributor"] },
+    { q: "What sensor detects light?", a: "Photoresistor", wrong: ["Thermometer", "Ultrasonic sensor"] },
+    { q: "What is analogRead() used for?", a: "Reading analog values 0-1023", wrong: ["Turning something on/off", "Measuring distance"] },
+    { q: "What does threshold mean?", a: "A limit value to compare against", wrong: ["A type of sensor", "A programming language"] },
+    { q: "What does Serial.begin(9600) do?", a: "Starts serial communication at 9600 baud", wrong: ["Sets pin 9600 as output", "Waits 9600 milliseconds"] },
+    { q: "What component spins when powered?", a: "Motor", wrong: ["LED", "Resistor"] },
+    { q: "What does a breadboard do?", a: "Connects components without soldering", wrong: ["Stores electricity", "Measures voltage"] },
+    { q: "What is PWM used for?", a: "Simulating analog output", wrong: ["Reading digital pins", "Measuring temperature"] },
+    { q: "What does map(val, 0, 1023, 0, 255) do?", a: "Scales a value from one range to another", wrong: ["Creates a navigation map", "Stores values in memory"] },
+    { q: "What is a servo motor?", a: "A motor that moves to precise angles", wrong: ["A motor that only spins fast", "A type of LED"] }
   ];
 
-  const quiz = quizzes[questId % quizzes.length];
-  const shuffled = quiz.questions.map(q => ({
+  // Shuffle and pick 5 random questions
+  const shuffled = questionPool.sort(() => Math.random() - 0.5).slice(0, 5).map(q => ({
     ...q,
     options: [q.a, ...q.wrong].sort(() => Math.random() - 0.5),
     answered: false
@@ -850,10 +861,11 @@ function App() {
   const [miniGame, setMiniGame] = useState(null);
   const [xpPops, setXpPops] = useState([]);
   const [showLevels, setShowLevels] = useState(false);
+  const [bonusXp, setBonusXp] = useState(0);
 
   const completedCount = Object.keys(completed).filter(k => completed[k]).length;
   const totalProjects = PROJECTS.length;
-  const xp = completedCount * 100;
+  const xp = completedCount * 100 + bonusXp;
   const level = Math.floor(xp / 100) + 1;
 
   const titleNames = [
@@ -890,8 +902,30 @@ function App() {
     setTimeout(() => setXpPops(prev => prev.filter(p => p.id !== id)), 600);
   };
 
+  const saveState = (playerName, completedState, bonusXpState) => {
+    try {
+      const data = { completed: completedState, bonusXp: bonusXpState, lastPlayed: Date.now() };
+      localStorage.setItem('sparkcity_' + playerName.toLowerCase(), JSON.stringify(data));
+    } catch(e) {}
+  };
+
+  useEffect(() => {
+    if (player) saveState(player, completed, bonusXp);
+  }, [player, completed, bonusXp]);
+
   if (showSetup) {
-    return React.createElement(SetupScreen, { onStart: (name) => { setPlayer(name); setShowSetup(false); }});
+    return React.createElement(SetupScreen, { onStart: (name) => {
+      setPlayer(name);
+      setShowSetup(false);
+      try {
+        const saved = localStorage.getItem('sparkcity_' + name.toLowerCase());
+        if (saved) {
+          const data = JSON.parse(saved);
+          if (data.completed) setCompleted(data.completed);
+          if (data.bonusXp !== undefined) setBonusXp(data.bonusXp);
+        }
+      } catch(e) {}
+    }});
   }
 
   if (view === "quest" && selectedQuest) {
@@ -902,8 +936,9 @@ function App() {
       onToggleComplete: () => toggleComplete(selectedQuest.id),
       onBack: () => setView("world"),
       onStartMiniGame: (game) => setMiniGame(game),
-      onCompleteMiniGame: (bonusXp) => {
-        addXpPop(bonusXp);
+      onCompleteMiniGame: (bonusXpAmount) => {
+        addXpPop(bonusXpAmount);
+        setBonusXp(prev => prev + bonusXpAmount);
         setMiniGame(null);
       }
     });
@@ -913,8 +948,9 @@ function App() {
     return React.createElement(MiniGameView, {
       game: miniGame,
       onClose: () => setMiniGame(null),
-      onComplete: (bonusXp) => {
-        addXpPop(bonusXp);
+      onComplete: (bonusXpAmount) => {
+        addXpPop(bonusXpAmount);
+        setBonusXp(prev => prev + bonusXpAmount);
         setMiniGame(null);
       }
     });
@@ -1008,6 +1044,19 @@ function App() {
           )
         ),
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 20, flex: 1, justifyContent: "flex-end" }},
+          // Reset button
+          React.createElement("button", {
+            onClick: () => {
+              if (confirm('Reset all progress for ' + player + '?')) {
+                localStorage.removeItem('sparkcity_' + player.toLowerCase());
+                setCompleted({});
+                setBonusXp(0);
+              }
+            },
+            style: { background: "none", border: "1px solid #475569", borderRadius: 6, padding: "6px 12px", color: "#64748b", fontSize: 12, cursor: "pointer", fontFamily: "Nunito", transition: "all 0.2s" },
+            onMouseEnter: (e) => { e.currentTarget.style.color = "#94a3b8"; e.currentTarget.style.borderColor = "#64748b"; },
+            onMouseLeave: (e) => { e.currentTarget.style.color = "#64748b"; e.currentTarget.style.borderColor = "#475569"; }
+          }, "⚙ Reset"),
           // Clickable level badge
           React.createElement("div", {
             onClick: () => setShowLevels(true),
@@ -1474,31 +1523,38 @@ function ComponentMatchGame({ game, setGame, onComplete, onClose }) {
 function DebugCodeGame({ game, setGame, onComplete, onClose }) {
   const [answered, setAnswered] = useState(null);
   const [correct, setCorrect] = useState(null);
-  const [round, setRound] = useState(1);
+  const [round, setRound] = useState(0);
+  const [score, setScore] = useState(0);
+
+  const currentBug = game.bugs[round];
 
   const handleAnswer = (answerIdx) => {
     if (answered !== null) return;
     setAnswered(answerIdx);
-    const isCorrect = answerIdx === game.bugLine;
+    const isCorrect = answerIdx === currentBug.bugLine;
     setCorrect(isCorrect);
 
+    if (isCorrect) {
+      setScore(score + 1);
+    }
+
     setTimeout(() => {
-      if (round < 3) {
+      if (round < 2) {
         setAnswered(null);
         setCorrect(null);
         setRound(round + 1);
       } else {
-        onComplete(40);
+        onComplete(score * 20);
       }
     }, 1000);
   };
 
   return React.createElement("div", { style: { minHeight: "100vh", background: "#131a2b", padding: 24, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }},
     React.createElement("h2", { style: { fontFamily: "'Fredoka One', cursive", fontSize: 28, color: "#a855f7", marginBottom: 12 }}, "🐛 Debug the Code"),
-    React.createElement("p", { style: { color: "#94a3b8", marginBottom: 24 }}, "Round " + round + " of 3: " + game.bugDesc),
-    React.createElement("pre", { style: { background: "#0d1117", border: "1px solid #30363d", borderRadius: 8, padding: 16, marginBottom: 24, color: "#e2e8f0", fontFamily: "'Fira Code', monospace" }}, game.code),
+    React.createElement("p", { style: { color: "#94a3b8", marginBottom: 24 }}, "Round " + (round + 1) + " of 3: " + currentBug.bugDesc),
+    React.createElement("pre", { style: { background: "#0d1117", border: "1px solid #30363d", borderRadius: 8, padding: 16, marginBottom: 24, color: "#e2e8f0", fontFamily: "'Fira Code', monospace" }}, currentBug.code),
     React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 }},
-      game.answers.map((ans, idx) =>
+      currentBug.answers.map((ans, idx) =>
         React.createElement("button", {
           onClick: () => handleAnswer(idx),
           key: idx,
