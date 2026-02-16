@@ -849,6 +849,7 @@ function App() {
   const [showSetup, setShowSetup] = useState(true);
   const [miniGame, setMiniGame] = useState(null);
   const [xpPops, setXpPops] = useState([]);
+  const [showLevels, setShowLevels] = useState(false);
 
   const completedCount = Object.keys(completed).filter(k => completed[k]).length;
   const totalProjects = PROJECTS.length;
@@ -918,8 +919,6 @@ function App() {
       }
     });
   }
-
-  const [showLevels, setShowLevels] = useState(false);
 
   const levelIcons = ["\u{1F331}","\u{1F4A1}","\u{1F527}","\u{1F4E1}","\u26A1","\u{1F50D}","\u{1F4BB}","\u2699\uFE0F","\u{1F3D7}\uFE0F","\u{1F916}","\u{1F9EA}","\u{1F6E1}\uFE0F","\u{1F3C6}"];
 
