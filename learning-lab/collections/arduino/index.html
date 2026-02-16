@@ -805,16 +805,18 @@ function generateComponentMatchGame(questId) {
 
 function generateDebugCodeGame(questId) {
   const bugsPool = [
-    { code: "for (int i = 0; i < 10, i++) {\n  Serial.println(i);\n}", bugLine: 0, hint: "Look closely at the for loop syntax", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "for (int i = 0; i < 10, i++) {\n  Serial.println(i);\n}", bugLine: 0, hint: "Look closely at the for loop punctuation", answers: ["Line 1", "Line 2", "Line 3"] },
     { code: "int sensorValue = analogRead(A0);\nif (sensorValue = 500) {\n  digitalWrite(13, HIGH);\n}", bugLine: 1, hint: "How do you compare values in an if statement?", answers: ["Line 1", "Line 2", "Line 3"] },
     { code: "void setup() {\n  pinmode(13, OUTPUT);\n}", bugLine: 1, hint: "Arduino functions are case-sensitive", answers: ["Line 1", "Line 2"] },
     { code: "Serial.begin(9600);\nSerial.Println(\"Hello\");", bugLine: 1, hint: "Check the capitalization carefully", answers: ["Line 1", "Line 2"] },
     { code: "int led = 13;\ndigitalWrite(led HIGH);", bugLine: 1, hint: "How do you separate function arguments?", answers: ["Line 1", "Line 2"] },
     { code: "void loop() {\n  int x = analogRead(A0)\n  Serial.println(x);\n}", bugLine: 1, hint: "Every statement needs to end properly", answers: ["Line 1", "Line 2", "Line 3"] },
     { code: "int val = digitalread(A0);\npinMode(13, OUTPUT);", bugLine: 0, hint: "Arduino functions are case-sensitive", answers: ["Line 1", "Line 2"] },
-    { code: "digitalWrite(13, HIGH)\ndelay(1000)\ndigitalWrite(13, LOW)", bugLine: 0, hint: "What's missing at the end of each line?", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "digitalWrite(13, HIGH);\ndelay(1000);\ndigitalwrite(13, LOW);", bugLine: 2, hint: "Arduino functions are case-sensitive", answers: ["Line 1", "Line 2", "Line 3"] },
     { code: "pinMode(13, OUTPUT);\ndigitalWrite(14, HIGH);", bugLine: 1, hint: "Do the pin numbers match?", answers: ["Line 1", "Line 2"] },
-    { code: "int x = 5\nint y = x + 3;", bugLine: 0, hint: "Every statement needs to end properly", answers: ["Line 1", "Line 2"] }
+    { code: "int x = 5;\nint y = x + 3\nSerial.println(y);", bugLine: 1, hint: "Every statement needs to end properly", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "int temp = analogRead(A0);\nSerial.println(temp);\ndelay(\"500\");", bugLine: 2, hint: "What type of value does delay() expect?", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "pinMode(LED_BUILTIN, OUTPUT);\ndigitalWrite(LED_BUILTIN, HIGH)\ndelay(1000);", bugLine: 1, hint: "Every statement needs to end properly", answers: ["Line 1", "Line 2", "Line 3"] }
   ];
 
   // Shuffle and pick 3 unique bugs
