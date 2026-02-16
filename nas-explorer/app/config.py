@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     max_text_extract_mb: int = 100
     max_text_store_kb: int = 50
     hash_sample_size_kb: int = 64
+    enrichment_workers: int = 4  # Parallel threads for hash/text/metadata extraction
 
     # SSL (optional)
     ssl_cert_path: str | None = None

@@ -102,10 +102,13 @@ class DashboardData(BaseModel):
 class ScanStatus(BaseModel):
     scan_id: Optional[int] = None
     status: str = "idle"
+    phase: str = ""  # "indexing" | "enriching" | ""
     files_scanned: int = 0
     files_added: int = 0
     files_updated: int = 0
     files_removed: int = 0
+    files_enriched: int = 0
+    files_to_enrich: int = 0
     errors: int = 0
     current_source: str = ""
     started_at: Optional[str] = None

@@ -1,4 +1,10 @@
-"""Background file scanner/indexer with incremental support.
+"""Background file scanner/indexer with two-phase scanning.
+
+Phase 1 (Fast Index): Walk directories, stat files, insert into DB immediately.
+  Files become browsable/searchable by name within seconds.
+
+Phase 2 (Enrichment): Thread pool computes hashes, extracts text content,
+  extracts media metadata — all in parallel for much faster throughput.
 
 Scans NAS shares over SMB (no OS mount needed).
 Supports multiple sources/shares.
@@ -9,14 +15,14 @@ import hashlib
 import threading
 import logging
 import json
-import mimetypes
 from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .config import settings
 from .database import get_connection, query, execute
 from .smb_fs import (
     SMBSource, walk, stat, open_file, download_to_temp, cleanup_temp,
-    smb_to_relative, get_mime_type, register_source,
+    smb_to_relative, relative_to_smb, get_mime_type, register_source,
 )
 from .nas_manager import get_sources
 from .extractor import extract_text, extract_metadata
@@ -28,10 +34,13 @@ logger = logging.getLogger("nas_explorer.scanner")
 _scan_state = {
     "running": False,
     "scan_id": None,
+    "phase": "",          # "indexing" | "enriching"
     "files_scanned": 0,
     "files_added": 0,
     "files_updated": 0,
     "files_removed": 0,
+    "files_enriched": 0,
+    "files_to_enrich": 0,
     "errors": 0,
     "total_estimate": 0,
     "current_source": "",
@@ -39,7 +48,7 @@ _scan_state = {
     "error_log": [],
 }
 _scan_lock = threading.Lock()
-_cancel_event = threading.Event()  # Set this to signal scan cancellation
+_cancel_event = threading.Event()
 
 
 def get_scan_state() -> dict:
@@ -58,43 +67,25 @@ def stop_scan() -> dict:
 
 
 def _is_cancelled() -> bool:
-    """Check if cancellation has been requested."""
     return _cancel_event.is_set()
 
 
-def compute_file_hash_smb(smb_path: str, file_size: int) -> str | None:
+# ─── Phase 1: Fast Index ─────────────────────────────────────────────────
+
+def _phase1_index(source: SMBSource, conn, full_scan: bool) -> set:
     """
-    Compute a fast hash using first + last N KB of the file over SMB.
+    Phase 1: Walk the SMB share and insert file entries into DB.
+    Only collects path, name, size, mtime, mime (by extension).
+    No hashing, no text extraction, no metadata download.
+    Returns set of seen paths for stale-file cleanup.
     """
-    try:
-        sample_size = settings.hash_sample_size_kb * 1024
-        hasher = hashlib.sha256()
-        hasher.update(str(file_size).encode())
-
-        with open_file(smb_path) as f:
-            # Read first chunk
-            hasher.update(f.read(sample_size))
-
-            # Read last chunk if file is big enough
-            if file_size > sample_size * 2:
-                f.seek(-sample_size, 2)
-                hasher.update(f.read(sample_size))
-
-        return hasher.hexdigest()[:16]
-    except Exception as e:
-        logger.warning(f"Hash failed for {smb_path}: {e}")
-        return None
-
-
-def _scan_source(source: SMBSource, conn, scan_id: int, full_scan: bool):
-    """Scan a single SMB source."""
-    global _scan_state
+    label = source.label or source.share
 
     with _scan_lock:
-        _scan_state["current_source"] = source.label or source.share
+        _scan_state["current_source"] = label
+        _scan_state["phase"] = "indexing"
 
-    # Get existing indexed files for incremental scanning
-    label = source.label or source.share
+    # Load existing for incremental skip
     existing = {}
     if not full_scan:
         rows = conn.execute(
@@ -105,8 +96,6 @@ def _scan_source(source: SMBSource, conn, scan_id: int, full_scan: bool):
 
     seen_paths = set()
     batch = []
-    batch_tags = []
-    batch_meta = []
 
     try:
         register_source(source)
@@ -115,15 +104,13 @@ def _scan_source(source: SMBSource, conn, scan_id: int, full_scan: bool):
         with _scan_lock:
             _scan_state["errors"] += 1
             _scan_state["error_log"].append(f"Source {source.source_id}: {e}")
-        return
+        return seen_paths
 
     for dirpath, dirnames, filenames in walk(source):
-        # Check for cancellation between directories
         if _is_cancelled():
-            logger.info(f"Scan cancelled during source: {source.source_id}")
+            logger.info(f"Phase 1 cancelled during source: {source.source_id}")
             break
 
-        # Convert SMB path to relative path for DB
         rel_dir = smb_to_relative(dirpath, source)
         parent_dir = "/".join(rel_dir.rsplit("/", 1)[:-1]) or f"/{label}"
         if rel_dir == f"/{label}":
@@ -131,7 +118,7 @@ def _scan_source(source: SMBSource, conn, scan_id: int, full_scan: bool):
 
         seen_paths.add(rel_dir)
 
-        # Get directory mtime
+        # Directory entry
         dir_stat = stat(dirpath)
         dir_mtime = None
         if dir_stat:
@@ -142,14 +129,13 @@ def _scan_source(source: SMBSource, conn, scan_id: int, full_scan: bool):
             dirpath.replace("\\", "/").split("/")[-1] or label,
             parent_dir,
             1,  # is_directory
-            0,  # size
+            0,
             "inode/directory",
             None,  # hash
             dir_mtime,
             dir_mtime,
             datetime.now(timezone.utc).isoformat(),
             None,  # full_text
-            source.source_id,  # source_id for tracking
         ))
 
         for filename in filenames:
@@ -169,27 +155,13 @@ def _scan_source(source: SMBSource, conn, scan_id: int, full_scan: bool):
                 ctime = datetime.fromtimestamp(file_stat.ctime, tz=timezone.utc).isoformat()
                 size = file_stat.size
 
-                # Skip if not modified (incremental scan)
+                # Skip unchanged files in incremental mode
                 if not full_scan and rel_path in existing:
                     if existing[rel_path] == mtime:
                         continue
 
-                # Detect MIME type (by extension — fast, no download)
+                # MIME by extension (fast, no download)
                 mime = get_mime_type(smb_filepath)
-
-                # Compute hash for dedup
-                file_hash = compute_file_hash_smb(smb_filepath, size)
-
-                # Extract text content (for searchable files)
-                full_text = None
-                if size <= settings.max_text_extract_mb * 1024 * 1024:
-                    try:
-                        full_text = _extract_text_smb(smb_filepath, mime)
-                        if full_text:
-                            max_store = settings.max_text_store_kb * 1024
-                            full_text = full_text[:max_store]
-                    except Exception as e:
-                        logger.debug(f"Text extraction failed for {rel_path}: {e}")
 
                 batch.append((
                     rel_path,
@@ -198,29 +170,19 @@ def _scan_source(source: SMBSource, conn, scan_id: int, full_scan: bool):
                     0,  # is_directory
                     size,
                     mime,
-                    file_hash,
+                    None,  # hash — filled in phase 2
                     ctime,
                     mtime,
                     datetime.now(timezone.utc).isoformat(),
-                    full_text,
-                    source.source_id,
+                    None,  # full_text — filled in phase 2
                 ))
 
-                # Extract metadata (needs temp download for media files)
-                try:
-                    meta = _extract_metadata_smb(smb_filepath, mime, size)
-                    if meta:
-                        batch_meta.append((rel_path, json.dumps(meta)))
-                except Exception as e:
-                    logger.debug(f"Metadata extraction failed for {rel_path}: {e}")
-
-                # Auto-categorize
+                # Auto-categorize (fast, extension-based)
                 try:
                     tags = categorize_file(filename, mime, size, mtime)
-                    for tag in tags:
-                        batch_tags.append((rel_path, tag))
-                except Exception as e:
-                    logger.debug(f"Categorization failed for {rel_path}: {e}")
+                    # We'll insert tags after flushing the file batch
+                except Exception:
+                    tags = []
 
                 with _scan_lock:
                     if rel_path in existing:
@@ -232,45 +194,165 @@ def _scan_source(source: SMBSource, conn, scan_id: int, full_scan: bool):
                 with _scan_lock:
                     _scan_state["errors"] += 1
                     _scan_state["error_log"].append(f"{rel_path}: {str(e)}")
-                logger.warning(f"Error scanning {smb_filepath}: {e}")
                 continue
 
             # Flush batch
             if len(batch) >= settings.scan_batch_size:
-                _flush_batch(conn, batch, batch_tags, batch_meta)
+                _flush_batch_phase1(conn, batch)
                 batch.clear()
-                batch_tags.clear()
-                batch_meta.clear()
 
     # Final flush
     if batch:
-        _flush_batch(conn, batch, batch_tags, batch_meta)
+        _flush_batch_phase1(conn, batch)
 
-    # Remove files no longer on NAS (for this source only)
-    if full_scan:
-        all_indexed = conn.execute(
-            "SELECT path FROM files WHERE path LIKE ?",
-            (f"/{label}/%",)
-        ).fetchall()
-        removed = 0
-        for row in all_indexed:
-            if row[0] not in seen_paths:
-                conn.execute("DELETE FROM files WHERE path = ?", (row[0],))
-                removed += 1
-        # Also check the root entry
-        root_entry = f"/{label}"
-        if root_entry not in seen_paths:
-            conn.execute("DELETE FROM files WHERE path = ?", (root_entry,))
+    # Tag all newly indexed files
+    _apply_tags_bulk(conn, label)
 
-        if removed:
-            conn.commit()
-            with _scan_lock:
-                _scan_state["files_removed"] += removed
+    # Remove stale files (full scan only)
+    if full_scan and not _is_cancelled():
+        _remove_stale(conn, label, seen_paths)
+
+    return seen_paths
+
+
+def _flush_batch_phase1(conn, batch):
+    """Insert file entries (phase 1 — no hash, no full_text yet)."""
+    conn.executemany(
+        """INSERT OR REPLACE INTO files
+           (path, name, parent_path, is_directory, size, mime_type, file_hash,
+            created_at, modified_at, indexed_at, full_text)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        batch
+    )
+    conn.commit()
+
+
+def _apply_tags_bulk(conn, label):
+    """Apply categorization tags to all files for a source."""
+    rows = conn.execute(
+        "SELECT id, name, mime_type, size, modified_at FROM files WHERE path LIKE ? AND is_directory = 0",
+        (f"/{label}/%",)
+    ).fetchall()
+
+    for row in rows:
+        try:
+            tags = categorize_file(row[1], row[2], row[3], row[4])
+            for tag in tags:
+                conn.execute(
+                    "INSERT OR IGNORE INTO file_tags (file_id, tag) VALUES (?, ?)",
+                    (row[0], tag)
+                )
+        except Exception:
+            pass
+    conn.commit()
+
+
+def _remove_stale(conn, label, seen_paths):
+    """Remove files from DB that are no longer on the NAS."""
+    all_indexed = conn.execute(
+        "SELECT path FROM files WHERE path LIKE ?",
+        (f"/{label}/%",)
+    ).fetchall()
+    removed = 0
+    for row in all_indexed:
+        if row[0] not in seen_paths:
+            conn.execute("DELETE FROM files WHERE path = ?", (row[0],))
+            removed += 1
+    root_entry = f"/{label}"
+    if root_entry not in seen_paths:
+        conn.execute("DELETE FROM files WHERE path = ?", (root_entry,))
+
+    if removed:
+        conn.commit()
+        with _scan_lock:
+            _scan_state["files_removed"] += removed
+
+
+# ─── Phase 2: Parallel Enrichment ────────────────────────────────────────
+
+def _enrich_file(file_row: dict) -> dict | None:
+    """
+    Enrich a single file: compute hash, extract text, extract metadata.
+    Runs in a thread pool worker. Returns enrichment data or None.
+    """
+    if _is_cancelled():
+        return None
+
+    path = file_row["path"]
+    mime = file_row["mime_type"] or ""
+    size = file_row["size"]
+    file_id = file_row["id"]
+
+    # We need to reconstruct the SMB path from the relative path
+    sources = get_sources()
+    smb_path = None
+    matched_source = None
+    for source in sources:
+        try:
+            sp = relative_to_smb(path, source)
+            if sp:
+                smb_path = sp
+                matched_source = source
+                break
+        except Exception:
+            continue
+
+    if not smb_path:
+        return None
+
+    result = {"file_id": file_id, "path": path}
+
+    # 1. Compute hash
+    try:
+        file_hash = _compute_hash(smb_path, size)
+        if file_hash:
+            result["file_hash"] = file_hash
+    except Exception as e:
+        logger.debug(f"Hash failed for {path}: {e}")
+
+    # 2. Extract text content
+    if size <= settings.max_text_extract_mb * 1024 * 1024:
+        try:
+            full_text = _extract_text_smb(smb_path, mime)
+            if full_text:
+                result["full_text"] = full_text[:settings.max_text_store_kb * 1024]
+        except Exception as e:
+            logger.debug(f"Text extraction failed for {path}: {e}")
+
+    # 3. Extract metadata (media files only, with size limit)
+    if mime and (mime.startswith("image/") or mime.startswith("video/") or mime.startswith("audio/")):
+        if size <= 200 * 1024 * 1024:  # 200MB limit for metadata download
+            try:
+                meta = _extract_metadata_smb(smb_path, mime, size)
+                if meta:
+                    result["metadata"] = json.dumps(meta)
+            except Exception as e:
+                logger.debug(f"Metadata extraction failed for {path}: {e}")
+
+    return result
+
+
+def _compute_hash(smb_path: str, file_size: int) -> str | None:
+    """Compute fast hash using first + last N KB over SMB."""
+    try:
+        sample_size = settings.hash_sample_size_kb * 1024
+        hasher = hashlib.sha256()
+        hasher.update(str(file_size).encode())
+
+        with open_file(smb_path) as f:
+            hasher.update(f.read(sample_size))
+            if file_size > sample_size * 2:
+                f.seek(-sample_size, 2)
+                hasher.update(f.read(sample_size))
+
+        return hasher.hexdigest()[:16]
+    except Exception as e:
+        logger.warning(f"Hash failed for {smb_path}: {e}")
+        return None
 
 
 def _extract_text_smb(smb_path: str, mime: str) -> str | None:
     """Extract text from a file accessed over SMB."""
-    # For text files, read directly
     if mime and (mime.startswith("text/") or mime in (
         "application/json", "application/xml", "application/javascript",
         "application/x-yaml", "application/x-python",
@@ -282,7 +364,6 @@ def _extract_text_smb(smb_path: str, mime: str) -> str | None:
         except Exception:
             return None
 
-    # For binary formats (PDF, DOCX, XLSX), download to temp
     ext = smb_path.replace("\\", "/").split("/")[-1].rsplit(".", 1)[-1].lower() if "." in smb_path else ""
     needs_download = mime in (
         "application/pdf",
@@ -297,8 +378,7 @@ def _extract_text_smb(smb_path: str, mime: str) -> str | None:
         try:
             temp_path = download_to_temp(smb_path)
             return extract_text(temp_path, mime)
-        except Exception as e:
-            logger.debug(f"Text extraction via temp failed for {smb_path}: {e}")
+        except Exception:
             return None
         finally:
             if temp_path:
@@ -308,37 +388,88 @@ def _extract_text_smb(smb_path: str, mime: str) -> str | None:
 
 
 def _extract_metadata_smb(smb_path: str, mime: str, size: int) -> dict | None:
-    """Extract metadata from a file accessed over SMB."""
-    # Only extract for media files (worth the download cost)
-    if not mime:
-        return None
-
-    is_media = (
-        mime.startswith("image/") or
-        mime.startswith("video/") or
-        mime.startswith("audio/")
-    )
-
-    if not is_media:
-        return None
-
-    # Skip very large files for metadata extraction
-    if size > 500 * 1024 * 1024:  # 500MB
-        return None
-
+    """Extract metadata from a media file accessed over SMB."""
     temp_path = None
     try:
-        # For images, download fully. For video, ffprobe can work with SMB?
-        # No — ffprobe needs local path. Download to temp.
         temp_path = download_to_temp(smb_path)
         return extract_metadata(temp_path, mime)
-    except Exception as e:
-        logger.debug(f"Metadata extraction via temp failed for {smb_path}: {e}")
+    except Exception:
         return None
     finally:
         if temp_path:
             cleanup_temp(temp_path)
 
+
+def _phase2_enrich(conn):
+    """
+    Phase 2: Enrich files that don't have hashes yet.
+    Uses a thread pool for parallel SMB I/O.
+    """
+    with _scan_lock:
+        _scan_state["phase"] = "enriching"
+
+    # Find files needing enrichment (no hash = not yet enriched)
+    rows = conn.execute(
+        "SELECT id, path, mime_type, size FROM files "
+        "WHERE is_directory = 0 AND file_hash IS NULL"
+    ).fetchall()
+
+    to_enrich = [{"id": r[0], "path": r[1], "mime_type": r[2], "size": r[3]} for r in rows]
+
+    with _scan_lock:
+        _scan_state["files_to_enrich"] = len(to_enrich)
+
+    if not to_enrich:
+        return
+
+    logger.info(f"Phase 2: Enriching {len(to_enrich)} files with {settings.enrichment_workers} workers")
+
+    with ThreadPoolExecutor(max_workers=settings.enrichment_workers) as pool:
+        futures = {pool.submit(_enrich_file, f): f for f in to_enrich}
+
+        for future in as_completed(futures):
+            if _is_cancelled():
+                pool.shutdown(wait=False, cancel_futures=True)
+                break
+
+            try:
+                result = future.result(timeout=120)
+                if result and result.get("file_id"):
+                    fid = result["file_id"]
+
+                    # Update hash and text
+                    if "file_hash" in result or "full_text" in result:
+                        conn.execute(
+                            "UPDATE files SET file_hash = COALESCE(?, file_hash), "
+                            "full_text = COALESCE(?, full_text) WHERE id = ?",
+                            (result.get("file_hash"), result.get("full_text"), fid)
+                        )
+
+                    # Update metadata
+                    if "metadata" in result:
+                        conn.execute(
+                            "INSERT OR REPLACE INTO file_metadata (file_id, metadata) VALUES (?, ?)",
+                            (fid, result["metadata"])
+                        )
+
+                    with _scan_lock:
+                        _scan_state["files_enriched"] += 1
+
+            except Exception as e:
+                with _scan_lock:
+                    _scan_state["errors"] += 1
+                file_info = futures[future]
+                logger.debug(f"Enrichment failed for {file_info.get('path')}: {e}")
+
+            # Commit periodically
+            with _scan_lock:
+                if _scan_state["files_enriched"] % 50 == 0:
+                    conn.commit()
+
+    conn.commit()
+
+
+# ─── Main Scan Orchestrator ──────────────────────────────────────────────
 
 def _scan_all_sources(scan_id: int, full_scan: bool):
     """Walk all configured SMB sources and index files. Runs in background thread."""
@@ -353,14 +484,19 @@ def _scan_all_sources(scan_id: int, full_scan: bool):
                 _scan_state["running"] = False
             return
 
+        # Phase 1: Fast index all sources
         for source in sources:
             if _is_cancelled():
-                logger.info("Scan cancelled before starting next source")
                 break
-            logger.info(f"Scanning source: {source.source_id}")
-            _scan_source(source, conn, scan_id, full_scan)
+            logger.info(f"Phase 1 — Indexing source: {source.source_id}")
+            _phase1_index(source, conn, full_scan)
 
-        # Mark scan complete (or cancelled)
+        # Phase 2: Enrich files in parallel
+        if not _is_cancelled():
+            logger.info("Phase 2 — Enriching files")
+            _phase2_enrich(conn)
+
+        # Mark scan complete
         final_status = "cancelled" if _is_cancelled() else "completed"
         conn.execute(
             "UPDATE scan_log SET completed_at=?, status=?, "
@@ -391,46 +527,7 @@ def _scan_all_sources(scan_id: int, full_scan: bool):
     finally:
         with _scan_lock:
             _scan_state["running"] = False
-
-
-def _flush_batch(conn, batch, batch_tags, batch_meta):
-    """Insert a batch of files, tags, and metadata."""
-    # Note: source_id is extra column — we ignore it in the INSERT (not in schema)
-    conn.executemany(
-        """INSERT OR REPLACE INTO files
-           (path, name, parent_path, is_directory, size, mime_type, file_hash,
-            created_at, modified_at, indexed_at, full_text)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        [(row[0], row[1], row[2], row[3], row[4], row[5], row[6],
-          row[7], row[8], row[9], row[10]) for row in batch]
-    )
-    conn.commit()
-
-    # Insert tags
-    for rel_path, tag in batch_tags:
-        try:
-            row = conn.execute("SELECT id FROM files WHERE path = ?", (rel_path,)).fetchone()
-            if row:
-                conn.execute(
-                    "INSERT OR IGNORE INTO file_tags (file_id, tag) VALUES (?, ?)",
-                    (row[0], tag)
-                )
-        except Exception:
-            pass
-
-    # Insert metadata
-    for rel_path, meta_json in batch_meta:
-        try:
-            row = conn.execute("SELECT id FROM files WHERE path = ?", (rel_path,)).fetchone()
-            if row:
-                conn.execute(
-                    "INSERT OR REPLACE INTO file_metadata (file_id, metadata) VALUES (?, ?)",
-                    (row[0], meta_json)
-                )
-        except Exception:
-            pass
-
-    conn.commit()
+            _scan_state["phase"] = ""
 
 
 def start_scan(full_scan: bool = False) -> dict:
@@ -441,14 +538,17 @@ def start_scan(full_scan: bool = False) -> dict:
         if _scan_state["running"]:
             return {"error": "Scan already in progress", **_scan_state}
 
-        _cancel_event.clear()  # Reset cancellation flag for new scan
+        _cancel_event.clear()
         _scan_state = {
             "running": True,
             "scan_id": None,
+            "phase": "indexing",
             "files_scanned": 0,
             "files_added": 0,
             "files_updated": 0,
             "files_removed": 0,
+            "files_enriched": 0,
+            "files_to_enrich": 0,
             "errors": 0,
             "total_estimate": 0,
             "current_source": "",
@@ -456,14 +556,13 @@ def start_scan(full_scan: bool = False) -> dict:
             "error_log": [],
         }
 
-    # Check we have sources configured
     sources = get_sources()
     if not sources:
         with _scan_lock:
             _scan_state["running"] = False
+            _scan_state["phase"] = ""
         return {"error": "No NAS sources configured. Use the setup wizard to add a source."}
 
-    # Create scan log entry
     scan_id = execute(
         "INSERT INTO scan_log (started_at, status) VALUES (?, 'running')",
         (datetime.now(timezone.utc).isoformat(),)
@@ -471,7 +570,6 @@ def start_scan(full_scan: bool = False) -> dict:
     with _scan_lock:
         _scan_state["scan_id"] = scan_id
 
-    # Launch background thread
     thread = threading.Thread(
         target=_scan_all_sources,
         args=(scan_id, full_scan),

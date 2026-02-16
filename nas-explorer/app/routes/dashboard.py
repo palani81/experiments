@@ -255,3 +255,170 @@ async def storage_treemap(_auth=Depends(require_auth)):
         LIMIT 50
     """)
     return [dict(r) for r in rows]
+
+
+@router.get("/insights/forgotten-folders")
+async def forgotten_folders(_auth=Depends(require_auth)):
+    """Folders where no file has been modified in 2+ years, sorted by size."""
+    rows = query("""
+        SELECT
+            parent_path as folder,
+            COUNT(*) as file_count,
+            SUM(size) as total_size,
+            MAX(modified_at) as last_modified
+        FROM files
+        WHERE is_directory = 0 AND modified_at IS NOT NULL
+        GROUP BY parent_path
+        HAVING MAX(modified_at) < date('now', '-2 years')
+        ORDER BY total_size DESC
+        LIMIT 30
+    """)
+    return [dict(r) for r in rows]
+
+
+@router.get("/insights/naming-conflicts")
+async def naming_conflicts(_auth=Depends(require_auth)):
+    """Files with the same name in different folders (potential scattered copies)."""
+    rows = query("""
+        SELECT
+            name,
+            COUNT(*) as copies,
+            COUNT(DISTINCT parent_path) as locations,
+            GROUP_CONCAT(parent_path, ' | ') as folders,
+            SUM(size) as total_size,
+            (SELECT COUNT(*) FROM (
+                SELECT DISTINCT file_hash FROM files f2
+                WHERE f2.name = files.name AND f2.is_directory = 0 AND f2.file_hash IS NOT NULL
+            )) as unique_versions
+        FROM files
+        WHERE is_directory = 0
+        GROUP BY name
+        HAVING COUNT(*) > 1 AND COUNT(DISTINCT parent_path) > 1
+        ORDER BY copies DESC
+        LIMIT 30
+    """)
+    return [dict(r) for r in rows]
+
+
+@router.get("/insights/media-summary")
+async def media_summary(_auth=Depends(require_auth)):
+    """Summary of media files — counts, sizes, top formats."""
+    # Video stats
+    video = query("""
+        SELECT COUNT(*) as count, COALESCE(SUM(size), 0) as total_size
+        FROM files WHERE is_directory = 0 AND mime_type LIKE 'video/%'
+    """)
+    # Audio stats
+    audio = query("""
+        SELECT COUNT(*) as count, COALESCE(SUM(size), 0) as total_size
+        FROM files WHERE is_directory = 0 AND mime_type LIKE 'audio/%'
+    """)
+    # Image stats
+    images = query("""
+        SELECT COUNT(*) as count, COALESCE(SUM(size), 0) as total_size
+        FROM files WHERE is_directory = 0 AND mime_type LIKE 'image/%'
+    """)
+    # Top video formats
+    video_formats = query("""
+        SELECT
+            LOWER(SUBSTR(name, INSTR(name, '.'))) as extension,
+            COUNT(*) as count,
+            SUM(size) as total_size
+        FROM files
+        WHERE is_directory = 0 AND mime_type LIKE 'video/%' AND INSTR(name, '.') > 0
+        GROUP BY extension ORDER BY count DESC LIMIT 10
+    """)
+    # Top audio formats
+    audio_formats = query("""
+        SELECT
+            LOWER(SUBSTR(name, INSTR(name, '.'))) as extension,
+            COUNT(*) as count,
+            SUM(size) as total_size
+        FROM files
+        WHERE is_directory = 0 AND mime_type LIKE 'audio/%' AND INSTR(name, '.') > 0
+        GROUP BY extension ORDER BY count DESC LIMIT 10
+    """)
+    # Top image formats
+    image_formats = query("""
+        SELECT
+            LOWER(SUBSTR(name, INSTR(name, '.'))) as extension,
+            COUNT(*) as count,
+            SUM(size) as total_size
+        FROM files
+        WHERE is_directory = 0 AND mime_type LIKE 'image/%' AND INSTR(name, '.') > 0
+        GROUP BY extension ORDER BY count DESC LIMIT 10
+    """)
+    # Video duration from metadata (if extracted)
+    duration_row = query("""
+        SELECT COALESCE(SUM(CAST(json_extract(fm.metadata, '$.duration') AS REAL)), 0) as total_seconds
+        FROM file_metadata fm
+        JOIN files f ON f.id = fm.file_id
+        WHERE f.mime_type LIKE 'video/%'
+        AND json_extract(fm.metadata, '$.duration') IS NOT NULL
+    """)
+    video_duration_sec = duration_row[0]["total_seconds"] if duration_row else 0
+
+    audio_dur_row = query("""
+        SELECT COALESCE(SUM(CAST(json_extract(fm.metadata, '$.duration') AS REAL)), 0) as total_seconds
+        FROM file_metadata fm
+        JOIN files f ON f.id = fm.file_id
+        WHERE f.mime_type LIKE 'audio/%'
+        AND json_extract(fm.metadata, '$.duration') IS NOT NULL
+    """)
+    audio_duration_sec = audio_dur_row[0]["total_seconds"] if audio_dur_row else 0
+
+    v = video[0] if video else {"count": 0, "total_size": 0}
+    a = audio[0] if audio else {"count": 0, "total_size": 0}
+    i = images[0] if images else {"count": 0, "total_size": 0}
+
+    return {
+        "video": {"count": v["count"], "total_size": v["total_size"],
+                  "duration_hours": round(video_duration_sec / 3600, 1),
+                  "formats": [dict(r) for r in video_formats]},
+        "audio": {"count": a["count"], "total_size": a["total_size"],
+                  "duration_hours": round(audio_duration_sec / 3600, 1),
+                  "formats": [dict(r) for r in audio_formats]},
+        "images": {"count": i["count"], "total_size": i["total_size"],
+                   "formats": [dict(r) for r in image_formats]},
+    }
+
+
+@router.get("/insights/growth-estimate")
+async def growth_estimate(_auth=Depends(require_auth)):
+    """Monthly storage growth rate + projection."""
+    # Monthly growth over last 12 months
+    monthly = query("""
+        SELECT
+            SUBSTR(modified_at, 1, 7) as month,
+            COUNT(*) as files_added,
+            SUM(size) as bytes_added
+        FROM files
+        WHERE is_directory = 0 AND modified_at IS NOT NULL
+            AND modified_at >= date('now', '-12 months')
+        GROUP BY month
+        ORDER BY month ASC
+    """)
+
+    total_row = query("""
+        SELECT COALESCE(SUM(size), 0) as total FROM files WHERE is_directory = 0
+    """)
+    total_bytes = total_row[0]["total"] if total_row else 0
+
+    months_data = [dict(r) for r in monthly]
+
+    # Calculate average monthly growth
+    if len(months_data) >= 2:
+        total_growth = sum(m["bytes_added"] for m in months_data)
+        avg_monthly_bytes = total_growth / len(months_data)
+        avg_monthly_files = sum(m["files_added"] for m in months_data) / len(months_data)
+    else:
+        avg_monthly_bytes = 0
+        avg_monthly_files = 0
+
+    return {
+        "monthly": months_data,
+        "total_current_bytes": total_bytes,
+        "avg_monthly_bytes": int(avg_monthly_bytes),
+        "avg_monthly_files": int(avg_monthly_files),
+        "projection_12mo_bytes": int(total_bytes + avg_monthly_bytes * 12),
+    }

@@ -671,7 +671,8 @@ function BarChart({ items, labelKey, valueKey, formatValue, maxValue }) {
 function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('overview'); // overview | storage | files | duplicates
+  const [tab, setTab] = useState('overview'); // overview | storage | files | duplicates | insights
+  const [insights, setInsights] = useState(null);
   useEffect(() => { API.get('/api/dashboard').then(d=>{if(d)setData(d);setLoading(false);}).catch(()=>setLoading(false)); }, []);
   if (loading) return <div className="loading">Loading dashboard...</div>;
   if (!data) return <div className="loading">Failed to load dashboard</div>;
@@ -681,6 +682,7 @@ function Dashboard() {
     { id: 'storage', label: 'Storage' },
     { id: 'files', label: 'Files' },
     { id: 'duplicates', label: 'Duplicates' },
+    { id: 'insights', label: 'Insights' },
   ];
 
   return (
@@ -903,6 +905,183 @@ function Dashboard() {
               <p>No duplicate files found. Your NAS is clean!</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ─── Insights Tab ─── */}
+      {tab === 'insights' && <InsightsTab />}
+    </div>
+  );
+}
+
+function InsightsTab() {
+  const [forgotten, setForgotten] = useState(null);
+  const [conflicts, setConflicts] = useState(null);
+  const [media, setMedia] = useState(null);
+  const [growth, setGrowth] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      API.get('/api/insights/forgotten-folders').catch(() => []),
+      API.get('/api/insights/naming-conflicts').catch(() => []),
+      API.get('/api/insights/media-summary').catch(() => null),
+      API.get('/api/insights/growth-estimate').catch(() => null),
+    ]).then(([f, c, m, g]) => {
+      setForgotten(f); setConflicts(c); setMedia(m); setGrowth(g); setLoading(false);
+    });
+  }, []);
+
+  if (loading) return <div className="loading">Analyzing your files...</div>;
+
+  const formatHours = h => h >= 24 ? `${Math.round(h / 24)} days` : h >= 1 ? `${h.toFixed(1)} hrs` : `${Math.round(h * 60)} min`;
+
+  return (
+    <div>
+      {/* ─── Media Library Summary ─── */}
+      {media && (media.video?.count > 0 || media.audio?.count > 0 || media.images?.count > 0) && (
+        <div className="dash-section">
+          <h3>Media Library</h3>
+          <div className="dash-grid" style={{marginTop:'12px'}}>
+            {media.video?.count > 0 && (
+              <div className="stat-card">
+                <div className="stat-label">Videos</div>
+                <div className="stat-value">{media.video.count.toLocaleString()}</div>
+                <div className="stat-sub">{formatBytes(media.video.total_size)}{media.video.duration_hours > 0 && ` \u2022 ${formatHours(media.video.duration_hours)}`}</div>
+              </div>
+            )}
+            {media.audio?.count > 0 && (
+              <div className="stat-card">
+                <div className="stat-label">Audio</div>
+                <div className="stat-value">{media.audio.count.toLocaleString()}</div>
+                <div className="stat-sub">{formatBytes(media.audio.total_size)}{media.audio.duration_hours > 0 && ` \u2022 ${formatHours(media.audio.duration_hours)}`}</div>
+              </div>
+            )}
+            {media.images?.count > 0 && (
+              <div className="stat-card">
+                <div className="stat-label">Images</div>
+                <div className="stat-value">{media.images.count.toLocaleString()}</div>
+                <div className="stat-sub">{formatBytes(media.images.total_size)}</div>
+              </div>
+            )}
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'16px',marginTop:'12px'}}>
+            {media.video?.formats?.length > 0 && (
+              <div>
+                <div style={{fontSize:'11px',color:'var(--text-muted)',marginBottom:'6px',fontWeight:'600',textTransform:'uppercase'}}>Video formats</div>
+                {media.video.formats.slice(0,5).map(f => (
+                  <div key={f.extension} style={{display:'flex',justifyContent:'space-between',fontSize:'12px',padding:'2px 0'}}>
+                    <span style={{color:'var(--text-dim)'}}>{f.extension}</span>
+                    <span>{f.count}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {media.audio?.formats?.length > 0 && (
+              <div>
+                <div style={{fontSize:'11px',color:'var(--text-muted)',marginBottom:'6px',fontWeight:'600',textTransform:'uppercase'}}>Audio formats</div>
+                {media.audio.formats.slice(0,5).map(f => (
+                  <div key={f.extension} style={{display:'flex',justifyContent:'space-between',fontSize:'12px',padding:'2px 0'}}>
+                    <span style={{color:'var(--text-dim)'}}>{f.extension}</span>
+                    <span>{f.count}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {media.images?.formats?.length > 0 && (
+              <div>
+                <div style={{fontSize:'11px',color:'var(--text-muted)',marginBottom:'6px',fontWeight:'600',textTransform:'uppercase'}}>Image formats</div>
+                {media.images.formats.slice(0,5).map(f => (
+                  <div key={f.extension} style={{display:'flex',justifyContent:'space-between',fontSize:'12px',padding:'2px 0'}}>
+                    <span style={{color:'var(--text-dim)'}}>{f.extension}</span>
+                    <span>{f.count}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Storage Growth ─── */}
+      {growth && growth.monthly?.length >= 2 && (
+        <div className="dash-section" style={{marginTop:'16px'}}>
+          <h3>Storage Growth</h3>
+          <div className="dash-grid" style={{marginTop:'12px'}}>
+            <div className="stat-card">
+              <div className="stat-label">Monthly Growth</div>
+              <div className="stat-value">{formatBytes(growth.avg_monthly_bytes)}/mo</div>
+              <div className="stat-sub">~{growth.avg_monthly_files.toLocaleString()} files/mo</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">12-Month Projection</div>
+              <div className="stat-value">{formatBytes(growth.projection_12mo_bytes)}</div>
+              <div className="stat-sub">Currently {formatBytes(growth.total_current_bytes)}</div>
+            </div>
+          </div>
+          {/* Mini monthly chart */}
+          <div style={{display:'flex',alignItems:'flex-end',gap:'3px',height:'100px',padding:'12px 0'}}>
+            {growth.monthly.map((m, i) => {
+              const maxB = Math.max(...growth.monthly.map(x => x.bytes_added), 1);
+              const pct = (m.bytes_added / maxB) * 100;
+              return (
+                <div key={m.month} title={`${m.month}: +${formatBytes(m.bytes_added)} (${m.files_added} files)`}
+                  style={{flex:1, minWidth:'8px', background:'var(--green)', borderRadius:'2px 2px 0 0',
+                    height:`${Math.max(pct, 2)}%`, opacity: 0.4 + (pct / 100) * 0.6}} />
+              );
+            })}
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:'10px',color:'var(--text-muted)'}}>
+            <span>{growth.monthly[0]?.month}</span>
+            <span>{growth.monthly[growth.monthly.length - 1]?.month}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Forgotten Folders ─── */}
+      {forgotten && forgotten.length > 0 && (
+        <div className="dash-section" style={{marginTop:'16px'}}>
+          <h3>Forgotten Folders</h3>
+          <p style={{fontSize:'12px',color:'var(--text-muted)',marginBottom:'10px'}}>Folders untouched for 2+ years — your digital attic</p>
+          <table className="table-compact">
+            <thead><tr><th>Folder</th><th>Files</th><th>Size</th><th>Last Modified</th></tr></thead>
+            <tbody>{forgotten.slice(0,15).map((f,i) => (
+              <tr key={i}>
+                <td style={{maxWidth:'280px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:'12px'}} title={f.folder}>{f.folder}</td>
+                <td>{f.file_count}</td>
+                <td>{formatBytes(f.total_size)}</td>
+                <td style={{fontSize:'11px',color:'var(--text-muted)'}}>{formatDate(f.last_modified)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ─── Naming Conflicts ─── */}
+      {conflicts && conflicts.length > 0 && (
+        <div className="dash-section" style={{marginTop:'16px'}}>
+          <h3>Naming Conflicts</h3>
+          <p style={{fontSize:'12px',color:'var(--text-muted)',marginBottom:'10px'}}>Same filename in multiple folders — scattered copies?</p>
+          <table className="table-compact">
+            <thead><tr><th>Filename</th><th>Copies</th><th>Locations</th><th>Versions</th><th>Total Size</th></tr></thead>
+            <tbody>{conflicts.slice(0,15).map((c,i) => (
+              <tr key={i}>
+                <td style={{maxWidth:'200px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={c.folders}>{c.name}</td>
+                <td>{c.copies}</td>
+                <td>{c.locations}</td>
+                <td>{c.unique_versions === 1 ? <span style={{color:'var(--green)'}}>Identical</span> : <span style={{color:'var(--orange)'}}>{c.unique_versions} different</span>}</td>
+                <td>{formatBytes(c.total_size)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {(!forgotten || forgotten.length === 0) && (!conflicts || conflicts.length === 0) && (!media || (media.video?.count === 0 && media.audio?.count === 0 && media.images?.count === 0)) && (!growth || growth.monthly?.length < 2) && (
+        <div style={{textAlign:'center',padding:'60px 0',color:'var(--text-muted)'}}>
+          <div style={{fontSize:'36px',marginBottom:'12px'}}>{'\uD83D\uDD0D'}</div>
+          <p>Not enough data for insights yet. Run a scan to get started!</p>
         </div>
       )}
     </div>
@@ -1188,8 +1367,15 @@ function MainApp() {
         {scanStatus?.status==='scanning' && (
           <div className="scan-bar">
             <span className="spinner"></span>
-            Scanning{scanStatus.current_source ? ` "${scanStatus.current_source}"` : ''}... {scanStatus.files_scanned.toLocaleString()} files processed
-            ({scanStatus.files_added} new, {scanStatus.files_updated} updated, {scanStatus.errors} errors)
+            {scanStatus.phase === 'enriching'
+              ? <>Enriching metadata{scanStatus.current_source ? ` "${scanStatus.current_source}"` : ''}... {scanStatus.files_enriched}/{scanStatus.files_to_enrich} files
+                  {scanStatus.files_to_enrich > 0 && <span style={{marginLeft:4,opacity:0.7}}>({Math.round(scanStatus.files_enriched / scanStatus.files_to_enrich * 100)}%)</span>}
+                </>
+              : <>Indexing{scanStatus.current_source ? ` "${scanStatus.current_source}"` : ''}... {scanStatus.files_scanned.toLocaleString()} files found
+                  ({scanStatus.files_added} new, {scanStatus.files_updated} updated)
+                </>
+            }
+            {scanStatus.errors > 0 && <span style={{color:'var(--red)',marginLeft:8}}>{scanStatus.errors} errors</span>}
           </div>
         )}
         <div className="topbar">
