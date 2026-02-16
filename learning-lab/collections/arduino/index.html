@@ -786,15 +786,15 @@ function highlightArduinoCode(code) {
 function generateComponentMatchGame(questId) {
   const pairsPool = [
     { img: "💡", label: "LED" },
-    { img: "🔌", label: "Resistor" },
+    { img: "🟫", label: "Resistor" },
     { img: "🎚️", label: "Potentiometer" },
     { img: "⚙️", label: "Motor" },
-    { img: "📡", label: "Sensor" },
     { img: "🔊", label: "Buzzer" },
     { img: "🖥️", label: "LCD Display" },
-    { img: "🎛️", label: "Servo" },
-    { img: "🌡️", label: "Thermistor" },
-    { img: "📸", label: "IR Receiver" }
+    { img: "🌡️", label: "Temperature Sensor" },
+    { img: "🔘", label: "Button" },
+    { img: "🔋", label: "Battery" },
+    { img: "📶", label: "WiFi Module" }
   ];
 
   // Shuffle and pick 4 random pairs
@@ -811,9 +811,9 @@ function generateDebugCodeGame(questId) {
     { code: "Serial.begin(9600);\nSerial.Println(\"Hello\");", bugLine: 1, hint: "Check the capitalization carefully", answers: ["Line 1", "Line 2"] },
     { code: "int led = 13;\ndigitalWrite(led HIGH);", bugLine: 1, hint: "How do you separate function arguments?", answers: ["Line 1", "Line 2"] },
     { code: "void loop() {\n  int x = analogRead(A0)\n  Serial.println(x);\n}", bugLine: 1, hint: "Every statement needs to end properly", answers: ["Line 1", "Line 2", "Line 3"] },
-    { code: "int val = digitalread(A0);\npinMode(13, OUTPUT);", bugLine: 0, hint: "Arduino functions are case-sensitive", answers: ["Line 1", "Line 2"] },
+    { code: "int val = digitalread(2);\npinMode(13, OUTPUT);", bugLine: 0, hint: "Arduino functions are case-sensitive", answers: ["Line 1", "Line 2"] },
     { code: "digitalWrite(13, HIGH);\ndelay(1000);\ndigitalwrite(13, LOW);", bugLine: 2, hint: "Arduino functions are case-sensitive", answers: ["Line 1", "Line 2", "Line 3"] },
-    { code: "pinMode(13, OUTPUT);\ndigitalWrite(14, HIGH);", bugLine: 1, hint: "Do the pin numbers match?", answers: ["Line 1", "Line 2"] },
+    { code: "analogWrite(3, 255);\nanalogRead(A0)\ndigitalWrite(13, HIGH);", bugLine: 1, hint: "Every statement needs to end properly", answers: ["Line 1", "Line 2", "Line 3"] },
     { code: "int x = 5;\nint y = x + 3\nSerial.println(y);", bugLine: 1, hint: "Every statement needs to end properly", answers: ["Line 1", "Line 2", "Line 3"] },
     { code: "int temp = analogRead(A0);\nSerial.println(temp);\ndelay(\"500\");", bugLine: 2, hint: "What type of value does delay() expect?", answers: ["Line 1", "Line 2", "Line 3"] },
     { code: "pinMode(LED_BUILTIN, OUTPUT);\ndigitalWrite(LED_BUILTIN, HIGH)\ndelay(1000);", bugLine: 1, hint: "Every statement needs to end properly", answers: ["Line 1", "Line 2", "Line 3"] }
@@ -1557,26 +1557,31 @@ function DebugCodeGame({ game, setGame, onComplete, onClose }) {
     React.createElement("p", { style: { color: "#a855f7", fontSize: 13, marginBottom: 24, fontStyle: "italic" }}, "Hint: " + currentBug.hint),
     React.createElement("pre", { style: { background: "#0d1117", border: "1px solid #30363d", borderRadius: 8, padding: 16, marginBottom: 24, color: "#e2e8f0", fontFamily: "'Fira Code', monospace" }}, currentBug.code),
     React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 }},
-      currentBug.answers.map((ans, idx) =>
-        React.createElement("button", {
+      currentBug.answers.map((ans, idx) => {
+        var isCorrectLine = answered !== null && idx === currentBug.bugLine;
+        var isWrongPick = answered === idx && !correct;
+        return React.createElement("button", {
           onClick: () => handleAnswer(idx),
           key: idx,
           style: {
             padding: "12px 24px",
             borderRadius: 8,
-            border: "2px solid " + (answered === idx ? (correct ? "#22c55e" : "#ef4444") : "#334155"),
-            background: answered === idx ? (correct ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)") : "rgba(26,35,53,0.85)",
+            border: "2px solid " + (isCorrectLine ? "#22c55e" : isWrongPick ? "#ef4444" : "#334155"),
+            background: isCorrectLine ? "rgba(34,197,94,0.15)" : isWrongPick ? "rgba(239,68,68,0.15)" : "rgba(26,35,53,0.85)",
             color: "#e2e8f0",
-            cursor: "pointer",
+            cursor: answered !== null ? "default" : "pointer",
             fontWeight: 700,
             transition: "all 0.3s"
           }
-        }, ans)
-      )
+        }, ans + (isCorrectLine && answered !== null ? " ✓" : ""));
+      })
     ),
-    answered !== null && correct !== null && React.createElement("div", { style: { marginTop: 24, padding: 16, background: correct ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", borderRadius: 8, border: "1px solid " + (correct ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"), color: correct ? "#22c55e" : "#ef4444", textAlign: "center", fontWeight: 700 }},
-      correct ? "✓ Correct! Nice catch!" : "✗ Not quite — the bug was on " + currentBug.answers[currentBug.bugLine] + "!"),
-    React.createElement("div", { style: { marginTop: 16, color: "#64748b", fontSize: 13 }}, "Score: " + scoreRef.current + "/" + (round + 1))
+    answered !== null && correct !== null && React.createElement("div", { style: { marginTop: 24, padding: 16, background: correct ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", borderRadius: 8, border: "1px solid " + (correct ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"), textAlign: "center" }},
+      React.createElement("p", { style: { color: correct ? "#22c55e" : "#ef4444", fontWeight: 700, marginBottom: 8 }},
+        correct ? "✓ Correct! Nice catch!" : "✗ Not quite — the bug was on " + currentBug.answers[currentBug.bugLine]),
+      React.createElement("p", { style: { color: "#94a3b8", fontSize: 13 }}, currentBug.hint)
+    ),
+    React.createElement("div", { style: { marginTop: 16, color: "#64748b", fontSize: 13, textAlign: "center" }}, "Score: " + scoreRef.current + "/" + (round + 1))
   );
 }
 
@@ -1589,11 +1594,7 @@ function CircuitQuizGame({ game, setGame, onComplete, onClose }) {
   };
 
   const handleSubmit = () => {
-    const correct = game.questions.filter((q, i) => answers[i] === q.a).length;
     setSubmitted(true);
-    setTimeout(() => {
-      onComplete(50);
-    }, 1500);
   };
 
   const allAnswered = game.questions.every((_, i) => answers[i]);
@@ -1601,25 +1602,33 @@ function CircuitQuizGame({ game, setGame, onComplete, onClose }) {
   return React.createElement("div", { style: { minHeight: "100vh", background: "#131a2b", padding: 24, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }},
     React.createElement("h2", { style: { fontFamily: "'Fredoka One', cursive", fontSize: 28, color: "#06b6d4", marginBottom: 12 }}, "💭 Circuit Quiz"),
     React.createElement("div", { style: { maxWidth: 600, width: "100%" }},
-      game.questions.map((q, qIdx) =>
-        React.createElement("div", { key: qIdx, style: { marginBottom: 20, padding: 16, background: "rgba(26,35,53,0.85)", borderRadius: 12, border: "1px solid #1e293b" }},
-          React.createElement("p", { style: { color: "#e2e8f0", fontWeight: 700, marginBottom: 12 }}, (qIdx + 1) + ". " + q.q),
+      game.questions.map((q, qIdx) => {
+        var userCorrect = submitted && answers[qIdx] === q.a;
+        var userWrong = submitted && answers[qIdx] !== q.a;
+        return React.createElement("div", { key: qIdx, style: { marginBottom: 20, padding: 16, background: "rgba(26,35,53,0.85)", borderRadius: 12, border: submitted ? (userCorrect ? "1px solid rgba(34,197,94,0.4)" : "1px solid rgba(239,68,68,0.4)") : "1px solid #1e293b" }},
+          React.createElement("p", { style: { color: "#e2e8f0", fontWeight: 700, marginBottom: 12 }},
+            (qIdx + 1) + ". " + q.q,
+            submitted && React.createElement("span", { style: { marginLeft: 8, color: userCorrect ? "#22c55e" : "#ef4444" }}, userCorrect ? " ✓" : " ✗")
+          ),
           React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 }},
-            q.options.map((opt, oIdx) =>
-              React.createElement("label", { key: oIdx, style: { display: "flex", alignItems: "center", gap: 12, padding: 10, borderRadius: 8, background: answers[qIdx] === opt ? "rgba(6,182,212,0.15)" : "transparent", border: answers[qIdx] === opt ? "1px solid #06b6d4" : "1px solid #334155", cursor: "pointer", transition: "all 0.2s" }},
+            q.options.map((opt, oIdx) => {
+              var isCorrectAnswer = submitted && opt === q.a;
+              var isUserWrongPick = submitted && answers[qIdx] === opt && opt !== q.a;
+              return React.createElement("label", { key: oIdx, style: { display: "flex", alignItems: "center", gap: 12, padding: 10, borderRadius: 8, background: isCorrectAnswer ? "rgba(34,197,94,0.15)" : isUserWrongPick ? "rgba(239,68,68,0.1)" : answers[qIdx] === opt ? "rgba(6,182,212,0.15)" : "transparent", border: isCorrectAnswer ? "1px solid #22c55e" : isUserWrongPick ? "1px solid #ef4444" : answers[qIdx] === opt ? "1px solid #06b6d4" : "1px solid #334155", cursor: submitted ? "default" : "pointer", transition: "all 0.2s" }},
                 React.createElement("input", {
                   type: "radio",
                   name: "q" + qIdx,
                   checked: answers[qIdx] === opt,
-                  onChange: () => handleAnswer(qIdx, opt),
-                  style: { width: 18, height: 18, cursor: "pointer" }
+                  onChange: () => !submitted && handleAnswer(qIdx, opt),
+                  disabled: submitted,
+                  style: { width: 18, height: 18, cursor: submitted ? "default" : "pointer" }
                 }),
-                React.createElement("span", { style: { color: "#94a3b8" }}, opt)
-              )
-            )
+                React.createElement("span", { style: { color: isCorrectAnswer ? "#22c55e" : isUserWrongPick ? "#ef4444" : "#94a3b8", fontWeight: isCorrectAnswer ? 700 : 400 }}, opt + (isCorrectAnswer ? " ✓" : ""))
+              );
+            })
           )
-        )
-      )
+        );
+      })
     ),
     !submitted && React.createElement("button", {
       onClick: handleSubmit,
@@ -1638,10 +1647,11 @@ function CircuitQuizGame({ game, setGame, onComplete, onClose }) {
     }, "Submit Answers"),
     submitted && React.createElement("div", { style: { marginTop: 24, padding: 24, background: "rgba(34,197,94,0.15)", borderRadius: 12, border: "1px solid rgba(34,197,94,0.3)", textAlign: "center" }},
       React.createElement("p", { style: { color: "#22c55e", fontSize: 18, fontWeight: 700 }}, "Quiz Complete! " + game.questions.filter((q, i) => answers[i] === q.a).length + "/" + game.questions.length + " correct — +50 Bonus XP!"),
+      React.createElement("p", { style: { color: "#94a3b8", fontSize: 13, marginTop: 8 }}, "Review your answers above — correct answers are highlighted in green."),
       React.createElement("button", {
-        onClick: onClose,
-        style: { marginTop: 12, padding: "10px 20px", borderRadius: 8, border: "none", background: "#22c55e", color: "#000", fontWeight: 700, cursor: "pointer" }
-      }, "Continue")
+        onClick: () => { onComplete(50); },
+        style: { marginTop: 16, padding: "12px 28px", borderRadius: 8, border: "none", background: "#22c55e", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 15 }
+      }, "Collect +50 XP & Continue")
     )
   );
 }
