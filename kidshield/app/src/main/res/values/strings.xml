@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">KidShield</string>
+    <string name="device_admin_description">KidShield parental controls require device admin access to prevent children from exiting the app and to enforce usage limits.</string>
+    <string name="monitoring_notification_title">KidShield Active</string>
+    <string name="monitoring_notification_text">Parental controls are running</string>
+</resources>
