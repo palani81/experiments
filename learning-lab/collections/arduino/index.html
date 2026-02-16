@@ -805,16 +805,16 @@ function generateComponentMatchGame(questId) {
 
 function generateDebugCodeGame(questId) {
   const bugsPool = [
-    { code: "for (int i = 0; i < 10, i++) {\n  Serial.println(i);\n}", bugLine: 0, bugDesc: "Comma instead of semicolon in for loop", answers: ["Line 1", "Line 2", "Line 3"] },
-    { code: "int sensorValue = analogRead(A0);\nif (sensorValue = 500) {\n  digitalWrite(13, HIGH);\n}", bugLine: 1, bugDesc: "Using = instead of == in comparison", answers: ["Line 1", "Line 2", "Line 3"] },
-    { code: "void setup() {\n  pinmode(13, OUTPUT);\n}", bugLine: 1, bugDesc: "Wrong case: pinmode should be pinMode", answers: ["Line 1", "Line 2", "Line 3"] },
-    { code: "Serial.begin(9600);\nSerial.Println(\"Hello\");", bugLine: 1, bugDesc: "Wrong case: Println should be println", answers: ["Line 1", "Line 2"] },
-    { code: "int led = 13;\ndigitalWrite(led HIGH);", bugLine: 1, bugDesc: "Missing comma between arguments", answers: ["Line 1", "Line 2", "Line 3"] },
-    { code: "void loop() {\n  int x = analogRead(A0)\n  Serial.println(x);\n}", bugLine: 1, bugDesc: "Missing semicolon after analogRead", answers: ["Line 1", "Line 2", "Line 3"] },
-    { code: "int val = digitalread(A0);\npinMode(13, OUTPUT);", bugLine: 0, bugDesc: "Wrong case: digitalread should be digitalRead", answers: ["Line 1", "Line 2"] },
-    { code: "digitalWrite(13, HIGH)\ndelay(1000)\ndigitalWrite(13, LOW)", bugLine: 0, bugDesc: "Missing semicolon on line 1", answers: ["Line 1", "Line 2", "Line 3"] },
-    { code: "pinMode(13, OUTPUT);\ndigitalWrite(14, HIGH);", bugLine: 1, bugDesc: "Wrong pin number (14 instead of 13)", answers: ["Line 1", "Line 2", "Line 3"] },
-    { code: "int x = 5\nint y = x + 3;", bugLine: 0, bugDesc: "Missing semicolon on line 1", answers: ["Line 1", "Line 2", "Line 3"] }
+    { code: "for (int i = 0; i < 10, i++) {\n  Serial.println(i);\n}", bugLine: 0, hint: "Look closely at the for loop syntax", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "int sensorValue = analogRead(A0);\nif (sensorValue = 500) {\n  digitalWrite(13, HIGH);\n}", bugLine: 1, hint: "How do you compare values in an if statement?", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "void setup() {\n  pinmode(13, OUTPUT);\n}", bugLine: 1, hint: "Arduino functions are case-sensitive", answers: ["Line 1", "Line 2"] },
+    { code: "Serial.begin(9600);\nSerial.Println(\"Hello\");", bugLine: 1, hint: "Check the capitalization carefully", answers: ["Line 1", "Line 2"] },
+    { code: "int led = 13;\ndigitalWrite(led HIGH);", bugLine: 1, hint: "How do you separate function arguments?", answers: ["Line 1", "Line 2"] },
+    { code: "void loop() {\n  int x = analogRead(A0)\n  Serial.println(x);\n}", bugLine: 1, hint: "Every statement needs to end properly", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "int val = digitalread(A0);\npinMode(13, OUTPUT);", bugLine: 0, hint: "Arduino functions are case-sensitive", answers: ["Line 1", "Line 2"] },
+    { code: "digitalWrite(13, HIGH)\ndelay(1000)\ndigitalWrite(13, LOW)", bugLine: 0, hint: "What's missing at the end of each line?", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "pinMode(13, OUTPUT);\ndigitalWrite(14, HIGH);", bugLine: 1, hint: "Do the pin numbers match?", answers: ["Line 1", "Line 2"] },
+    { code: "int x = 5\nint y = x + 3;", bugLine: 0, hint: "Every statement needs to end properly", answers: ["Line 1", "Line 2"] }
   ];
 
   // Shuffle and pick 3 unique bugs
@@ -890,8 +890,7 @@ function App() {
 
   const toggleComplete = (id) => {
     if (!completed[id]) {
-      addXpPop(50);
-      setXpPops(prev => [...prev, { id: Math.random(), x: Math.random() * 100, y: Math.random() * 100, xp: 50 }]);
+      addXpPop(100);
     }
     setCompleted(prev => ({ ...prev, [id]: !prev[id] }));
   };
@@ -1524,7 +1523,7 @@ function DebugCodeGame({ game, setGame, onComplete, onClose }) {
   const [answered, setAnswered] = useState(null);
   const [correct, setCorrect] = useState(null);
   const [round, setRound] = useState(0);
-  const [score, setScore] = useState(0);
+  const scoreRef = useRef(0);
 
   const currentBug = game.bugs[round];
 
@@ -1535,7 +1534,7 @@ function DebugCodeGame({ game, setGame, onComplete, onClose }) {
     setCorrect(isCorrect);
 
     if (isCorrect) {
-      setScore(score + 1);
+      scoreRef.current += 1;
     }
 
     setTimeout(() => {
@@ -1544,14 +1543,15 @@ function DebugCodeGame({ game, setGame, onComplete, onClose }) {
         setCorrect(null);
         setRound(round + 1);
       } else {
-        onComplete(score * 20);
+        onComplete(scoreRef.current * 20);
       }
-    }, 1000);
+    }, 1200);
   };
 
   return React.createElement("div", { style: { minHeight: "100vh", background: "#131a2b", padding: 24, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }},
     React.createElement("h2", { style: { fontFamily: "'Fredoka One', cursive", fontSize: 28, color: "#a855f7", marginBottom: 12 }}, "🐛 Debug the Code"),
-    React.createElement("p", { style: { color: "#94a3b8", marginBottom: 24 }}, "Round " + (round + 1) + " of 3: " + currentBug.bugDesc),
+    React.createElement("p", { style: { color: "#94a3b8", marginBottom: 8 }}, "Round " + (round + 1) + " of 3 — Find the line with the bug!"),
+    React.createElement("p", { style: { color: "#a855f7", fontSize: 13, marginBottom: 24, fontStyle: "italic" }}, "Hint: " + currentBug.hint),
     React.createElement("pre", { style: { background: "#0d1117", border: "1px solid #30363d", borderRadius: 8, padding: 16, marginBottom: 24, color: "#e2e8f0", fontFamily: "'Fira Code', monospace" }}, currentBug.code),
     React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 }},
       currentBug.answers.map((ans, idx) =>
@@ -1571,7 +1571,9 @@ function DebugCodeGame({ game, setGame, onComplete, onClose }) {
         }, ans)
       )
     ),
-    answered !== null && correct !== null && React.createElement("div", { style: { marginTop: 24, padding: 16, background: correct ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", borderRadius: 8, border: "1px solid " + (correct ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"), color: correct ? "#22c55e" : "#ef4444", textAlign: "center", fontWeight: 700 }}, correct ? "✓ Correct!" : "✗ Try again!")
+    answered !== null && correct !== null && React.createElement("div", { style: { marginTop: 24, padding: 16, background: correct ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", borderRadius: 8, border: "1px solid " + (correct ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"), color: correct ? "#22c55e" : "#ef4444", textAlign: "center", fontWeight: 700 }},
+      correct ? "✓ Correct! Nice catch!" : "✗ Not quite — the bug was on " + currentBug.answers[currentBug.bugLine] + "!"),
+    React.createElement("div", { style: { marginTop: 16, color: "#64748b", fontSize: 13 }}, "Score: " + scoreRef.current + "/" + (round + 1))
   );
 }
 
