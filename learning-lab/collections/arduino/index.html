@@ -943,29 +943,20 @@ function WorldMap({ projects, completed, onSelectQuest }) {
     React.createElement("h2", { style: { fontFamily: "'Fredoka One', cursive", fontSize: 28, color: "#e2e8f0", marginBottom: 12, textAlign: "center" }}, "Spark City Quest Map"),
     React.createElement("p", { style: { fontSize: 14, color: "#94a3b8", marginBottom: 32, textAlign: "center" }}, "Click any location to start a quest. Green = completed, Pulsing = current, Grey = locked"),
 
-    React.createElement("div", { style: { position: "relative", height: 1000, background: "linear-gradient(135deg, rgba(30,41,59,0.3), rgba(30,41,59,0.1))", borderRadius: 20, border: "1px solid #1e293b", padding: 40, overflow: "hidden" }},
+    React.createElement("div", { style: { position: "relative", height: 800, background: "linear-gradient(135deg, rgba(30,41,59,0.3), rgba(30,41,59,0.1))", borderRadius: 20, border: "1px solid #1e293b", padding: 40, overflow: "visible" }},
       // Quest nodes in a winding path
       projects.map((p, idx) => {
         const row = Math.floor(idx / 3);
-        const col = idx % 3;
-        const x = 20 + col * 35 + (row % 2 === 1 ? 15 : 0);
-        const y = 10 + row * 20;
+        const colRaw = idx % 3;
+        // Reverse direction on odd rows for a snake/winding path
+        const col = row % 2 === 0 ? colRaw : (2 - colRaw);
+        const x = 20 + col * 30;
+        const y = 8 + row * 22;
         const isCompleted = completed[p.id];
 
         return React.createElement(React.Fragment, { key: p.id },
-          // Connector line
-          idx < projects.length - 1 && React.createElement("div", {
-            style: {
-              position: "absolute",
-              left: x + "%",
-              top: y + "%",
-              width: "15%",
-              height: 3,
-              background: isCompleted ? "rgba(34,197,94,0.3)" : "#1e293b",
-              borderRadius: 2,
-              transition: "background 0.4s"
-            }
-          }),
+          // Connector line (skip — using CSS path between nodes is complex, keep it clean)
+
 
           // Quest node
           React.createElement("div", {
