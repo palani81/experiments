@@ -4,9 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mission: Spark City</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:'Nunito',sans-serif; background:#131a2b; color:#e2e8f0; transition: background 0.4s; }
@@ -41,8 +44,14 @@ code { font-family:'Fira Code','Courier New',monospace; }
 </style>
 </head>
 <body>
-<div id="root"></div>
-<script>
+<div id="root">
+  <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#131a2b;color:#e2e8f0;font-family:sans-serif">
+    <div style="font-size:64px;margin-bottom:16px;animation:bounce 1s infinite">🤖</div>
+    <div style="font-size:20px;font-weight:700;margin-bottom:8px">Mission: Spark City</div>
+    <div style="font-size:14px;color:#64748b">Loading your mission...</div>
+  </div>
+</div>
+<script type="text/babel">
 
 const { useState, useEffect, useRef } = React;
 
