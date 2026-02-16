@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  nas-explorer:
+    build: .
+    container_name: nas-explorer
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - DATABASE_PATH=/app/data/nas_explorer.db
+      - CACHE_PATH=/app/cache/previews
+      - AUTH_TOKEN=${AUTH_TOKEN:-change-me-to-a-secure-token}
+    volumes:
+      # Persist database and cache across restarts
+      - nas_data:/app/data
+      - nas_cache:/app/cache
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/admin/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  nas_data:
+    driver: local
+  nas_cache:
+    driver: local

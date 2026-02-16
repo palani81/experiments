@@ -1,0 +1,30 @@
+# Runtime data (contains encrypted credentials and encryption key)
+data/
+cache/
+.encryption_key
+
+# Environment config (may contain real tokens)
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# SSL certs if added later
+ssl/

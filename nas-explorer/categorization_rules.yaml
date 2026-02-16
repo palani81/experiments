@@ -1,0 +1,28 @@
+# NAS Explorer - Categorization Rules
+# These rules are built into the categorizer.py module.
+# This file documents the rules and can be extended in future versions.
+#
+# Current built-in rules:
+#
+# 1. Extension-based: Maps 100+ file extensions to tags
+#    (video, audio, music, image, photo, document, code, archive, data, etc.)
+#
+# 2. MIME-based: Fallback categorization by MIME type prefix
+#    (video/*, audio/*, image/*, text/*)
+#
+# 3. Size-based:
+#    - "large": >= 1 GB
+#    - "huge": >= 10 GB
+#    - "empty": 0 bytes
+#
+# 4. Age-based:
+#    - "old": not modified in 3+ years
+#
+# 5. Name-based heuristics:
+#    - "hidden": starts with .
+#    - "backup": contains backup, bak, old, copy
+#    - "temporary": contains temp, tmp, cache
+#    - "documentation": contains readme, changelog, license
+#    - "screenshot": contains screenshot, screen shot, capture
+#
+# Future: This file will support custom user rules in YAML format.

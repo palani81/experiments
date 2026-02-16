@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NAS Explorer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f1117; --bg-card: #1a1d27; --bg-hover: #232736; --bg-input: #161822;
+  --border: #2a2e3d; --text: #e4e6ef; --text-dim: #8b8fa3; --text-muted: #5e6278;
+  --accent: #6c63ff; --accent-hover: #7b73ff; --accent-dim: rgba(108,99,255,0.15);
+  --green: #34d399; --green-dim: rgba(52,211,153,0.15);
+  --red: #f87171; --red-dim: rgba(248,113,113,0.15);
+  --orange: #fb923c; --blue: #60a5fa;
+  --radius: 10px; --radius-sm: 6px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
+a { color:var(--accent); text-decoration:none; cursor:pointer; }
+button { cursor:pointer; font-family:inherit; }
+input, select { font-family:inherit; }
+
+/* ─── Setup Wizard ─── */
+.setup-page { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:40px 20px; }
+.setup-card {
+  background:var(--bg-card); border:1px solid var(--border); border-radius:16px;
+  width:100%; max-width:520px; padding:40px; position:relative; overflow:hidden;
+}
+.setup-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  background:linear-gradient(90deg, var(--accent), var(--blue), var(--green));
+}
+.setup-logo { text-align:center; margin-bottom:32px; }
+.setup-logo .icon { font-size:48px; margin-bottom:12px; }
+.setup-logo h1 { font-size:24px; font-weight:700; }
+.setup-logo p { color:var(--text-dim); font-size:14px; margin-top:6px; }
+
+.setup-steps { display:flex; gap:8px; margin-bottom:32px; justify-content:center; }
+.step-dot {
+  width:8px; height:8px; border-radius:50%; background:var(--border); transition:all 0.3s;
+}
+.step-dot.active { background:var(--accent); width:24px; border-radius:4px; }
+.step-dot.done { background:var(--green); }
+
+.form-group { margin-bottom:20px; }
+.form-label { display:block; font-size:12px; font-weight:500; color:var(--text-dim); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px; }
+.form-input {
+  width:100%; padding:10px 14px; border-radius:var(--radius-sm); border:1px solid var(--border);
+  background:var(--bg-input); color:var(--text); font-size:14px; outline:none; transition:border-color 0.15s;
+}
+.form-input:focus { border-color:var(--accent); }
+.form-input::placeholder { color:var(--text-muted); }
+.form-hint { font-size:11px; color:var(--text-muted); margin-top:4px; }
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+.btn {
+  padding:10px 20px; border-radius:var(--radius-sm); border:none; font-size:14px;
+  font-weight:500; transition:all 0.15s; display:inline-flex; align-items:center; gap:8px;
+}
+.btn-primary { background:var(--accent); color:white; }
+.btn-primary:hover { background:var(--accent-hover); }
+.btn-primary:disabled { opacity:0.5; cursor:not-allowed; }
+.btn-secondary { background:var(--bg-hover); color:var(--text-dim); border:1px solid var(--border); }
+.btn-secondary:hover { background:var(--border); color:var(--text); }
+.btn-block { width:100%; justify-content:center; }
+
+.status-msg {
+  padding:10px 14px; border-radius:var(--radius-sm); font-size:13px; margin-bottom:16px;
+  display:flex; align-items:flex-start; gap:8px;
+}
+.status-msg.success { background:var(--green-dim); color:var(--green); }
+.status-msg.error { background:var(--red-dim); color:var(--red); }
+.status-msg.info { background:var(--accent-dim); color:var(--accent); }
+
+.share-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.share-chip {
+  padding:6px 14px; border-radius:20px; font-size:13px; cursor:pointer;
+  border:1px solid var(--border); background:var(--bg-hover); color:var(--text-dim); transition:all 0.15s;
+}
+.share-chip:hover, .share-chip.selected { border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
+
+.connecting-animation { text-align:center; padding:40px 0; }
+.connecting-animation .big-spinner {
+  width:48px; height:48px; border:3px solid var(--border); border-top-color:var(--accent);
+  border-radius:50%; animation:spin 1s linear infinite; margin:0 auto 20px;
+}
+.connecting-animation p { color:var(--text-dim); font-size:14px; }
+.connecting-animation .step-text { color:var(--accent); font-size:13px; margin-top:8px; }
+
+.manual-cmd {
+  background:var(--bg); padding:12px 16px; border-radius:var(--radius-sm);
+  font-family:monospace; font-size:12px; color:var(--text-dim); margin:12px 0;
+  border:1px solid var(--border); word-break:break-all; user-select:all;
+}
+
+/* ─── Main App ─── */
+.app { display:flex; height:100vh; overflow:hidden; }
+.sidebar {
+  width:260px; min-width:260px; background:var(--bg-card); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.sidebar-header { padding:20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+.sidebar-header h1 { font-size:16px; font-weight:600; }
+.sidebar-header .logo { font-size:22px; }
+.sidebar-nav { padding:12px; display:flex; flex-direction:column; gap:2px; }
+.nav-item {
+  padding:8px 12px; border-radius:var(--radius-sm); cursor:pointer;
+  display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-dim); transition:all 0.15s;
+}
+.nav-item:hover { background:var(--bg-hover); color:var(--text); }
+.nav-item.active { background:var(--accent-dim); color:var(--accent); font-weight:500; }
+.conn-badge {
+  margin-left:auto; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:600;
+}
+.conn-badge.on { background:var(--green-dim); color:var(--green); }
+.conn-badge.off { background:var(--red-dim); color:var(--red); }
+
+.tree-section { flex:1; overflow-y:auto; padding:8px 12px; border-top:1px solid var(--border); }
+.tree-item {
+  padding:4px 8px; padding-left:calc(8px + var(--depth,0) * 16px);
+  border-radius:var(--radius-sm); cursor:pointer; font-size:12px; color:var(--text-dim);
+  display:flex; align-items:center; gap:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.tree-item:hover { background:var(--bg-hover); color:var(--text); }
+.tree-item.active { color:var(--accent); }
+.tree-toggle { font-size:10px; width:14px; text-align:center; flex-shrink:0; }
+
+.main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.topbar {
+  padding:12px 24px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:16px; background:var(--bg-card);
+}
+.search-box { flex:1; max-width:500px; position:relative; }
+.search-box input {
+  width:100%; padding:8px 14px 8px 36px; border-radius:var(--radius);
+  border:1px solid var(--border); background:var(--bg-input); color:var(--text);
+  font-size:13px; outline:none; transition:border-color 0.15s;
+}
+.search-box input:focus { border-color:var(--accent); }
+.search-box .search-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:14px; }
+.breadcrumb { display:flex; align-items:center; gap:4px; font-size:13px; }
+.breadcrumb span { color:var(--text-muted); }
+.breadcrumb a { color:var(--text-dim); }
+.breadcrumb a:hover { color:var(--text); }
+.view-toggles { display:flex; gap:4px; margin-left:auto; }
+.view-btn { padding:6px 10px; border-radius:var(--radius-sm); border:1px solid var(--border); background:transparent; color:var(--text-dim); font-size:12px; }
+.view-btn.active { background:var(--accent-dim); color:var(--accent); border-color:var(--accent); }
+.content { flex:1; overflow-y:auto; padding:20px 24px; }
+
+.file-list-header {
+  display:grid; grid-template-columns:1fr 100px 120px 100px;
+  padding:8px 16px; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;
+  color:var(--text-muted); border-bottom:1px solid var(--border); cursor:pointer;
+}
+.file-list-header > div:hover { color:var(--text-dim); }
+.file-row {
+  display:grid; grid-template-columns:1fr 100px 120px 100px;
+  padding:10px 16px; border-bottom:1px solid var(--border); cursor:pointer;
+  transition:background 0.1s; align-items:center;
+}
+.file-row:hover { background:var(--bg-hover); }
+.file-name { display:flex; align-items:center; gap:10px; overflow:hidden; }
+.file-name span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+.file-icon { font-size:18px; flex-shrink:0; }
+.file-size, .file-date, .file-type { font-size:12px; color:var(--text-dim); }
+.file-tags { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
+.tag { padding:1px 6px; border-radius:3px; font-size:10px; font-weight:500; background:var(--accent-dim); color:var(--accent); }
+.file-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:16px; }
+.grid-item { background:var(--bg-card); border-radius:var(--radius); border:1px solid var(--border); overflow:hidden; cursor:pointer; transition:all 0.15s; }
+.grid-item:hover { border-color:var(--accent); transform:translateY(-2px); }
+.grid-thumb { width:100%; aspect-ratio:1; background:var(--bg-hover); display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.grid-thumb img { width:100%; height:100%; object-fit:cover; }
+.grid-thumb .placeholder { font-size:36px; }
+.grid-info { padding:10px; }
+.grid-info .name { font-size:12px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.grid-info .meta { font-size:11px; color:var(--text-muted); margin-top:2px; }
+
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100; display:flex; align-items:center; justify-content:center; padding:40px; }
+.modal { background:var(--bg-card); border-radius:var(--radius); border:1px solid var(--border); max-width:800px; width:100%; max-height:90vh; overflow-y:auto; }
+.modal-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+.modal-header h2 { font-size:16px; font-weight:600; }
+.modal-close { background:none; border:none; color:var(--text-dim); font-size:20px; padding:4px 8px; }
+.modal-body { padding:20px; }
+.modal-preview { width:100%; max-height:400px; object-fit:contain; border-radius:var(--radius-sm); background:var(--bg); }
+.modal-meta { margin-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.meta-item { }
+.meta-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; }
+.meta-value { font-size:13px; margin-top:2px; }
+
+.dash-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:16px; margin-bottom:24px; }
+.stat-card { background:var(--bg-card); border-radius:var(--radius); border:1px solid var(--border); padding:20px; }
+.stat-label { font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; }
+.stat-value { font-size:28px; font-weight:700; margin-top:4px; }
+.stat-sub { font-size:12px; color:var(--text-dim); margin-top:4px; }
+.dash-section { margin-bottom:24px; }
+.dash-section h3 { font-size:14px; font-weight:600; margin-bottom:12px; color:var(--text-dim); }
+.chart-bar-container { display:flex; flex-direction:column; gap:6px; }
+.chart-bar-row { display:flex; align-items:center; gap:10px; }
+.chart-bar-label { width:100px; font-size:12px; color:var(--text-dim); text-align:right; flex-shrink:0; }
+.chart-bar { flex:1; height:24px; background:var(--bg-hover); border-radius:4px; overflow:hidden; }
+.chart-bar-fill { height:100%; border-radius:4px; transition:width 0.5s ease; }
+.chart-bar-value { font-size:11px; color:var(--text-dim); width:80px; flex-shrink:0; }
+.table-compact { width:100%; }
+.table-compact th { text-align:left; padding:6px 12px; font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--border); }
+.table-compact td { padding:8px 12px; font-size:12px; border-bottom:1px solid var(--border); }
+.table-compact tr:hover td { background:var(--bg-hover); }
+
+.scan-bar { padding:8px 24px; background:var(--accent-dim); border-bottom:1px solid var(--accent); display:flex; align-items:center; gap:12px; font-size:12px; color:var(--accent); }
+.scan-bar .spinner { display:inline-block; width:14px; height:14px; border:2px solid var(--accent); border-top-color:transparent; border-radius:50%; animation:spin 1s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.loading { display:flex; align-items:center; justify-content:center; padding:60px; color:var(--text-muted); }
+
+.tag.video { background:rgba(239,68,68,0.15); color:#f87171; }
+.tag.audio, .tag.music { background:rgba(168,85,247,0.15); color:#c084fc; }
+.tag.image, .tag.photo { background:rgba(34,211,153,0.15); color:#34d399; }
+.tag.document { background:rgba(96,165,250,0.15); color:#60a5fa; }
+.tag.code { background:rgba(251,146,60,0.15); color:#fb923c; }
+.tag.archive { background:rgba(148,163,184,0.15); color:#94a3b8; }
+.tag.large, .tag.huge { background:rgba(248,113,113,0.15); color:#f87171; }
+.tag.duplicate { background:rgba(251,146,60,0.15); color:#fb923c; }
+
+@media (max-width:768px) {
+  .sidebar { display:none; }
+  .file-list-header, .file-row { grid-template-columns:1fr 80px; }
+  .file-date, .file-type { display:none; }
+  .dash-grid { grid-template-columns:1fr 1fr; }
+  .setup-card { padding:24px; }
+  .form-row { grid-template-columns:1fr; }
+}
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:var(--text-muted); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+// ─── API ─────────────────────────────────────────────────
+const API = {
+  token: localStorage.getItem('nas_token') || '',
+  headers() {
+    const h = { 'Content-Type': 'application/json' };
+    if (this.token) h['Authorization'] = `Bearer ${this.token}`;
+    return h;
+  },
+  async get(url) {
+    const res = await fetch(url, { headers: this.headers() });
+    if (!res.ok) throw new Error(`${res.status}`);
+    return res.json();
+  },
+  async post(url, body) {
+    const res = await fetch(url, { method:'POST', headers: this.headers(), body: body ? JSON.stringify(body) : undefined });
+    if (!res.ok) throw new Error(`${res.status}`);
+    return res.json();
+  }
+};
+
+// ─── Helpers ─────────────────────────────────────────────
+function formatBytes(b) {
+  if (!b || b===0) return '0 B';
+  const k=1024, s=['B','KB','MB','GB','TB'];
+  const i=Math.floor(Math.log(b)/Math.log(k));
+  return parseFloat((b/Math.pow(k,i)).toFixed(1))+' '+s[i];
+}
+function formatDate(d) {
+  if (!d) return '\u2014';
+  try { return new Date(d).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}); } catch { return d; }
+}
+function getFileIcon(item) {
+  if (item.is_directory) return '\uD83D\uDCC1';
+  const m = item.mime_type||'';
+  if (m.startsWith('video/')) return '\uD83C\uDFAC';
+  if (m.startsWith('audio/')) return '\uD83C\uDFB5';
+  if (m.startsWith('image/')) return '\uD83D\uDDBC\uFE0F';
+  if (m==='application/pdf') return '\uD83D\uDCC4';
+  if (m.includes('document')||m.includes('word')) return '\uD83D\uDCC3';
+  if (m.includes('spreadsheet')||m.includes('excel')) return '\uD83D\uDCCA';
+  if (m.includes('zip')||m.includes('compressed')) return '\uD83D\uDCE6';
+  const ext = item.name?.split('.').pop()?.toLowerCase();
+  if (['py','js','ts','java','cpp','go','rs','rb'].includes(ext)) return '\uD83D\uDCBB';
+  return '\uD83D\uDCC4';
+}
+function getBarColor(i) {
+  return ['#6c63ff','#34d399','#60a5fa','#f87171','#fb923c','#c084fc','#facc15','#94a3b8'][i%8];
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SETUP WIZARD (multi-share support)
+// ═══════════════════════════════════════════════════════════
+function SetupWizard({ onComplete }) {
+  const [step, setStep] = useState(1); // 1=NAS details, 2=share pick, 3=connecting, 4=done
+  const [host, setHost] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [selectedShares, setSelectedShares] = useState([]); // multi-select
+  const [customShare, setCustomShare] = useState('');
+  const [shares, setShares] = useState([]);
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [addedSources, setAddedSources] = useState([]);
+  const [connectStep, setConnectStep] = useState('');
+  const [connectProgress, setConnectProgress] = useState(0);
+
+  const discoverShares = async () => {
+    if (!host) { setStatus({type:'error',text:'Enter your NAS IP or hostname'}); return; }
+    setLoading(true); setStatus(null);
+    try {
+      const res = await API.post('/api/setup/discover', { host, username, password });
+      if (res.shares && res.shares.length > 0) {
+        setShares(res.shares);
+        setStep(2);
+        setStatus({type:'success', text:`Found ${res.shares.length} shares on ${host}`});
+      } else {
+        setShares([]);
+        setStep(2);
+        setStatus({type:'info', text:'Could not auto-discover shares. Enter share names manually.'});
+      }
+    } catch (e) {
+      setStatus({type:'error', text:'Could not reach NAS. Check the IP and credentials.'});
+    }
+    setLoading(false);
+  };
+
+  const toggleShare = (s) => {
+    setSelectedShares(prev => prev.includes(s) ? prev.filter(x=>x!==s) : [...prev, s]);
+  };
+
+  const addCustomShare = () => {
+    if (customShare && !selectedShares.includes(customShare)) {
+      setSelectedShares(prev => [...prev, customShare]);
+      setCustomShare('');
+    }
+  };
+
+  const connectSelected = async () => {
+    const sharesToAdd = [...selectedShares];
+    if (customShare && !sharesToAdd.includes(customShare)) sharesToAdd.push(customShare);
+    if (sharesToAdd.length === 0) { setStatus({type:'error',text:'Select or enter at least one share'}); return; }
+
+    setStep(3); setStatus(null); setConnectProgress(0);
+    const added = [];
+    const total = sharesToAdd.length;
+
+    for (let i = 0; i < total; i++) {
+      const s = sharesToAdd[i];
+      setConnectStep(`Connecting to "${s}" (${i+1}/${total})...`);
+      setConnectProgress(Math.round(((i) / total) * 100));
+      try {
+        const result = await API.post('/api/setup/add-source', {
+          host, share: s, username, password, label: s
+        });
+        added.push({ share: s, success: result.success, message: result.message });
+      } catch (e) {
+        added.push({ share: s, success: false, message: 'Connection failed' });
+      }
+    }
+
+    setConnectProgress(100);
+    setAddedSources(added);
+    setStep(4);
+  };
+
+  // Step dots
+  const dots = [1,2,3,4].map(s => {
+    let cls = 'step-dot';
+    if (s === step) cls += ' active';
+    else if (s < step) cls += ' done';
+    return <div key={s} className={cls} />;
+  });
+
+  const successCount = addedSources.filter(s => s.success).length;
+
+  return (
+    <div className="setup-page">
+      <div className="setup-card">
+        <div className="setup-logo">
+          <div className="icon">{'\uD83D\uDDC4\uFE0F'}</div>
+          <h1>NAS Explorer</h1>
+          <p>Connect to your Synology NAS to get started</p>
+        </div>
+
+        <div className="setup-steps">{dots}</div>
+
+        {status && <div className={`status-msg ${status.type}`}>{status.text}</div>}
+
+        {/* STEP 1: NAS Details */}
+        {step === 1 && (
+          <div>
+            <div className="form-group">
+              <label className="form-label">NAS IP Address or Hostname</label>
+              <input className="form-input" placeholder="e.g. 192.168.1.100 or mynas.local"
+                value={host} onChange={e => setHost(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && discoverShares()} autoFocus />
+              <div className="form-hint">Find this in your Synology DSM under Control Panel &gt; Network</div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Username</label>
+                <input className="form-input" placeholder="admin"
+                  value={username} onChange={e => setUsername(e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Password</label>
+                <input className="form-input" type="password" placeholder="Password"
+                  value={password} onChange={e => setPassword(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && discoverShares()} />
+              </div>
+            </div>
+            <div className="form-hint" style={{marginBottom:'20px',marginTop:'-8px'}}>
+              Credentials are stored locally on this server only. They are never sent anywhere else.
+            </div>
+
+            <button className="btn btn-primary btn-block" onClick={discoverShares} disabled={loading}>
+              {loading ? <><span className="spinner" style={{width:'14px',height:'14px',border:'2px solid white',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 1s linear infinite',display:'inline-block'}} /> Discovering...</> : 'Next \u2192'}
+            </button>
+          </div>
+        )}
+
+        {/* STEP 2: Pick Shares (multi-select) */}
+        {step === 2 && (
+          <div>
+            {shares.length > 0 && (
+              <div className="form-group">
+                <label className="form-label">Select Folders to Index (pick multiple)</label>
+                <div className="share-list">
+                  {shares.map(s => (
+                    <div key={s} className={`share-chip ${selectedShares.includes(s)?'selected':''}`}
+                      onClick={() => toggleShare(s)}>
+                      {selectedShares.includes(s) ? '\u2705' : '\uD83D\uDCC1'} {s}
+                    </div>
+                  ))}
+                </div>
+                {selectedShares.length > 0 && (
+                  <div className="form-hint" style={{marginTop:'8px'}}>
+                    {selectedShares.length} share{selectedShares.length>1?'s':''} selected: {selectedShares.join(', ')}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="form-group">
+              <label className="form-label">{shares.length > 0 ? 'Or add custom share name' : 'Share Name'}</label>
+              <div style={{display:'flex',gap:'8px'}}>
+                <input className="form-input" placeholder="e.g. volume1, homes, media"
+                  value={customShare} onChange={e => setCustomShare(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { addCustomShare(); } }}
+                  style={{flex:1}} />
+                {shares.length > 0 && (
+                  <button className="btn btn-secondary" onClick={addCustomShare} disabled={!customShare}>+ Add</button>
+                )}
+              </div>
+            </div>
+
+            <div style={{display:'flex',gap:'10px'}}>
+              <button className="btn btn-secondary" onClick={() => { setStep(1); setStatus(null); }}>
+                {'\u2190'} Back
+              </button>
+              <button className="btn btn-primary" style={{flex:1}} onClick={connectSelected}
+                disabled={selectedShares.length === 0 && !customShare}>
+                Connect {selectedShares.length > 0 ? `${selectedShares.length} Share${selectedShares.length>1?'s':''}` : ''} {'\uD83D\uDD12'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 3: Connecting */}
+        {step === 3 && (
+          <div className="connecting-animation">
+            <div className="big-spinner" />
+            <p>Connecting to {host}...</p>
+            <div className="step-text">{connectStep}</div>
+            <div style={{marginTop:'16px',background:'var(--bg)',borderRadius:'4px',height:'6px',overflow:'hidden'}}>
+              <div style={{height:'100%',background:'var(--accent)',borderRadius:'4px',width:`${connectProgress}%`,transition:'width 0.3s'}} />
+            </div>
+          </div>
+        )}
+
+        {/* STEP 4: Result */}
+        {step === 4 && (
+          <div>
+            <div style={{textAlign:'center',marginBottom:'24px'}}>
+              <div style={{fontSize:'48px',marginBottom:'12px'}}>{successCount > 0 ? '\u2705' : '\u274C'}</div>
+              <h2 style={{fontSize:'18px',fontWeight:'600'}}>
+                {successCount > 0 ? `${successCount} Source${successCount>1?'s':''} Connected!` : 'Connection Failed'}
+              </h2>
+              <p style={{color:'var(--text-dim)',fontSize:'14px',marginTop:'8px'}}>
+                {successCount > 0 ? 'Scanning has started. This may take a few minutes depending on how many files you have.' : 'Could not connect to any shares. Check your details and try again.'}
+              </p>
+            </div>
+
+            <div style={{marginBottom:'20px'}}>
+              {addedSources.map((s, i) => (
+                <div key={i} style={{display:'flex',alignItems:'center',gap:'8px',padding:'8px 12px',background:'var(--bg)',borderRadius:'var(--radius-sm)',marginBottom:'6px',fontSize:'13px'}}>
+                  <span>{s.success ? '\u2705' : '\u274C'}</span>
+                  <span style={{flex:1}}>{s.share}</span>
+                  <span style={{fontSize:'11px',color:s.success?'var(--green)':'var(--red)'}}>{s.success ? 'Connected' : s.message}</span>
+                </div>
+              ))}
+            </div>
+
+            {successCount > 0 ? (
+              <button className="btn btn-primary btn-block" onClick={onComplete}>
+                Open NAS Explorer {'\u2192'}
+              </button>
+            ) : (
+              <button className="btn btn-secondary btn-block" onClick={() => { setStep(1); setStatus(null); }}>
+                {'\u2190'} Try Again
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FILE BROWSER COMPONENTS (unchanged from V1)
+// ═══════════════════════════════════════════════════════════
+function FolderTree({ tree, currentPath, onNavigate }) {
+  return (
+    <div className="tree-section">
+      <div style={{fontSize:'11px',color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px',padding:'4px 8px',marginBottom:'4px'}}>Folders</div>
+      {tree.map(node => <TreeNode key={node.path} node={node} depth={0} currentPath={currentPath} onNavigate={onNavigate} />)}
+    </div>
+  );
+}
+function TreeNode({ node, depth, currentPath, onNavigate }) {
+  const [open, setOpen] = useState(depth < 1);
+  const hasChildren = node.children && node.children.length > 0;
+  return (
+    <div>
+      <div className={`tree-item ${currentPath===node.path?'active':''}`} style={{'--depth':depth}}
+        onClick={() => { onNavigate(node.path); if (hasChildren) setOpen(!open); }}>
+        <span className="tree-toggle">{hasChildren ? (open?'\u25BE':'\u25B8') : ''}</span>
+        <span>{'\uD83D\uDCC1'}</span>
+        <span style={{overflow:'hidden',textOverflow:'ellipsis'}}>{node.name}</span>
+        {node.file_count > 0 && <span style={{marginLeft:'auto',fontSize:'10px',color:'var(--text-muted)'}}>{node.file_count}</span>}
+      </div>
+      {open && hasChildren && node.children.map(child =>
+        <TreeNode key={child.path} node={child} depth={depth+1} currentPath={currentPath} onNavigate={onNavigate} />
+      )}
+    </div>
+  );
+}
+
+function FileList({ files, view, sortBy, sortOrder, onSort, onSelect, onNavigate }) {
+  if (view === 'grid') {
+    return (
+      <div className="file-grid">
+        {files.map(f => (
+          <div key={f.id} className="grid-item" onClick={() => f.is_directory ? onNavigate(f.path) : onSelect(f)}>
+            <div className="grid-thumb">
+              {f.preview_url ? <img src={f.preview_url} alt="" loading="lazy" /> : <span className="placeholder">{getFileIcon(f)}</span>}
+            </div>
+            <div className="grid-info">
+              <div className="name" title={f.name}>{f.name}</div>
+              <div className="meta">{f.is_directory ? 'Folder' : formatBytes(f.size)}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  const sortIcon = (col) => sortBy===col ? (sortOrder==='asc'?' \u2191':' \u2193') : '';
+  return (
+    <div>
+      <div className="file-list-header">
+        <div onClick={() => onSort('name')}>Name{sortIcon('name')}</div>
+        <div onClick={() => onSort('size')}>Size{sortIcon('size')}</div>
+        <div onClick={() => onSort('modified_at')}>Modified{sortIcon('modified_at')}</div>
+        <div>Type</div>
+      </div>
+      {files.map(f => (
+        <div key={f.id} className="file-row" onClick={() => f.is_directory ? onNavigate(f.path) : onSelect(f)}>
+          <div className="file-name">
+            <span className="file-icon">{getFileIcon(f)}</span>
+            <span>{f.name}</span>
+          </div>
+          <div className="file-size">{f.is_directory ? '\u2014' : formatBytes(f.size)}</div>
+          <div className="file-date">{formatDate(f.modified_at)}</div>
+          <div className="file-type" style={{fontSize:'11px'}}>
+            {f.tags?.slice(0,2).map(t => <span key={t} className={`tag ${t}`}>{t}</span>)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FileModal({ file, onClose }) {
+  const [detail, setDetail] = useState(null);
+  useEffect(() => { API.get(`/api/files/${file.id}`).then(d => d && setDetail(d)).catch(()=>{}); }, [file.id]);
+  const data = detail || file;
+  const hasPreview = data.preview_url;
+  const isMedia = data.mime_type?.startsWith('video/') || data.mime_type?.startsWith('audio/');
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>{getFileIcon(data)} {data.name}</h2>
+          <button className="modal-close" onClick={onClose}>{'\u2715'}</button>
+        </div>
+        <div className="modal-body">
+          {hasPreview && <img src={`/api/preview/${data.id}?size=large`} className="modal-preview" alt="" />}
+          {isMedia && (
+            <div style={{marginTop:'12px'}}>
+              {data.mime_type?.startsWith('video/') ?
+                <video controls style={{width:'100%',borderRadius:'var(--radius-sm)'}} src={`/api/stream/${data.id}`} /> :
+                <audio controls style={{width:'100%'}} src={`/api/stream/${data.id}`} />}
+            </div>
+          )}
+          <div className="modal-meta">
+            <div className="meta-item"><div className="meta-label">Path</div><div className="meta-value" style={{fontSize:'11px',wordBreak:'break-all'}}>{data.path}</div></div>
+            <div className="meta-item"><div className="meta-label">Size</div><div className="meta-value">{formatBytes(data.size)}</div></div>
+            <div className="meta-item"><div className="meta-label">Type</div><div className="meta-value">{data.mime_type||'Unknown'}</div></div>
+            <div className="meta-item"><div className="meta-label">Modified</div><div className="meta-value">{formatDate(data.modified_at)}</div></div>
+            {data.file_hash && <div className="meta-item"><div className="meta-label">Hash</div><div className="meta-value" style={{fontSize:'11px',fontFamily:'monospace'}}>{data.file_hash}</div></div>}
+          </div>
+          {data.tags?.length > 0 && (
+            <div style={{marginTop:'16px'}}>
+              <div className="meta-label" style={{marginBottom:'6px'}}>Tags</div>
+              <div className="file-tags">{data.tags.map(t => <span key={t} className={`tag ${t}`}>{t}</span>)}</div>
+            </div>
+          )}
+          {data.metadata && (
+            <div style={{marginTop:'16px'}}>
+              <div className="meta-label" style={{marginBottom:'6px'}}>Metadata</div>
+              <div style={{background:'var(--bg)',padding:'12px',borderRadius:'var(--radius-sm)',fontSize:'12px',fontFamily:'monospace',maxHeight:'200px',overflow:'auto'}}>
+                {Object.entries(data.metadata).filter(([k,v])=>v!==null&&typeof v!=='object').map(([k,v])=>(
+                  <div key={k} style={{display:'flex',gap:'12px',marginBottom:'4px'}}>
+                    <span style={{color:'var(--text-muted)',minWidth:'120px'}}>{k}:</span>
+                    <span>{String(v)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Dashboard() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { API.get('/api/dashboard').then(d=>{if(d)setData(d);setLoading(false);}).catch(()=>setLoading(false)); }, []);
+  if (loading) return <div className="loading">Loading dashboard...</div>;
+  if (!data) return <div className="loading">Failed to load dashboard</div>;
+  const maxTypeSize = Math.max(...(data.by_type?.map(t=>t.total_size)||[1]));
+  return (
+    <div>
+      <div className="dash-grid">
+        <div className="stat-card"><div className="stat-label">Total Storage</div><div className="stat-value">{formatBytes(data.total_size)}</div><div className="stat-sub">{data.total_files.toLocaleString()} files, {data.total_directories.toLocaleString()} folders</div></div>
+        <div className="stat-card"><div className="stat-label">Unique Files</div><div className="stat-value">{data.unique_hashes.toLocaleString()}</div><div className="stat-sub">{data.duplicate_groups} duplicate groups</div></div>
+        <div className="stat-card"><div className="stat-label">Wasted by Duplicates</div><div className="stat-value" style={{color:'var(--orange)'}}>{formatBytes(data.duplicate_wasted_bytes)}</div><div className="stat-sub">Reclaimable space</div></div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'24px'}}>
+        <div className="dash-section"><h3>Storage by Type</h3><div className="chart-bar-container">{data.by_type?.map((t,i)=>(
+          <div key={t.category} className="chart-bar-row"><div className="chart-bar-label">{t.category}</div><div className="chart-bar"><div className="chart-bar-fill" style={{width:`${(t.total_size/maxTypeSize)*100}%`,background:getBarColor(i)}} /></div><div className="chart-bar-value">{formatBytes(t.total_size)} ({t.count})</div></div>
+        ))}</div></div>
+        <div className="dash-section"><h3>Top Tags</h3><div className="chart-bar-container">{data.tag_counts?.slice(0,10).map((t,i)=>{
+          const maxTag=data.tag_counts[0]?.count||1;
+          return (<div key={t.tag} className="chart-bar-row"><div className="chart-bar-label">{t.tag}</div><div className="chart-bar"><div className="chart-bar-fill" style={{width:`${(t.count/maxTag)*100}%`,background:getBarColor(i)}} /></div><div className="chart-bar-value">{t.count.toLocaleString()}</div></div>);
+        })}</div></div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'24px',marginTop:'8px'}}>
+        <div className="dash-section"><h3>Largest Files</h3><table className="table-compact"><thead><tr><th>Name</th><th>Size</th></tr></thead><tbody>{data.largest_files?.slice(0,10).map(f=>(<tr key={f.id}><td style={{maxWidth:'200px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={f.path}>{f.name}</td><td>{formatBytes(f.size)}</td></tr>))}</tbody></table></div>
+        <div className="dash-section"><h3>Recently Modified</h3><table className="table-compact"><thead><tr><th>Name</th><th>Modified</th></tr></thead><tbody>{data.recent_files?.slice(0,10).map(f=>(<tr key={f.id}><td style={{maxWidth:'200px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={f.path}>{f.name}</td><td>{formatDate(f.modified_at)}</td></tr>))}</tbody></table></div>
+      </div>
+      {data.duplicates?.length > 0 && (
+        <div className="dash-section" style={{marginTop:'8px'}}><h3>Duplicates (by wasted space)</h3><table className="table-compact"><thead><tr><th>Files</th><th>Copies</th><th>Each</th><th>Wasted</th></tr></thead><tbody>{data.duplicates.slice(0,10).map((d,i)=>(
+          <tr key={i}><td style={{maxWidth:'300px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={d.names}>{d.names}</td><td>{d.count}</td><td>{formatBytes(d.size)}</td><td style={{color:'var(--orange)'}}>{formatBytes(d.wasted_bytes)}</td></tr>
+        ))}</tbody></table></div>
+      )}
+    </div>
+  );
+}
+
+function SearchResults({ query: sq, onSelect }) {
+  const [results, setResults] = useState(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!sq || sq.length < 2) { setResults(null); return; }
+    setLoading(true);
+    const t = setTimeout(() => { API.post('/api/search',{query:sq,limit:100}).then(d=>{if(d)setResults(d);setLoading(false);}).catch(()=>setLoading(false)); }, 300);
+    return () => clearTimeout(t);
+  }, [sq]);
+  if (loading) return <div className="loading">Searching...</div>;
+  if (!results) return null;
+  return (
+    <div>
+      <div style={{padding:'8px 0',fontSize:'12px',color:'var(--text-muted)'}}>{results.total} results in {results.search_time_ms}ms</div>
+      {results.items.map(f=>(
+        <div key={f.id} className="file-row" onClick={()=>onSelect(f)}>
+          <div className="file-name"><span className="file-icon">{getFileIcon(f)}</span><div><span>{f.name}</span><div style={{fontSize:'11px',color:'var(--text-muted)'}}>{f.path}</div></div></div>
+          <div className="file-size">{formatBytes(f.size)}</div><div className="file-date">{formatDate(f.modified_at)}</div>
+          <div className="file-type">{f.tags?.slice(0,2).map(t=><span key={t} className={`tag ${t}`}>{t}</span>)}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MAIN APP — decides: show wizard or main UI
+// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+//  ADD SOURCE MODAL (in-app, after initial setup)
+// ═══════════════════════════════════════════════════════════
+function AddSourceModal({ onClose, onAdded }) {
+  const [shares, setShares] = useState([]);    // [{name, added}]
+  const [nasHost, setNasHost] = useState('');
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState({});    // {shareName: true} while adding
+  const [results, setResults] = useState({});  // {shareName: {success, message}}
+
+  // Auto-discover all shares on mount using saved credentials
+  useEffect(() => {
+    setLoading(true); setStatus(null);
+    API.get('/api/setup/discover-available').then(d => {
+      if (d.success) {
+        setShares(d.shares || []);
+        setNasHost(d.host || '');
+        const avail = (d.shares || []).filter(s => !s.added).length;
+        if (avail === 0 && (d.shares || []).length > 0) {
+          setStatus({type:'info', text:'All shares on your NAS are already added.'});
+        }
+      } else {
+        setStatus({type:'error', text: d.message || 'Could not discover shares.'});
+      }
+      setLoading(false);
+    }).catch(() => {
+      setStatus({type:'error', text:'Could not reach NAS. Check your connection.'});
+      setLoading(false);
+    });
+  }, []);
+
+  const quickAdd = async (shareName) => {
+    setAdding(prev => ({...prev, [shareName]: true}));
+    setResults(prev => { const n = {...prev}; delete n[shareName]; return n; });
+    try {
+      const res = await API.post('/api/setup/quick-add', { source_id: shareName });
+      setResults(prev => ({...prev, [shareName]: { success: res.success, message: res.message }}));
+      if (res.success) {
+        // Mark as added in the share list
+        setShares(prev => prev.map(s => s.name === shareName ? {...s, added: true} : s));
+        onAdded();  // refresh parent status
+      }
+    } catch (e) {
+      setResults(prev => ({...prev, [shareName]: { success: false, message: 'Connection failed' }}));
+    }
+    setAdding(prev => { const n = {...prev}; delete n[shareName]; return n; });
+  };
+
+  const addedCount = shares.filter(s => s.added).length;
+  const availCount = shares.filter(s => !s.added).length;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{maxWidth:'480px'}}>
+        <div className="modal-header">
+          <h2>Add NAS Folders</h2>
+          <button className="modal-close" onClick={onClose}>{'\u2715'}</button>
+        </div>
+        <div className="modal-body">
+          {status && <div className={`status-msg ${status.type}`}>{status.text}</div>}
+
+          {loading && (
+            <div className="connecting-animation" style={{padding:'24px 0'}}>
+              <div className="big-spinner" />
+              <p>Discovering shares on your NAS...</p>
+            </div>
+          )}
+
+          {!loading && shares.length > 0 && (
+            <div>
+              {nasHost && <div style={{fontSize:'12px',color:'var(--text-muted)',marginBottom:'12px'}}>Shares on <strong>{nasHost}</strong></div>}
+              <div className="share-list" style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+                {shares.map(s => {
+                  const isAdding = adding[s.name];
+                  const result = results[s.name];
+                  return (
+                    <div key={s.name} style={{
+                      display:'flex', alignItems:'center', gap:'10px',
+                      padding:'10px 14px', background: s.added ? 'var(--bg)' : 'var(--surface)',
+                      borderRadius:'var(--radius-sm)', border: '1px solid var(--border)',
+                      opacity: s.added ? 0.7 : 1
+                    }}>
+                      <span style={{fontSize:'18px'}}>{s.added ? '\u2705' : '\uD83D\uDCC1'}</span>
+                      <span style={{flex:1, fontWeight:'500', fontSize:'14px'}}>{s.name}</span>
+                      {s.added && !result && (
+                        <span style={{fontSize:'11px', color:'var(--green)', fontWeight:'500'}}>Added</span>
+                      )}
+                      {!s.added && !isAdding && !result && (
+                        <button className="btn btn-primary" style={{padding:'4px 14px', fontSize:'12px'}}
+                          onClick={() => quickAdd(s.name)}>
+                          + Add
+                        </button>
+                      )}
+                      {isAdding && (
+                        <span style={{fontSize:'11px', color:'var(--text-muted)'}}>Adding...</span>
+                      )}
+                      {result && !result.success && (
+                        <span style={{fontSize:'11px', color:'var(--red)'}}>{result.message}</span>
+                      )}
+                      {result && result.success && (
+                        <span style={{fontSize:'11px', color:'var(--green)'}}>Added!</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {availCount === 0 && (
+                <div style={{textAlign:'center', padding:'16px 0', fontSize:'13px', color:'var(--text-muted)'}}>
+                  All {addedCount} shares are connected.
+                </div>
+              )}
+            </div>
+          )}
+
+          {!loading && shares.length === 0 && !status && (
+            <div style={{textAlign:'center', padding:'24px 0', color:'var(--text-muted)'}}>
+              <p>No shares found on your NAS.</p>
+              <p style={{fontSize:'12px'}}>Check that sharing is enabled on your NAS.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MainApp() {
+  const [page, setPage] = useState('files');
+  const [currentPath, setCurrentPath] = useState('/');
+  const [files, setFiles] = useState([]);
+  const [tree, setTree] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState('list');
+  const [sortBy, setSortBy] = useState('name');
+  const [sortOrder, setSortOrder] = useState('asc');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [scanStatus, setScanStatus] = useState(null);
+  const [connStatus, setConnStatus] = useState(null);
+  const [showAddSource, setShowAddSource] = useState(false);
+
+  const refreshStatus = () => {
+    API.get('/api/setup/status').then(d=>d&&setConnStatus(d)).catch(()=>{});
+    API.get('/api/tree?depth=4').then(d=>d&&setTree(d)).catch(()=>{});
+  };
+
+  useEffect(() => { API.get('/api/tree?depth=4').then(d=>d&&setTree(d)).catch(()=>{}); }, []);
+  useEffect(() => { API.get('/api/setup/status').then(d=>d&&setConnStatus(d)).catch(()=>{}); }, []);
+
+  useEffect(() => {
+    if (page !== 'files' || searchQuery) return;
+    setLoading(true);
+    API.get(`/api/files?parent_path=${encodeURIComponent(currentPath)}&sort_by=${sortBy}&order=${sortOrder}&limit=200`)
+      .then(d => { if(d) setFiles(d.items); setLoading(false); }).catch(()=>setLoading(false));
+  }, [currentPath, sortBy, sortOrder, page, searchQuery]);
+
+  useEffect(() => {
+    const poll = setInterval(() => {
+      API.get('/api/admin/scan-status').then(d => {
+        if(d) {
+          setScanStatus(d);
+          // Refresh files and tree after scan completes
+          if (d.status === 'idle' && scanStatus?.status === 'scanning') {
+            API.get('/api/tree?depth=4').then(t=>t&&setTree(t)).catch(()=>{});
+            API.get(`/api/files?parent_path=${encodeURIComponent(currentPath)}&sort_by=${sortBy}&order=${sortOrder}&limit=200`)
+              .then(f=>{if(f)setFiles(f.items);}).catch(()=>{});
+          }
+        }
+      }).catch(()=>{});
+    }, 3000);
+    return () => clearInterval(poll);
+  }, [scanStatus?.status, currentPath, sortBy, sortOrder]);
+
+  const handleSort = (col) => { if (sortBy===col) setSortOrder(o=>o==='asc'?'desc':'asc'); else { setSortBy(col); setSortOrder('asc'); } };
+  const handleNavigate = (path) => { setCurrentPath(path); setSearchQuery(''); setPage('files'); };
+  const triggerScan = (full) => { API.post(`/api/admin/scan?full_scan=${full}`).catch(()=>{}); };
+
+  const parts = currentPath==='/'?[]:currentPath.split('/').filter(Boolean);
+  const breadcrumb = [{name:'Root',path:'/'}];
+  parts.forEach((p,i) => breadcrumb.push({name:p,path:'/'+parts.slice(0,i+1).join('/')}));
+
+  return (
+    <div className="app">
+      <div className="sidebar">
+        <div className="sidebar-header">
+          <span className="logo">{'\uD83D\uDDC4\uFE0F'}</span>
+          <h1>NAS Explorer</h1>
+        </div>
+        <div className="sidebar-nav">
+          <div className={`nav-item ${page==='files'?'active':''}`} onClick={()=>{setPage('files');setSearchQuery('');}}>
+            {'\uD83D\uDCC2'} Files
+          </div>
+          <div className={`nav-item ${page==='dashboard'?'active':''}`} onClick={()=>setPage('dashboard')}>
+            {'\uD83D\uDCCA'} Dashboard
+          </div>
+          <div className="nav-item" onClick={()=>triggerScan(false)} title="Incremental scan">
+            {'\uD83D\uDD04'} Scan Now
+          </div>
+          <div className="nav-item" onClick={()=>triggerScan(true)} title="Full rescan">
+            {'\uD83D\uDD0D'} Full Rescan
+          </div>
+        </div>
+        {connStatus && connStatus.sources && (
+          <div style={{padding:'8px 12px',borderTop:'1px solid var(--border)',fontSize:'11px',color:'var(--text-muted)'}}>
+            <div style={{fontSize:'10px',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'6px',color:'var(--text-muted)'}}>Sources</div>
+            {connStatus.sources.map((src, i) => (
+              <div key={i} style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'4px',group:'true'}}
+                className="source-row">
+                <span className={`conn-badge ${src.connected?'on':'off'}`} style={{flexShrink:0}}>
+                  {src.connected ? '\u2705' : '\u26A0\uFE0F'}
+                </span>
+                <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{src.label || src.share}</span>
+                <span style={{cursor:'pointer',opacity:0.4,fontSize:'10px',flexShrink:0}} title="Remove source"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm(`Remove source "${src.label || src.share}"?`)) {
+                      API.post('/api/setup/remove-source', { source_id: src.source_id })
+                        .then(() => refreshStatus()).catch(()=>{});
+                    }
+                  }}>{'\u2715'}</span>
+              </div>
+            ))}
+            <div className="nav-item" style={{marginTop:'4px',padding:'4px 8px',fontSize:'11px'}}
+              onClick={() => setShowAddSource(true)}>
+              + Add Source
+            </div>
+          </div>
+        )}
+        <FolderTree tree={tree} currentPath={currentPath} onNavigate={handleNavigate} />
+      </div>
+
+      <div className="main">
+        {scanStatus?.status==='scanning' && (
+          <div className="scan-bar">
+            <span className="spinner"></span>
+            Scanning{scanStatus.current_source ? ` "${scanStatus.current_source}"` : ''}... {scanStatus.files_scanned.toLocaleString()} files processed
+            ({scanStatus.files_added} new, {scanStatus.files_updated} updated, {scanStatus.errors} errors)
+          </div>
+        )}
+        <div className="topbar">
+          <div className="search-box">
+            <span className="search-icon">{'\uD83D\uDD0D'}</span>
+            <input type="text" placeholder="Search files, content, tags..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
+          </div>
+          {page==='files' && !searchQuery && (
+            <div className="breadcrumb">
+              {breadcrumb.map((b,i) => (
+                <React.Fragment key={b.path}>{i>0&&<span>/</span>}<a onClick={()=>handleNavigate(b.path)}>{b.name}</a></React.Fragment>
+              ))}
+            </div>
+          )}
+          {page==='files' && (
+            <div className="view-toggles">
+              <button className={`view-btn ${view==='list'?'active':''}`} onClick={()=>setView('list')}>{'\u2630'}</button>
+              <button className={`view-btn ${view==='grid'?'active':''}`} onClick={()=>setView('grid')}>{'\u25A6'}</button>
+            </div>
+          )}
+        </div>
+        <div className="content">
+          {searchQuery ? (
+            <SearchResults query={searchQuery} onSelect={setSelectedFile} />
+          ) : page==='dashboard' ? (
+            <Dashboard />
+          ) : loading ? (
+            <div className="loading">Loading...</div>
+          ) : files.length === 0 ? (
+            <div className="loading"><div style={{textAlign:'center'}}>
+              <div style={{fontSize:'48px',marginBottom:'16px'}}>{'\uD83D\uDCC2'}</div>
+              <div>No files here yet. {scanStatus?.status!=='scanning' && 'Click "Scan Now" to index your NAS.'}</div>
+              {scanStatus?.status==='scanning' && <div style={{marginTop:'8px',color:'var(--accent)'}}>Scan in progress — files will appear shortly...</div>}
+            </div></div>
+          ) : (
+            <FileList files={files} view={view} sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} onSelect={setSelectedFile} onNavigate={handleNavigate} />
+          )}
+        </div>
+      </div>
+      {selectedFile && <FileModal file={selectedFile} onClose={()=>setSelectedFile(null)} />}
+      {showAddSource && <AddSourceModal onClose={()=>setShowAddSource(false)} onAdded={refreshStatus} />}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ROOT — check setup status, show wizard or app
+// ═══════════════════════════════════════════════════════════
+function App() {
+  const [ready, setReady] = useState(null); // null=loading, true=configured, false=needs setup
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    API.get('/api/setup/status')
+      .then(status => {
+        setReady(status.configured && status.connected);
+        setChecking(false);
+      })
+      .catch(() => {
+        // API not reachable or no setup status — show wizard
+        setReady(false);
+        setChecking(false);
+      });
+  }, []);
+
+  if (checking) return (
+    <div className="setup-page">
+      <div style={{textAlign:'center',color:'var(--text-muted)'}}>
+        <div className="big-spinner" style={{width:'36px',height:'36px',border:'3px solid var(--border)',borderTopColor:'var(--accent)',borderRadius:'50%',animation:'spin 1s linear infinite',margin:'0 auto 16px'}} />
+        Loading...
+      </div>
+    </div>
+  );
+
+  if (ready === false) return <SetupWizard onComplete={() => setReady(true)} />;
+  return <MainApp />;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
