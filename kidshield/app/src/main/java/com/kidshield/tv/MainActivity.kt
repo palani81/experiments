@@ -89,17 +89,19 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Packages allowed to run while in lock task mode (Device Owner only).
+     * Dynamically discovers all installed leanback apps so the allowlist
+     * stays in sync with what's actually on the device.
      */
     private fun getAllowedPackages(): List<String> {
-        return listOf(
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
+        @Suppress("DEPRECATION")
+        val installed = packageManager.queryIntentActivities(intent, 0)
+            .map { it.activityInfo.packageName }
+
+        return (installed + listOf(
             packageName,
-            "com.google.android.youtube.tv",
-            "com.google.android.youtube.tvkids",
-            "com.netflix.ninja",
-            "in.startv.hotstar.dplus.tv",
-            "com.amazon.avod",
-            "com.disney.disneyplus",
-            "com.android.vending"
-        )
+            "com.android.vending",       // Google Play Store
+            "com.amazon.venezia"          // Amazon Appstore (Fire TV)
+        )).distinct()
     }
 }
