@@ -867,21 +867,106 @@ function App() {
     });
   }
 
+  const [showLevels, setShowLevels] = useState(false);
+
+  const levelIcons = ["\u{1F331}","\u{1F4A1}","\u{1F527}","\u{1F4E1}","\u26A1","\u{1F50D}","\u{1F4BB}","\u2699\uFE0F","\u{1F3D7}\uFE0F","\u{1F916}","\u{1F9EA}","\u{1F6E1}\uFE0F","\u{1F3C6}"];
+
   return React.createElement("div", { style: { minHeight: "100vh", background: "#131a2b" }},
+
+    // ── LEVELS MODAL ──
+    showLevels && React.createElement("div", {
+      onClick: () => setShowLevels(false),
+      style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)", animation: "fadeIn 0.2s ease" }
+    },
+      React.createElement("div", {
+        onClick: (e) => e.stopPropagation(),
+        style: { background: "#131a2b", border: "1px solid #1e293b", borderRadius: 20, padding: 32, maxWidth: 480, width: "90%", maxHeight: "85vh", overflowY: "auto", animation: "popIn 0.3s ease" }
+      },
+        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }},
+          React.createElement("h2", { style: { fontFamily: "'Fredoka One', cursive", fontSize: 22, color: "#e2e8f0" }}, "\u{1F3AF} Engineer Ranks"),
+          React.createElement("button", {
+            onClick: () => setShowLevels(false),
+            style: { background: "none", border: "none", color: "#64748b", fontSize: 22, cursor: "pointer" }
+          }, "\u2715")
+        ),
+
+        // Level list
+        titleNames.map((name, idx) => {
+          const lvl = idx + 1;
+          const unlocked = level >= lvl;
+          const isCurrent = level === lvl;
+          const reqXp = idx * 100;
+          return React.createElement("div", {
+            key: idx,
+            style: {
+              display: "flex", alignItems: "center", gap: 14, padding: "12px 14px",
+              borderRadius: 12, marginBottom: 6,
+              background: isCurrent ? "rgba(34,197,94,0.1)" : unlocked ? "rgba(26,35,53,0.6)" : "rgba(15,20,30,0.5)",
+              border: isCurrent ? "1px solid rgba(34,197,94,0.3)" : "1px solid transparent",
+              opacity: unlocked ? 1 : 0.45,
+              transition: "all 0.3s"
+            }
+          },
+            // Level number badge
+            React.createElement("div", {
+              style: {
+                minWidth: 40, height: 40, borderRadius: "50%",
+                background: isCurrent ? "linear-gradient(135deg, #22c55e, #16a34a)" : unlocked ? "rgba(34,197,94,0.15)" : "#1e293b",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 18,
+                border: isCurrent ? "2px solid #22c55e" : unlocked ? "1px solid rgba(34,197,94,0.3)" : "1px solid #334155",
+                boxShadow: isCurrent ? "0 0 12px rgba(34,197,94,0.3)" : "none"
+              }
+            }, unlocked ? levelIcons[idx] : "\u{1F512}"),
+
+            // Info
+            React.createElement("div", { style: { flex: 1 }},
+              React.createElement("div", { style: { fontWeight: 700, fontSize: 14, color: unlocked ? "#e2e8f0" : "#475569" }},
+                name,
+                isCurrent && React.createElement("span", { style: { marginLeft: 8, fontSize: 10, background: "#22c55e", color: "#fff", padding: "2px 8px", borderRadius: 10, fontWeight: 800 }}, "YOU")
+              ),
+              React.createElement("div", { style: { fontSize: 11, color: unlocked ? "#64748b" : "#334155" }},
+                reqXp === 0 ? "Starting rank" : reqXp + " XP required"
+              )
+            ),
+
+            // Level number
+            React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: unlocked ? "#94a3b8" : "#334155" }}, "Lv." + lvl)
+          );
+        }),
+
+        // Footer
+        React.createElement("div", { style: { marginTop: 16, padding: 14, background: "rgba(30,41,59,0.4)", borderRadius: 10, textAlign: "center" }},
+          React.createElement("p", { style: { fontSize: 12, color: "#64748b" }},
+            level >= titleNames.length
+              ? "\u{1F389} You've reached the highest rank! Spark City is safe!"
+              : "Complete quests to earn 100 XP each and unlock new ranks!"
+          )
+        )
+      )
+    ),
+
     // Header
     React.createElement("header", { style: { background: "rgba(19,26,43,0.95)", backdropFilter: "blur(12px)", borderBottom: "2px solid #1e293b", padding: "16px 24px", position: "sticky", top: 0, zIndex: 100 }},
       React.createElement("div", { style: { maxWidth: 1400, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }},
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12 }},
-          React.createElement("div", { style: { fontSize: 32, animation: "bounce 2s infinite" }}, "🤖"),
+          React.createElement("div", { style: { fontSize: 32, animation: "bounce 2s infinite" }}, "\u{1F916}"),
           React.createElement("div", null,
             React.createElement("h1", { style: { fontFamily: "'Fredoka One', cursive", fontSize: 24, color: "#fff", margin: 0 }}, "Mission: Spark City"),
             React.createElement("p", { style: { fontSize: 12, color: "#94a3b8", margin: 0 }}, player + " the " + title)
           )
         ),
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 20, flex: 1, justifyContent: "flex-end" }},
-          React.createElement("div", { style: { textAlign: "right" }},
+          // Clickable level badge
+          React.createElement("div", {
+            onClick: () => setShowLevels(true),
+            style: { textAlign: "right", cursor: "pointer", padding: "4px 8px", borderRadius: 8, transition: "background 0.2s" },
+            onMouseEnter: (e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)",
+            onMouseLeave: (e) => e.currentTarget.style.background = "transparent"
+          },
             React.createElement("div", { style: { fontSize: 20, fontWeight: 800, color: "#22c55e" }}, xp + " XP"),
-            React.createElement("div", { style: { fontSize: 11, color: "#64748b" }}, "Level " + level + " \u2022 " + completedCount + "/" + totalProjects + " quests")
+            React.createElement("div", { style: { fontSize: 11, color: "#64748b" }}, "Level " + level + " \u2022 " + completedCount + "/" + totalProjects + " quests"),
+            React.createElement("div", { style: { fontSize: 10, color: "#475569", textDecoration: "underline", marginTop: 2 }}, "View all ranks \u2192")
           ),
           React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, minWidth: 160 }},
             React.createElement("div", { style: { width: "100%", height: 10, background: "#1e293b", borderRadius: 6, overflow: "hidden", border: "1px solid #334155" }},
