@@ -249,7 +249,7 @@ if (questionPoolMatch) {
 
 test('Quiz game selection returns 5 unique questions', () => {
   assert(jsCode.includes('slice(0, 5)'), 'Should slice first 5 questions');
-  assert(jsCode.includes('questionPool.sort'), 'Should shuffle questions');
+  assert(jsCode.includes('questionPool.sort') || jsCode.includes('QUIZ_QUESTIONS].sort'), 'Should shuffle questions');
 });
 
 test('Quiz options are shuffled and include correct answer', () => {

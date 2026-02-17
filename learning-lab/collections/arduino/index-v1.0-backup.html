@@ -1,0 +1,1658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mission: Spark City</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Nunito',sans-serif; background:#131a2b; color:#e2e8f0; transition: background 0.4s; }
+:root {
+  --green:#22c55e; --blue:#3b82f6; --purple:#a855f7; --orange:#f97316;
+  --red:#ef4444; --yellow:#eab308; --cyan:#06b6d4; --pink:#ec4899;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width:8px; }
+::-webkit-scrollbar-track { background:#1e293b; }
+::-webkit-scrollbar-thumb { background:#475569; border-radius:4px; }
+
+/* Code blocks */
+pre { background:#0d1117; border:1px solid #30363d; border-radius:8px; padding:16px; overflow-x:auto; font-size:13px; line-height:1.6; }
+code { font-family:'Fira Code','Courier New',monospace; }
+.kw { color:#ff7b72; } .fn { color:#d2a8ff; } .str { color:#a5d6ff; }
+.cm { color:#8b949e; } .num { color:#79c0ff; } .type { color:#ffa657; }
+
+/* Animations */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+@keyframes slideIn { from { transform: translateX(-20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes xpPop { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-40px) scale(0.7); opacity: 0; } }
+
+.fadeIn { animation: fadeIn 0.4s ease; }
+.pulse { animation: pulse 2s ease-in-out infinite; }
+.bounce { animation: bounce 0.6s ease infinite; }
+.popIn { animation: popIn 0.4s ease; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#131a2b;color:#e2e8f0;font-family:sans-serif">
+    <div style="font-size:64px;margin-bottom:16px;animation:bounce 1s infinite">🤖</div>
+    <div style="font-size:20px;font-weight:700;margin-bottom:8px">Mission: Spark City</div>
+    <div style="font-size:14px;color:#64748b">Loading your mission...</div>
+  </div>
+</div>
+<script>
+
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+// ─── PROJECT DATA ───────────────────────────────────────────
+const PROJECTS = [
+  {
+    id: 1,
+    title: "Hello LED!",
+    subtitle: "Your first blink",
+    icon: "💡",
+    difficulty: 1,
+    category: "Basics",
+    color: "#22c55e",
+    time: "15 min",
+    questTitle: "Sparky's Eye Light is Broken!",
+    questIntro: "Oh no! Sparky's eye light is fried! We need to fix it by learning to control an LED. This will teach Sparky to see again!",
+    systemRepaired: "Eye Light",
+    components: ["Arduino Uno", "USB Cable", "1 LED", "1 Resistor (220Ω)", "Breadboard", "2 Jumper wires"],
+    learn: ["How circuits work", "Digital output pins", "Uploading code to Arduino"],
+    description: "Every inventor starts here! You'll make an LED blink on and off — it's like teaching your Arduino to wave hello.",
+    wiring: [
+      { from: "Arduino Pin 13", to: "Resistor (220Ω)", note: "Connect with a jumper wire" },
+      { from: "Resistor", to: "LED long leg (+)", note: "The longer leg is positive (anode)" },
+      { from: "LED short leg (−)", to: "Arduino GND", note: "GND means Ground — the return path" }
+    ],
+    code: `// Project 1: Hello LED!
+// Make an LED blink on and off
+
+void setup() {
+  pinMode(13, OUTPUT);  // Tell Arduino: pin 13 is an output
+}
+
+void loop() {
+  digitalWrite(13, HIGH);  // Turn LED ON
+  delay(1000);               // Wait 1 second
+  digitalWrite(13, LOW);   // Turn LED OFF
+  delay(1000);               // Wait 1 second
+}`,
+    challenge: "Can you make the LED blink faster? Try changing 1000 to 200. What about making it blink in a pattern — like SOS in Morse code (3 short, 3 long, 3 short)?",
+    science: "When electricity flows through an LED, it produces light. The resistor limits the current so the LED doesn't burn out — think of it like a speed bump for electrons!"
+  },
+  {
+    id: 2,
+    title: "Traffic Light",
+    subtitle: "Control 3 LEDs in sequence",
+    icon: "🚦",
+    difficulty: 1,
+    category: "Basics",
+    color: "#ef4444",
+    time: "25 min",
+    questTitle: "The City's Main Intersection is Chaos!",
+    questIntro: "Traffic is out of control! Build a traffic light to restore order to Spark City's streets.",
+    systemRepaired: "Traffic Control",
+    components: ["Arduino Uno", "Breadboard", "1 Red LED", "1 Yellow LED", "1 Green LED", "3 Resistors (220Ω)", "7 Jumper wires"],
+    learn: ["Using multiple output pins", "Sequencing with delays", "How real traffic lights work"],
+    description: "Build a miniature traffic light that cycles through red, yellow, and green — just like the ones on the street!",
+    wiring: [
+      { from: "Arduino Pin 4", to: "Resistor → Red LED → GND", note: "Red light" },
+      { from: "Arduino Pin 3", to: "Resistor → Yellow LED → GND", note: "Yellow light" },
+      { from: "Arduino Pin 2", to: "Resistor → Green LED → GND", note: "Green light" }
+    ],
+    code: `// Project 2: Traffic Light
+int red = 4;
+int yellow = 3;
+int green = 2;
+
+void setup() {
+  pinMode(red, OUTPUT);
+  pinMode(yellow, OUTPUT);
+  pinMode(green, OUTPUT);
+}
+
+void loop() {
+  // Green ON for 5 seconds
+  digitalWrite(green, HIGH);
+  delay(5000);
+  digitalWrite(green, LOW);
+
+  // Yellow ON for 2 seconds
+  digitalWrite(yellow, HIGH);
+  delay(2000);
+  digitalWrite(yellow, LOW);
+
+  // Red ON for 5 seconds
+  digitalWrite(red, HIGH);
+  delay(5000);
+  digitalWrite(red, LOW);
+}`,
+    challenge: "Add a pedestrian button! Connect a push button and make the light turn red when someone presses it. Hint: you'll need digitalRead().",
+    science: "Traffic lights use timers and sensors to manage the flow of cars. Some smart traffic lights use cameras and AI to detect how many cars are waiting!"
+  },
+  {
+    id: 3,
+    title: "Piano Keys",
+    subtitle: "Make music with a buzzer",
+    icon: "🎹",
+    difficulty: 2,
+    category: "Sound",
+    color: "#a855f7",
+    time: "30 min",
+    questTitle: "Sparky's Voice Module is Damaged!",
+    questIntro: "Sparky can't speak! Wire up a buzzer so our robot friend can communicate with Spark City again.",
+    systemRepaired: "Voice Module",
+    components: ["Arduino Uno", "Breadboard", "Piezo Buzzer", "4 Push Buttons", "4 Resistors (10kΩ)", "Jumper wires"],
+    learn: ["Reading button inputs", "Generating sound frequencies", "The tone() function"],
+    description: "Build a 4-key piano! Press different buttons to play different musical notes through a buzzer.",
+    wiring: [
+      { from: "Buzzer (+)", to: "Arduino Pin 8", note: "Sound output pin" },
+      { from: "Buzzer (−)", to: "GND", note: "" },
+      { from: "Buttons", to: "Pins 2, 3, 4, 5", note: "Each button connects to a pin AND to GND through a 10kΩ resistor" }
+    ],
+    code: `// Project 3: Piano Keys
+int buzzer = 8;
+int buttons[] = {2, 3, 4, 5};
+int notes[] = {262, 330, 392, 523}; // C, E, G, C5
+
+void setup() {
+  for(int i = 0; i < 4; i++) {
+    pinMode(buttons[i], INPUT_PULLUP);
+  }
+}
+
+void loop() {
+  bool played = false;
+  for(int i = 0; i < 4; i++) {
+    if(digitalRead(buttons[i]) == LOW) {
+      tone(buzzer, notes[i]);
+      played = true;
+    }
+  }
+  if(!played) noTone(buzzer);
+}`,
+    challenge: "Can you play a song? Try making the Arduino play \"Twinkle Twinkle Little Star\" automatically using tone() and delay(). The notes are: C C G G A A G, F F E E D D C.",
+    science: "Sound is made by vibrations. The buzzer vibrates the air at different speeds (frequencies) to make different pitches. Middle C vibrates 262 times per second!"
+  },
+  {
+    id: 4,
+    title: "Night Light",
+    subtitle: "Auto-sensing darkness",
+    icon: "🌙",
+    difficulty: 2,
+    category: "Sensors",
+    color: "#eab308",
+    time: "25 min",
+    questTitle: "The City's Street Lights are Dead!",
+    questIntro: "Spark City is dark at night! Build a sensor that turns lights on automatically when it's dark.",
+    systemRepaired: "Street Lights",
+    components: ["Arduino Uno", "Breadboard", "Photoresistor (LDR)", "1 LED", "1 Resistor (220Ω)", "1 Resistor (10kΩ)", "Jumper wires"],
+    learn: ["Analog input reading", "Light sensors", "Threshold-based decisions", "Serial Monitor"],
+    description: "Build a smart night light that turns on automatically when the room gets dark — just like real street lights!",
+    wiring: [
+      { from: "Photoresistor", to: "5V and Analog Pin A0", note: "One leg to 5V, other leg to A0" },
+      { from: "10kΩ Resistor", to: "A0 and GND", note: "This creates a voltage divider" },
+      { from: "Pin 9 → 220Ω Resistor → LED → GND", to: "", note: "Output LED circuit" }
+    ],
+    code: `// Project 4: Night Light
+int lightSensor = A0;
+int ledPin = 9;
+int threshold = 400;  // Adjust this value!
+
+void setup() {
+  pinMode(ledPin, OUTPUT);
+  Serial.begin(9600);  // Start Serial Monitor
+}
+
+void loop() {
+  int lightLevel = analogRead(lightSensor);
+  Serial.print("Light: ");
+  Serial.println(lightLevel);
+
+  if(lightLevel < threshold) {
+    digitalWrite(ledPin, HIGH);  // Dark → LED ON
+  } else {
+    digitalWrite(ledPin, LOW);   // Bright → LED OFF
+  }
+  delay(100);
+}`,
+    challenge: "Instead of just ON/OFF, can you make the LED gradually get brighter as it gets darker? Hint: use analogWrite() and the map() function!",
+    science: "A photoresistor changes its resistance based on light. In the dark, its resistance is high (millions of ohms). In bright light, it drops to just hundreds of ohms!"
+  },
+  {
+    id: 5,
+    title: "Distance Detector",
+    subtitle: "Ultrasonic range finder",
+    icon: "📡",
+    difficulty: 2,
+    category: "Sensors",
+    color: "#06b6d4",
+    time: "30 min",
+    questTitle: "Sparky Keeps Bumping Into Walls!",
+    questIntro: "Give Sparky eyes that can measure distance to avoid obstacles. Build an ultrasonic sensor!",
+    systemRepaired: "Distance Sensor",
+    components: ["Arduino Uno", "Breadboard", "HC-SR04 Ultrasonic Sensor", "Piezo Buzzer", "Jumper wires"],
+    learn: ["How ultrasonic sensors work", "Measuring distance", "Speed of sound", "Mapping values"],
+    description: "Build a parking sensor! It beeps faster as objects get closer — just like the one in a car's bumper.",
+    wiring: [
+      { from: "HC-SR04 VCC", to: "Arduino 5V", note: "Power the sensor" },
+      { from: "HC-SR04 Trig", to: "Arduino Pin 9", note: "Trigger sends the sound pulse" },
+      { from: "HC-SR04 Echo", to: "Arduino Pin 10", note: "Echo receives the bounce-back" },
+      { from: "HC-SR04 GND", to: "Arduino GND", note: "" },
+      { from: "Buzzer", to: "Pin 8 and GND", note: "Warning beeper" }
+    ],
+    code: `// Project 5: Distance Detector
+int trigPin = 9;
+int echoPin = 10;
+int buzzer = 8;
+
+void setup() {
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pinMode(buzzer, OUTPUT);
+  Serial.begin(9600);
+}
+
+void loop() {
+  // Send ultrasonic pulse
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  // Measure echo time
+  long duration = pulseIn(echoPin, HIGH);
+  int distance = duration * 0.034 / 2; // cm
+
+  Serial.print("Distance: ");
+  Serial.print(distance);
+  Serial.println(" cm");
+
+  // Beep faster when closer
+  if(distance < 30) {
+    int beepDelay = map(distance, 0, 30, 50, 500);
+    tone(buzzer, 1000, 50);
+    delay(beepDelay);
+  }
+  delay(50);
+}`,
+    challenge: "Add 3 LEDs (green, yellow, red) that light up based on distance: green for far, yellow for medium, red for close. Like a real parking sensor display!",
+    science: "Bats use the same trick! They send out sound pulses and listen for echoes. By timing how long the echo takes, they know how far away things are. This is called echolocation."
+  },
+  {
+    id: 6,
+    title: "Thermometer",
+    subtitle: "Digital temperature display",
+    icon: "🌡️",
+    difficulty: 2,
+    category: "Sensors",
+    color: "#f97316",
+    time: "30 min",
+    questTitle: "The Power Plant is Overheating!",
+    questIntro: "Spark City's power station needs monitoring. Build a thermometer to track the temperature before it overheats!",
+    systemRepaired: "Temperature Monitor",
+    components: ["Arduino Uno", "Breadboard", "TMP36 Temperature Sensor", "16x2 LCD Display (with I2C)", "Jumper wires"],
+    learn: ["Temperature sensors", "Analog-to-temperature conversion", "LCD displays", "Real-world data"],
+    description: "Build your own digital thermometer that shows the current temperature on an LCD screen!",
+    wiring: [
+      { from: "TMP36 left pin", to: "5V", note: "Power (flat side facing you)" },
+      { from: "TMP36 middle pin", to: "Analog A0", note: "Signal output" },
+      { from: "TMP36 right pin", to: "GND", note: "Ground" },
+      { from: "LCD SDA", to: "Arduino A4", note: "I2C data line" },
+      { from: "LCD SCL", to: "Arduino A5", note: "I2C clock line" }
+    ],
+    code: `// Project 6: Thermometer
+// If using I2C LCD, install LiquidCrystal_I2C library
+#include &lt;Wire.h&gt;
+#include &lt;LiquidCrystal_I2C.h&gt;
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+int tempPin = A0;
+
+void setup() {
+  lcd.init();
+  lcd.backlight();
+  lcd.print("Thermometer");
+  delay(2000);
+}
+
+void loop() {
+  int reading = analogRead(tempPin);
+  float voltage = reading * 5.0 / 1024.0;
+  float tempC = (voltage - 0.5) * 100.0;
+  float tempF = tempC * 9.0/5.0 + 32.0;
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Temp: ");
+  lcd.print(tempC, 1);
+  lcd.print(" C");
+  lcd.setCursor(0, 1);
+  lcd.print("      ");
+  lcd.print(tempF, 1);
+  lcd.print(" F");
+  delay(1000);
+}`,
+    challenge: "Add a warning buzzer that beeps when the temperature goes above a certain limit. You could also add colored LEDs: blue for cold, green for comfortable, red for hot!",
+    science: "The TMP36 sensor uses a special property of semiconductors: as temperature changes, the voltage it outputs changes by exactly 10 millivolts per degree Celsius."
+  },
+  {
+    id: 7,
+    title: "IR Remote Control",
+    subtitle: "Control LEDs with a remote",
+    icon: "📺",
+    difficulty: 3,
+    category: "Communication",
+    color: "#ec4899",
+    time: "35 min",
+    questTitle: "We Need Remote Control for Spark City!",
+    questIntro: "Build an IR receiver so we can control Spark City's systems from a distance. Every hero needs a remote control!",
+    systemRepaired: "Remote Control",
+    components: ["Arduino Uno", "Breadboard", "IR Receiver Module", "IR Remote Control", "3 LEDs", "3 Resistors (220Ω)", "Jumper wires"],
+    learn: ["Infrared communication", "Decoding signals", "Using libraries", "Switch/case logic"],
+    description: "Use your TV-style remote control to command your Arduino! Press different buttons to control different LEDs.",
+    wiring: [
+      { from: "IR Receiver Signal", to: "Arduino Pin 11", note: "Data output from receiver" },
+      { from: "IR Receiver VCC", to: "5V", note: "" },
+      { from: "IR Receiver GND", to: "GND", note: "" },
+      { from: "LEDs", to: "Pins 2, 3, 4 with resistors", note: "Red, Green, Blue LEDs" }
+    ],
+    code: `// Project 7: IR Remote Control
+// Install IRremote library from Library Manager
+#include &lt;IRremote.h&gt;
+
+int RECV_PIN = 11;
+int leds[] = {2, 3, 4};
+
+void setup() {
+  Serial.begin(9600);
+  IrReceiver.begin(RECV_PIN);
+  for(int i = 0; i < 3; i++)
+    pinMode(leds[i], OUTPUT);
+  Serial.println("Ready! Press remote buttons...");
+}
+
+void loop() {
+  if(IrReceiver.decode()) {
+    unsigned long code = IrReceiver.decodedIRData.decodedRawData;
+    Serial.println(code, HEX);
+
+    // Map your remote's button codes here!
+    // First: run this and press buttons to see codes
+    // Then: replace these example codes with yours
+    switch(code) {
+      case 0xFFA25D:  // Button 1
+        digitalWrite(leds[0], !digitalRead(leds[0]));
+        break;
+      case 0xFF629D:  // Button 2
+        digitalWrite(leds[1], !digitalRead(leds[1]));
+        break;
+      case 0xFFE21D:  // Button 3
+        digitalWrite(leds[2], !digitalRead(leds[2]));
+        break;
+    }
+    IrReceiver.resume();
+  }
+}`,
+    challenge: "Decode ALL the buttons on your remote and build a full LED light show controller. Add fade effects using analogWrite() for button presses!",
+    science: "Infrared light is invisible to our eyes but not to electronics! Your TV remote sends pulses of IR light in specific patterns. Each button has a unique code, like a secret handshake."
+  },
+  {
+    id: 8,
+    title: "Mood Lamp",
+    subtitle: "RGB color mixing",
+    icon: "🌈",
+    difficulty: 2,
+    category: "Creative",
+    color: "#8b5cf6",
+    time: "25 min",
+    questTitle: "The City Park Needs Colors for the Festival!",
+    questIntro: "Create a beautiful rainbow mood lamp for Spark City's festival. Make the park come alive with color!",
+    systemRepaired: "City Lights",
+    components: ["Arduino Uno", "Breadboard", "1 RGB LED (common cathode)", "3 Resistors (220Ω)", "1 Potentiometer (optional)", "Jumper wires"],
+    learn: ["PWM (Pulse Width Modulation)", "Color mixing with RGB", "analogWrite()", "Smooth transitions"],
+    description: "Create a lamp that smoothly fades through every color of the rainbow! RGB LEDs mix red, green, and blue light to create any color.",
+    wiring: [
+      { from: "RGB LED Red pin", to: "Pin 9 through 220Ω resistor", note: "" },
+      { from: "RGB LED Green pin", to: "Pin 10 through 220Ω resistor", note: "" },
+      { from: "RGB LED Blue pin", to: "Pin 11 through 220Ω resistor", note: "" },
+      { from: "RGB LED longest pin (cathode)", to: "GND", note: "Common ground" }
+    ],
+    code: `// Project 8: Mood Lamp — Rainbow Fade
+int redPin = 9;
+int greenPin = 10;
+int bluePin = 11;
+
+void setup() {
+  pinMode(redPin, OUTPUT);
+  pinMode(greenPin, OUTPUT);
+  pinMode(bluePin, OUTPUT);
+}
+
+void setColor(int r, int g, int b) {
+  analogWrite(redPin, r);
+  analogWrite(greenPin, g);
+  analogWrite(bluePin, b);
+}
+
+void loop() {
+  // Fade through rainbow colors
+  for(int i = 0; i < 256; i++) {
+    setColor(255-i, i, 0);  // Red → Green
+    delay(10);
+  }
+  for(int i = 0; i < 256; i++) {
+    setColor(0, 255-i, i);  // Green → Blue
+    delay(10);
+  }
+  for(int i = 0; i < 256; i++) {
+    setColor(i, 0, 255-i);  // Blue → Red
+    delay(10);
+  }
+}`,
+    challenge: "Add a potentiometer to control the speed of the color change! Or add a button that freezes on your favorite color.",
+    science: "Your eyes have 3 types of color receptors: red, green, and blue. By mixing these 3 colors of light at different brightnesses, we can trick your eyes into seeing any color!"
+  },
+  {
+    id: 9,
+    title: "Servo Sweeper",
+    subtitle: "Motorized movement",
+    icon: "🦾",
+    difficulty: 2,
+    category: "Motors",
+    color: "#14b8a6",
+    time: "20 min",
+    questTitle: "Sparky's Arm is Stuck!",
+    questIntro: "Fix Sparky's servo motor so our robot can move and gesture to the citizens of Spark City!",
+    systemRepaired: "Servo Motor",
+    components: ["Arduino Uno", "Servo Motor (SG90)", "1 Potentiometer", "Jumper wires"],
+    learn: ["Servo motor control", "The Servo library", "Mapping analog input to angles", "Mechanical movement"],
+    description: "Control a servo motor with a dial! Turn the potentiometer and watch the servo follow your exact position.",
+    wiring: [
+      { from: "Servo Orange wire", to: "Arduino Pin 9", note: "Signal/control wire" },
+      { from: "Servo Red wire", to: "5V", note: "Power" },
+      { from: "Servo Brown wire", to: "GND", note: "Ground" },
+      { from: "Potentiometer", to: "5V, A0, GND", note: "Left→5V, Middle→A0, Right→GND" }
+    ],
+    code: `// Project 9: Servo Sweeper
+#include &lt;Servo.h&gt;
+
+Servo myServo;
+int potPin = A0;
+
+void setup() {
+  myServo.attach(9);
+  Serial.begin(9600);
+}
+
+void loop() {
+  int potValue = analogRead(potPin);
+  int angle = map(potValue, 0, 1023, 0, 180);
+
+  myServo.write(angle);
+
+  Serial.print("Angle: ");
+  Serial.println(angle);
+  delay(15);
+}`,
+    challenge: "Build a mini radar! Mount the ultrasonic sensor on the servo, sweep it back and forth, and print distance readings for each angle. You've built a real radar scanner!",
+    science: "Servo motors have a special feedback circuit inside that knows their exact position. Unlike regular motors that just spin, servos can hold a precise angle — that's why robots use them for joints!"
+  },
+  {
+    id: 10,
+    title: "Intruder Alarm",
+    subtitle: "Motion-triggered security",
+    icon: "🚨",
+    difficulty: 3,
+    category: "Sensors",
+    color: "#ef4444",
+    time: "35 min",
+    questTitle: "Someone's Sneaking Into the Power Plant!",
+    questIntro: "Build a security system to protect Spark City from intruders. Defend the power plant with alarms and sensors!",
+    systemRepaired: "Security System",
+    components: ["Arduino Uno", "Breadboard", "HC-SR04 Ultrasonic Sensor", "Piezo Buzzer", "1 Red LED", "1 Green LED", "2 Resistors (220Ω)", "1 Push Button", "Jumper wires"],
+    learn: ["Security system logic", "State machines", "Armed/disarmed modes", "Combining multiple components"],
+    description: "Build a real security system! Arm it with a button, and if anyone gets too close, the alarm goes off with flashing lights and sirens.",
+    wiring: [
+      { from: "HC-SR04", to: "Trig→Pin 9, Echo→Pin 10", note: "Distance sensor" },
+      { from: "Buzzer", to: "Pin 8", note: "Alarm sound" },
+      { from: "Red LED", to: "Pin 4 with resistor", note: "Alarm indicator" },
+      { from: "Green LED", to: "Pin 3 with resistor", note: "Armed indicator" },
+      { from: "Button", to: "Pin 2 with INPUT_PULLUP", note: "Arm/disarm toggle" }
+    ],
+    code: `// Project 10: Intruder Alarm
+int trigPin = 9, echoPin = 10;
+int buzzer = 8, redLed = 4, greenLed = 3;
+int button = 2;
+bool armed = false, alarm = false;
+int baseDistance = 0;
+
+int getDistance() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  return pulseIn(echoPin, HIGH) * 0.034 / 2;
+}
+
+void setup() {
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pinMode(buzzer, OUTPUT);
+  pinMode(redLed, OUTPUT);
+  pinMode(greenLed, OUTPUT);
+  pinMode(button, INPUT_PULLUP);
+  Serial.begin(9600);
+}
+
+void loop() {
+  // Toggle armed state with button
+  if(digitalRead(button) == LOW) {
+    armed = !armed;
+    alarm = false;
+    if(armed) {
+      baseDistance = getDistance();
+      Serial.println("ARMED!");
+      tone(buzzer, 1000, 200);
+    } else {
+      Serial.println("Disarmed");
+      noTone(buzzer);
+    }
+    delay(500);
+  }
+
+  digitalWrite(greenLed, armed);
+
+  if(armed && !alarm) {
+    int dist = getDistance();
+    if(abs(dist - baseDistance) > 15) {
+      alarm = true;
+      Serial.println("*** INTRUDER! ***");
+    }
+  }
+
+  if(alarm) {
+    digitalWrite(redLed, HIGH);
+    tone(buzzer, 2000, 100);
+    delay(100);
+    digitalWrite(redLed, LOW);
+    tone(buzzer, 1500, 100);
+    delay(100);
+  }
+  delay(50);
+}`,
+    challenge: "Add a 10-second countdown when you arm it (like a real alarm system). Show the countdown on the Serial Monitor and beep each second!",
+    science: "Real security systems use a combination of sensors: infrared motion detectors, magnetic door contacts, glass break sensors, and cameras — all connected to a central brain, just like your Arduino!"
+  },
+  {
+    id: 11,
+    title: "Weather Station",
+    subtitle: "Multi-sensor data logger",
+    icon: "⛅",
+    difficulty: 3,
+    category: "Advanced",
+    color: "#0ea5e9",
+    time: "45 min",
+    questTitle: "Spark City Needs Weather Forecasting!",
+    questIntro: "Build a multi-sensor weather station so citizens can plan their day. Monitor temperature and light for the city!",
+    systemRepaired: "Weather System",
+    components: ["Arduino Uno", "TMP36 Temperature Sensor", "Photoresistor", "16x2 LCD (I2C)", "Resistor (10kΩ)", "Breadboard", "Jumper wires"],
+    learn: ["Combining multiple sensors", "Data display", "Real-time monitoring", "Scientific measurement"],
+    description: "Build a mini weather station that monitors temperature and light levels, showing live data on an LCD screen — your personal environmental dashboard!",
+    wiring: [
+      { from: "TMP36", to: "5V, A0, GND", note: "Temperature sensor" },
+      { from: "Photoresistor + 10kΩ", to: "A1 voltage divider", note: "Light level" },
+      { from: "LCD I2C", to: "SDA→A4, SCL→A5", note: "Display" }
+    ],
+    code: `// Project 11: Weather Station
+#include &lt;Wire.h&gt;
+#include &lt;LiquidCrystal_I2C.h&gt;
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+void setup() {
+  lcd.init();
+  lcd.backlight();
+  Serial.begin(9600);
+  lcd.print("Weather Station");
+  delay(2000);
+}
+
+void loop() {
+  // Read temperature
+  float voltage = analogRead(A0) * 5.0 / 1024.0;
+  float tempC = (voltage - 0.5) * 100.0;
+
+  // Read light level
+  int light = analogRead(A1);
+  String brightness;
+  if(light > 800) brightness = "Sunny";
+  else if(light > 400) brightness = "Cloudy";
+  else brightness = "Dark";
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Temp: ");
+  lcd.print(tempC, 1);
+  lcd.print("C");
+  lcd.setCursor(0, 1);
+  lcd.print("Light: ");
+  lcd.print(brightness);
+
+  // Also log to Serial for graphing
+  Serial.print(tempC);
+  Serial.print(",");
+  Serial.println(light);
+
+  delay(2000);
+}`,
+    challenge: "Use the Serial Plotter in Arduino IDE to graph your temperature over time! Leave it running for an hour and see how temperature changes. Can you spot when someone opens a window?",
+    science: "Real weather stations measure many things: temperature, humidity, air pressure, wind speed, rainfall, UV index, and more. Satellites orbiting Earth have weather stations that look down at the whole planet!"
+  },
+  {
+    id: 12,
+    title: "Robot Car Basics",
+    subtitle: "Your first moving robot",
+    icon: "🤖",
+    difficulty: 3,
+    category: "Robotics",
+    color: "#f59e0b",
+    time: "60 min",
+    questTitle: "Sparky is Fully Repaired! Build Their Vehicle!",
+    questIntro: "The grand finale! Sparky is fixed and ready to patrol Spark City. Build a robot car with obstacle avoidance to complete the mission!",
+    systemRepaired: "Sparky Vehicle",
+    components: ["Arduino Uno", "L298N Motor Driver", "2 DC Motors", "Robot chassis/wheels", "Battery pack (4xAA or 9V)", "HC-SR04 Ultrasonic Sensor", "Jumper wires"],
+    learn: ["DC motor control", "H-bridge motor drivers", "Autonomous navigation", "Obstacle avoidance"],
+    description: "The grand finale! Build a robot car that drives around and avoids obstacles on its own. This combines everything you've learned into one awesome project!",
+    wiring: [
+      { from: "L298N IN1, IN2", to: "Arduino Pins 5, 6", note: "Left motor control" },
+      { from: "L298N IN3, IN4", to: "Arduino Pins 9, 10", note: "Right motor control" },
+      { from: "L298N ENA, ENB", to: "Pins 3, 11 (PWM)", note: "Speed control" },
+      { from: "L298N 12V", to: "Battery pack +", note: "Motor power (separate!)" },
+      { from: "HC-SR04", to: "Trig→7, Echo→8", note: "Front-facing distance sensor" }
+    ],
+    code: `// Project 12: Robot Car with Obstacle Avoidance
+// Motor pins
+int IN1=5, IN2=6, IN3=9, IN4=10;
+int ENA=3, ENB=11;
+int trigPin=7, echoPin=8;
+int speed = 150; // 0-255
+
+int getDistance() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  return pulseIn(echoPin, HIGH) * 0.034 / 2;
+}
+
+void forward()  { analogWrite(ENA,speed); analogWrite(ENB,speed);
+  digitalWrite(IN1,HIGH); digitalWrite(IN2,LOW);
+  digitalWrite(IN3,HIGH); digitalWrite(IN4,LOW); }
+
+void turnRight() { analogWrite(ENA,speed); analogWrite(ENB,speed);
+  digitalWrite(IN1,HIGH); digitalWrite(IN2,LOW);
+  digitalWrite(IN3,LOW); digitalWrite(IN4,HIGH); }
+
+void stopCar()  { analogWrite(ENA,0); analogWrite(ENB,0); }
+
+void setup() {
+  int pins[] = {IN1,IN2,IN3,IN4,ENA,ENB,trigPin};
+  for(int p : pins) pinMode(p, OUTPUT);
+  pinMode(echoPin, INPUT);
+  Serial.begin(9600);
+}
+
+void loop() {
+  int dist = getDistance();
+  Serial.println(dist);
+
+  if(dist > 20) {
+    forward();
+  } else {
+    stopCar();
+    delay(300);
+    turnRight();
+    delay(400);
+  }
+  delay(50);
+}`,
+    challenge: "Make the robot smarter! Add a servo to scan left and right before deciding which way to turn. Or add line-following sensors to make it follow a track made with black tape!",
+    science: "Self-driving cars use the same basic idea but with much more powerful sensors: LIDAR (laser distance), cameras, GPS, and machine learning. Your robot is doing the same thing — just simpler!"
+  }
+];
+
+
+// ─── SYNTAX HIGHLIGHTER ────────────────────────────────────────
+function highlightArduinoCode(code) {
+  // Escape HTML first to prevent < > & from breaking the output
+  let html = code
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Use a placeholder system to protect already-highlighted spans from being corrupted
+  const placeholders = {};
+  let placeholderCount = 0;
+
+  // Helper to create placeholders for spans
+  const createPlaceholder = (html) => {
+    const key = `__PLACEHOLDER_${placeholderCount}__`;
+    placeholders[key] = html;
+    placeholderCount++;
+    return key;
+  };
+
+  // Define patterns - must escape them since we're working with escaped HTML
+  const keywords = /\b(void|int|bool|long|float|double|char|byte|if|else|for|while|do|return|switch|case|default|true|false|const|volatile)\b/g;
+  const types = /\b(HIGH|LOW|INPUT|OUTPUT|INPUT_PULLUP|OUTPUT_OD)\b/g;
+  const functions = /\b(pinMode|digitalWrite|digitalRead|analogWrite|analogRead|delay|delayMicroseconds|millis|micros|Serial|tone|noTone|map|pulseIn|attachInterrupt|detachInterrupt)\b/g;
+  const comments = /\/\/[^\n]*/g;
+  const strings = /"[^"]*"|'[^']*'/g;
+  const numbers = /\b\d+\b/g;
+
+  // Apply highlighting in a single pass - do it smartly to avoid re-highlighting
+  html = html.replace(comments, match => createPlaceholder('<span class="cm">' + match + '</span>'));
+  html = html.replace(strings, match => createPlaceholder('<span class="str">' + match + '</span>'));
+  html = html.replace(keywords, match => createPlaceholder('<span class="kw">' + match + '</span>'));
+  html = html.replace(types, match => createPlaceholder('<span class="type">' + match + '</span>'));
+  html = html.replace(functions, match => createPlaceholder('<span class="fn">' + match + '</span>'));
+  html = html.replace(numbers, match => createPlaceholder('<span class="num">' + match + '</span>'));
+
+  // Replace all placeholders with actual spans
+  Object.keys(placeholders).forEach(key => {
+    html = html.replace(new RegExp(key, 'g'), placeholders[key]);
+  });
+
+  return html;
+}
+
+// ─── MINI-GAME FUNCTIONS ───────────────────────────────────
+function generateComponentMatchGame(questId) {
+  const pairsPool = [
+    { img: "💡", label: "LED" },
+    { img: "🟫", label: "Resistor" },
+    { img: "🎚️", label: "Potentiometer" },
+    { img: "⚙️", label: "Motor" },
+    { img: "🔊", label: "Buzzer" },
+    { img: "🖥️", label: "LCD Display" },
+    { img: "🌡️", label: "Temperature Sensor" },
+    { img: "🔘", label: "Button" },
+    { img: "🔋", label: "Battery" },
+    { img: "📶", label: "WiFi Module" }
+  ];
+
+  // Shuffle and pick 4 random pairs
+  const shuffled = pairsPool.sort(() => Math.random() - 0.5).slice(0, 4);
+  let cards = [...shuffled, ...shuffled].sort(() => Math.random() - 0.5);
+  return { type: "match", cards, matched: 0, attempts: 0, startTime: Date.now() };
+}
+
+function generateDebugCodeGame(questId) {
+  const bugsPool = [
+    { code: "for (int i = 0; i < 10, i++) {\n  Serial.println(i);\n}", bugLine: 0, hint: "Look closely at the for loop punctuation", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "int sensorValue = analogRead(A0);\nif (sensorValue = 500) {\n  digitalWrite(13, HIGH);\n}", bugLine: 1, hint: "How do you compare values in an if statement?", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "void setup() {\n  pinmode(13, OUTPUT);\n}", bugLine: 1, hint: "Arduino functions are case-sensitive", answers: ["Line 1", "Line 2"] },
+    { code: "Serial.begin(9600);\nSerial.Println(\"Hello\");", bugLine: 1, hint: "Check the capitalization carefully", answers: ["Line 1", "Line 2"] },
+    { code: "int led = 13;\ndigitalWrite(led HIGH);", bugLine: 1, hint: "How do you separate function arguments?", answers: ["Line 1", "Line 2"] },
+    { code: "void loop() {\n  int x = analogRead(A0)\n  Serial.println(x);\n}", bugLine: 1, hint: "Every statement needs to end properly", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "int val = digitalread(2);\npinMode(13, OUTPUT);", bugLine: 0, hint: "Arduino functions are case-sensitive", answers: ["Line 1", "Line 2"] },
+    { code: "digitalWrite(13, HIGH);\ndelay(1000);\ndigitalwrite(13, LOW);", bugLine: 2, hint: "Arduino functions are case-sensitive", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "analogWrite(3, 255);\nanalogRead(A0)\ndigitalWrite(13, HIGH);", bugLine: 1, hint: "Every statement needs to end properly", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "int x = 5;\nint y = x + 3\nSerial.println(y);", bugLine: 1, hint: "Every statement needs to end properly", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "int temp = analogRead(A0);\nSerial.println(temp);\ndelay(\"500\");", bugLine: 2, hint: "What type of value does delay() expect?", answers: ["Line 1", "Line 2", "Line 3"] },
+    { code: "pinMode(LED_BUILTIN, OUTPUT);\ndigitalWrite(LED_BUILTIN, HIGH)\ndelay(1000);", bugLine: 1, hint: "Every statement needs to end properly", answers: ["Line 1", "Line 2", "Line 3"] }
+  ];
+
+  // Shuffle and pick 3 unique bugs
+  const shuffled = bugsPool.sort(() => Math.random() - 0.5).slice(0, 3);
+  return { type: "debug", bugs: shuffled, score: 0, round: 0 };
+}
+
+function generateQuizGame(questId) {
+  const questionPool = [
+    { q: "What does digitalWrite(13, HIGH) do?", a: "Turns pin 13 ON", wrong: ["Turns pin 13 OFF", "Reads pin 13 value"] },
+    { q: "How long does delay(1000) wait?", a: "1 second", wrong: ["1 millisecond", "1 minute"] },
+    { q: "What does pinMode(13, OUTPUT) do?", a: "Sets pin 13 as output", wrong: ["Sets pin 13 as input", "Connects a resistor"] },
+    { q: "What is an LED?", a: "Light Emitting Diode", wrong: ["Low Energy Device", "Light Emitting Display"] },
+    { q: "Why do we use resistors with LEDs?", a: "To limit current", wrong: ["To increase voltage", "To store energy"] },
+    { q: "What is GND?", a: "Ground (return path)", wrong: ["General Negative Device", "Ground Network Distributor"] },
+    { q: "What sensor detects light?", a: "Photoresistor", wrong: ["Thermometer", "Ultrasonic sensor"] },
+    { q: "What is analogRead() used for?", a: "Reading analog values 0-1023", wrong: ["Turning something on/off", "Measuring distance"] },
+    { q: "What does threshold mean?", a: "A limit value to compare against", wrong: ["A type of sensor", "A programming language"] },
+    { q: "What does Serial.begin(9600) do?", a: "Starts serial communication at 9600 baud", wrong: ["Sets pin 9600 as output", "Waits 9600 milliseconds"] },
+    { q: "What component spins when powered?", a: "Motor", wrong: ["LED", "Resistor"] },
+    { q: "What does a breadboard do?", a: "Connects components without soldering", wrong: ["Stores electricity", "Measures voltage"] },
+    { q: "What is PWM used for?", a: "Simulating analog output", wrong: ["Reading digital pins", "Measuring temperature"] },
+    { q: "What does map(val, 0, 1023, 0, 255) do?", a: "Scales a value from one range to another", wrong: ["Creates a navigation map", "Stores values in memory"] },
+    { q: "What is a servo motor?", a: "A motor that moves to precise angles", wrong: ["A motor that only spins fast", "A type of LED"] }
+  ];
+
+  // Shuffle and pick 5 random questions
+  const shuffled = questionPool.sort(() => Math.random() - 0.5).slice(0, 5).map(q => ({
+    ...q,
+    options: [q.a, ...q.wrong].sort(() => Math.random() - 0.5),
+    answered: false
+  }));
+
+  return { type: "quiz", questions: shuffled, score: 0, index: 0 };
+}
+
+// ─── MAIN APP ───────────────────────────────────────────────
+function App() {
+  const [view, setView] = useState("world");
+  const [selectedQuest, setSelectedQuest] = useState(null);
+  const [completed, setCompleted] = useState({});
+  const [player, setPlayer] = useState("");
+  const [showSetup, setShowSetup] = useState(true);
+  const [miniGame, setMiniGame] = useState(null);
+  const [xpPops, setXpPops] = useState([]);
+  const [showLevels, setShowLevels] = useState(false);
+  const [bonusXp, setBonusXp] = useState(0);
+
+  const completedCount = Object.keys(completed).filter(k => completed[k]).length;
+  const totalProjects = PROJECTS.length;
+  const xp = completedCount * 100 + bonusXp;
+  const level = Math.floor(xp / 100) + 1;
+
+  const titleNames = [
+    "New Recruit",
+    "Circuit Cadet",
+    "Wire Wrangler",
+    "Signal Scout",
+    "Spark Apprentice",
+    "Sensor Specialist",
+    "Code Commander",
+    "Motor Mechanic",
+    "Systems Engineer",
+    "Robotics Expert",
+    "Master Inventor",
+    "Spark City Guardian",
+    "City Hero"
+  ];
+  const title = titleNames[Math.min(level - 1, titleNames.length - 1)];
+  const nextTitle = titleNames[Math.min(level, titleNames.length - 1)];
+  const xpForNextLevel = level * 100;
+  const xpProgress = xp % 100;
+
+  const toggleComplete = (id) => {
+    if (!completed[id]) {
+      addXpPop(100);
+    }
+    setCompleted(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const addXpPop = (amount) => {
+    const id = Math.random();
+    setXpPops(prev => [...prev, { id, x: 50 + Math.random() * 30, y: 50 + Math.random() * 30, xp: amount }]);
+    setTimeout(() => setXpPops(prev => prev.filter(p => p.id !== id)), 600);
+  };
+
+  const saveState = (playerName, completedState, bonusXpState) => {
+    try {
+      const data = { completed: completedState, bonusXp: bonusXpState, lastPlayed: Date.now() };
+      localStorage.setItem('sparkcity_' + playerName.toLowerCase(), JSON.stringify(data));
+    } catch(e) {}
+  };
+
+  useEffect(() => {
+    if (player) saveState(player, completed, bonusXp);
+  }, [player, completed, bonusXp]);
+
+  if (showSetup) {
+    return React.createElement(SetupScreen, { onStart: (name) => {
+      setPlayer(name);
+      setShowSetup(false);
+      try {
+        const saved = localStorage.getItem('sparkcity_' + name.toLowerCase());
+        if (saved) {
+          const data = JSON.parse(saved);
+          if (data.completed) setCompleted(data.completed);
+          if (data.bonusXp !== undefined) setBonusXp(data.bonusXp);
+        }
+      } catch(e) {}
+    }});
+  }
+
+  if (view === "quest" && selectedQuest) {
+    return React.createElement(QuestView, {
+      quest: selectedQuest,
+      player,
+      isCompleted: completed[selectedQuest.id],
+      onToggleComplete: () => toggleComplete(selectedQuest.id),
+      onBack: () => setView("world"),
+      onStartMiniGame: (game) => setMiniGame(game),
+      onCompleteMiniGame: (bonusXpAmount) => {
+        addXpPop(bonusXpAmount);
+        setBonusXp(prev => prev + bonusXpAmount);
+        setMiniGame(null);
+      }
+    });
+  }
+
+  if (miniGame) {
+    return React.createElement(MiniGameView, {
+      game: miniGame,
+      onClose: () => setMiniGame(null),
+      onComplete: (bonusXpAmount) => {
+        addXpPop(bonusXpAmount);
+        setBonusXp(prev => prev + bonusXpAmount);
+        setMiniGame(null);
+      }
+    });
+  }
+
+  const levelIcons = ["\u{1F331}","\u{1F4A1}","\u{1F527}","\u{1F4E1}","\u26A1","\u{1F50D}","\u{1F4BB}","\u2699\uFE0F","\u{1F3D7}\uFE0F","\u{1F916}","\u{1F9EA}","\u{1F6E1}\uFE0F","\u{1F3C6}"];
+
+  return React.createElement("div", { style: { minHeight: "100vh", background: "#131a2b" }},
+
+    // ── LEVELS MODAL ──
+    showLevels && React.createElement("div", {
+      onClick: () => setShowLevels(false),
+      style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)", animation: "fadeIn 0.2s ease" }
+    },
+      React.createElement("div", {
+        onClick: (e) => e.stopPropagation(),
+        style: { background: "#131a2b", border: "1px solid #1e293b", borderRadius: 20, padding: 32, maxWidth: 480, width: "90%", maxHeight: "85vh", overflowY: "auto", animation: "popIn 0.3s ease" }
+      },
+        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }},
+          React.createElement("h2", { style: { fontFamily: "'Fredoka One', cursive", fontSize: 22, color: "#e2e8f0" }}, "\u{1F3AF} Engineer Ranks"),
+          React.createElement("button", {
+            onClick: () => setShowLevels(false),
+            style: { background: "none", border: "none", color: "#64748b", fontSize: 22, cursor: "pointer" }
+          }, "\u2715")
+        ),
+
+        // Level list
+        titleNames.map((name, idx) => {
+          const lvl = idx + 1;
+          const unlocked = level >= lvl;
+          const isCurrent = level === lvl;
+          const reqXp = idx * 100;
+          return React.createElement("div", {
+            key: idx,
+            style: {
+              display: "flex", alignItems: "center", gap: 14, padding: "12px 14px",
+              borderRadius: 12, marginBottom: 6,
+              background: isCurrent ? "rgba(34,197,94,0.1)" : unlocked ? "rgba(26,35,53,0.6)" : "rgba(15,20,30,0.5)",
+              border: isCurrent ? "1px solid rgba(34,197,94,0.3)" : "1px solid transparent",
+              opacity: unlocked ? 1 : 0.45,
+              transition: "all 0.3s"
+            }
+          },
+            // Level number badge
+            React.createElement("div", {
+              style: {
+                minWidth: 40, height: 40, borderRadius: "50%",
+                background: isCurrent ? "linear-gradient(135deg, #22c55e, #16a34a)" : unlocked ? "rgba(34,197,94,0.15)" : "#1e293b",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 18,
+                border: isCurrent ? "2px solid #22c55e" : unlocked ? "1px solid rgba(34,197,94,0.3)" : "1px solid #334155",
+                boxShadow: isCurrent ? "0 0 12px rgba(34,197,94,0.3)" : "none"
+              }
+            }, unlocked ? levelIcons[idx] : "\u{1F512}"),
+
+            // Info
+            React.createElement("div", { style: { flex: 1 }},
+              React.createElement("div", { style: { fontWeight: 700, fontSize: 14, color: unlocked ? "#e2e8f0" : "#475569" }},
+                name,
+                isCurrent && React.createElement("span", { style: { marginLeft: 8, fontSize: 10, background: "#22c55e", color: "#fff", padding: "2px 8px", borderRadius: 10, fontWeight: 800 }}, "YOU")
+              ),
+              React.createElement("div", { style: { fontSize: 11, color: unlocked ? "#64748b" : "#334155" }},
+                reqXp === 0 ? "Starting rank" : reqXp + " XP required"
+              )
+            ),
+
+            // Level number
+            React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: unlocked ? "#94a3b8" : "#334155" }}, "Lv." + lvl)
+          );
+        }),
+
+        // Footer
+        React.createElement("div", { style: { marginTop: 16, padding: 14, background: "rgba(30,41,59,0.4)", borderRadius: 10, textAlign: "center" }},
+          React.createElement("p", { style: { fontSize: 12, color: "#64748b" }},
+            level >= titleNames.length
+              ? "\u{1F389} You've reached the highest rank! Spark City is safe!"
+              : "Complete quests to earn 100 XP each and unlock new ranks!"
+          )
+        )
+      )
+    ),
+
+    // Header
+    React.createElement("header", { style: { background: "rgba(19,26,43,0.95)", backdropFilter: "blur(12px)", borderBottom: "2px solid #1e293b", padding: "16px 24px", position: "sticky", top: 0, zIndex: 100 }},
+      React.createElement("div", { style: { maxWidth: 1400, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }},
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12 }},
+          React.createElement("div", { style: { fontSize: 32, animation: "bounce 2s infinite" }}, "\u{1F916}"),
+          React.createElement("div", null,
+            React.createElement("h1", { style: { fontFamily: "'Fredoka One', cursive", fontSize: 24, color: "#fff", margin: 0 }}, "Mission: Spark City"),
+            React.createElement("p", { style: { fontSize: 12, color: "#94a3b8", margin: 0 }}, player + " the " + title)
+          )
+        ),
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 20, flex: 1, justifyContent: "flex-end" }},
+          // Reset button
+          React.createElement("button", {
+            onClick: () => {
+              if (confirm('Reset all progress for ' + player + '?')) {
+                localStorage.removeItem('sparkcity_' + player.toLowerCase());
+                setCompleted({});
+                setBonusXp(0);
+              }
+            },
+            style: { background: "none", border: "1px solid #475569", borderRadius: 6, padding: "6px 12px", color: "#64748b", fontSize: 12, cursor: "pointer", fontFamily: "Nunito", transition: "all 0.2s" },
+            onMouseEnter: (e) => { e.currentTarget.style.color = "#94a3b8"; e.currentTarget.style.borderColor = "#64748b"; },
+            onMouseLeave: (e) => { e.currentTarget.style.color = "#64748b"; e.currentTarget.style.borderColor = "#475569"; }
+          }, "⚙ Reset"),
+          // Clickable level badge
+          React.createElement("div", {
+            onClick: () => setShowLevels(true),
+            style: { textAlign: "right", cursor: "pointer", padding: "4px 8px", borderRadius: 8, transition: "background 0.2s" },
+            onMouseEnter: (e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)",
+            onMouseLeave: (e) => e.currentTarget.style.background = "transparent"
+          },
+            React.createElement("div", { style: { fontSize: 20, fontWeight: 800, color: "#22c55e" }}, xp + " XP"),
+            React.createElement("div", { style: { fontSize: 11, color: "#64748b" }}, "Level " + level + " \u2022 " + completedCount + "/" + totalProjects + " quests"),
+            React.createElement("div", { style: { fontSize: 10, color: "#475569", textDecoration: "underline", marginTop: 2 }}, "View all ranks \u2192")
+          ),
+          React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, minWidth: 160 }},
+            React.createElement("div", { style: { width: "100%", height: 10, background: "#1e293b", borderRadius: 6, overflow: "hidden", border: "1px solid #334155" }},
+              React.createElement("div", { style: { width: (level >= titleNames.length ? 100 : xpProgress) + "%", height: "100%", background: "linear-gradient(90deg, #22c55e, #3b82f6)", borderRadius: 6, transition: "width 0.5s" }})
+            ),
+            React.createElement("div", { style: { fontSize: 10, color: "#475569", textAlign: "center" }},
+              level >= titleNames.length ? "\u{1F3C6} Max Level!" : "Next: " + nextTitle + " (" + (xpForNextLevel - xp) + " XP)")
+          )
+        )
+      )
+    ),
+
+    // World Map
+    React.createElement("main", { style: { maxWidth: 1400, margin: "0 auto", padding: "40px 24px" }},
+      React.createElement(WorldMap, {
+        projects: PROJECTS,
+        completed,
+        onSelectQuest: (q) => { setSelectedQuest(q); setView("quest"); }
+      })
+    ),
+
+    // XP Poppers
+    xpPops.map(pop =>
+      React.createElement("div", {
+        key: pop.id,
+        style: {
+          position: "fixed",
+          left: pop.x + "%",
+          top: pop.y + "%",
+          fontSize: 18,
+          fontWeight: 800,
+          color: "#22c55e",
+          animation: "xpPop 0.6s ease-out",
+          pointerEvents: "none",
+          textShadow: "0 0 8px rgba(34,197,94,0.5)"
+        }
+      }, "+" + pop.xp + " XP")
+    )
+  );
+}
+
+// ─── SETUP SCREEN ────────────────────────────────────────────
+function SetupScreen({ onStart }) {
+  const [name, setName] = useState("");
+
+  return React.createElement("div", { style: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#131a2b", padding: 24, position: "relative", overflow: "hidden" }},
+    React.createElement("div", { style: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0.05, fontSize: 200, display: "flex", alignItems: "center", justifyContent: "center" }}, "🤖"),
+    React.createElement("div", { style: { textAlign: "center", maxWidth: 600, position: "relative", zIndex: 1 }},
+      React.createElement("div", { style: { fontSize: 120, marginBottom: 24, animation: "popIn 0.6s ease" }}, "🤖"),
+      React.createElement("h1", { style: { fontFamily: "'Fredoka One', cursive", fontSize: 44, color: "#fff", marginBottom: 12 }}, "Mission: Spark City"),
+      React.createElement("p", { style: { color: "#22c55e", fontSize: 18, fontWeight: 700, marginBottom: 12 }}, "Sparky Needs Your Help!"),
+      React.createElement("p", { style: { color: "#94a3b8", fontSize: 16, lineHeight: 1.8, marginBottom: 32 }}, "Sparky, a friendly robot, crash-landed in the workshop! The city is going dark. As a Junior Engineer, YOU must repair Sparky and save Spark City by completing 12 epic quests!"),
+      React.createElement("div", { style: { display: "flex", gap: 12, justifyContent: "center", marginBottom: 32 }},
+        React.createElement("input", {
+          type: "text",
+          placeholder: "Enter your name, engineer...",
+          value: name,
+          onChange: (e) => setName(e.target.value),
+          onKeyDown: (e) => e.key === "Enter" && name.trim() && onStart(name.trim()),
+          style: { padding: "14px 20px", borderRadius: 12, border: "2px solid #334155", background: "#1e293b", color: "#fff", fontSize: 16, outline: "none", width: 300, fontFamily: "Nunito", transition: "border 0.2s" }
+        }),
+        React.createElement("button", {
+          onClick: () => name.trim() && onStart(name.trim()),
+          style: { padding: "14px 32px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #22c55e, #16a34a)", color: "#fff", fontSize: 16, fontWeight: 700, cursor: "pointer", fontFamily: "Nunito", boxShadow: "0 6px 20px rgba(34,197,94,0.3)" }
+        }, "Start Mission \u{1F680}")
+      ),
+      React.createElement("div", { style: { padding: 24, background: "rgba(34,197,94,0.06)", borderRadius: 12, border: "1px solid rgba(34,197,94,0.15)" }},
+        React.createElement("p", { style: { fontSize: 14, color: "#94a3b8", lineHeight: 1.8 }}, "Your mission: Fix Sparky by building Arduino projects. Each quest teaches you real electronics and programming. Earn XP, level up, and become the City Hero!")
+      )
+    )
+  );
+}
+
+// ─── WORLD MAP ────────────────────────────────────────────────
+function WorldMap({ projects, completed, onSelectQuest }) {
+  return React.createElement("div", { style: { animation: "fadeIn 0.6s ease" }},
+    React.createElement("h2", { style: { fontFamily: "'Fredoka One', cursive", fontSize: 28, color: "#e2e8f0", marginBottom: 12, textAlign: "center" }}, "Spark City Quest Map"),
+    React.createElement("p", { style: { fontSize: 14, color: "#94a3b8", marginBottom: 32, textAlign: "center" }}, "Click any location to start a quest. Green = completed, Pulsing = current, Grey = locked"),
+
+    React.createElement("div", { style: { position: "relative", height: 800, background: "linear-gradient(135deg, rgba(30,41,59,0.3), rgba(30,41,59,0.1))", borderRadius: 20, border: "1px solid #1e293b", padding: 40, overflow: "visible" }},
+      // Quest nodes in a winding path
+      projects.map((p, idx) => {
+        const row = Math.floor(idx / 3);
+        const colRaw = idx % 3;
+        // Reverse direction on odd rows for a snake/winding path
+        const col = row % 2 === 0 ? colRaw : (2 - colRaw);
+        const x = 20 + col * 30;
+        const y = 8 + row * 22;
+        const isCompleted = completed[p.id];
+
+        return React.createElement(React.Fragment, { key: p.id },
+          // Connector line (skip — using CSS path between nodes is complex, keep it clean)
+
+
+          // Quest node
+          React.createElement("div", {
+            onClick: () => onSelectQuest(p),
+            style: {
+              position: "absolute",
+              left: x + "%",
+              top: y + "%",
+              transform: "translate(-50%, -50%)",
+              cursor: "pointer",
+              zIndex: 10
+            }
+          },
+            React.createElement("div", {
+              style: {
+                width: 80,
+                height: 80,
+                borderRadius: "50%",
+                background: isCompleted ? "rgba(34,197,94,0.15)" : "rgba(26,35,53,0.85)",
+                border: isCompleted ? "2px solid rgba(34,197,94,0.4)" : "2px solid " + p.color,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 32,
+                animation: isCompleted ? "none" : "pulse 2s ease-in-out infinite",
+                boxShadow: isCompleted ? "0 0 20px rgba(34,197,94,0.2)" : "0 0 16px " + p.color + "30",
+                transition: "all 0.3s"
+              },
+              onMouseEnter: (e) => {
+                e.currentTarget.style.transform = "scale(1.1)";
+                e.currentTarget.style.boxShadow = "0 0 30px " + p.color + "50";
+              },
+              onMouseLeave: (e) => {
+                e.currentTarget.style.transform = "scale(1)";
+                e.currentTarget.style.boxShadow = isCompleted ? "0 0 20px rgba(34,197,94,0.2)" : "0 0 16px " + p.color + "30";
+              }
+            }, isCompleted ? "✓" : p.icon)
+          ),
+
+          // Node label
+          React.createElement("div", {
+            style: {
+              position: "absolute",
+              left: x + "%",
+              top: (y + 6) + "%",
+              transform: "translateX(-50%)",
+              fontSize: 11,
+              fontWeight: 700,
+              color: "#94a3b8",
+              textAlign: "center",
+              maxWidth: 100,
+              pointerEvents: "none"
+            }
+          }, p.id + ". " + p.title)
+        );
+      })
+    )
+  );
+}
+
+// ─── QUEST VIEW ────────────────────────────────────────────────
+function QuestView({ quest, player, isCompleted, onToggleComplete, onBack, onStartMiniGame, onCompleteMiniGame }) {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [visitedSteps, setVisitedSteps] = useState({0: true});
+  const contentRef = useRef(null);
+
+  const steps = [
+    { id: "story", label: "Story", icon: "📖", shortLabel: "Story" },
+    { id: "overview", label: "Overview", icon: "📋", shortLabel: "Overview" },
+    { id: "wiring", label: "Wiring", icon: "🔌", shortLabel: "Wire" },
+    { id: "code", label: "Code", icon: "💻", shortLabel: "Code" },
+    { id: "challenge", label: "Challenge", icon: "🎯", shortLabel: "Challenge" }
+  ];
+
+  const allStepsVisited = steps.every((_, i) => visitedSteps[i]);
+
+  const goToStep = (idx) => {
+    setCurrentStep(idx);
+    setVisitedSteps(prev => ({...prev, [idx]: true}));
+    if (contentRef.current) contentRef.current.scrollTo({top: 0, behavior: "smooth"});
+    window.scrollTo({top: 0, behavior: "smooth"});
+  };
+
+  const nextStep = () => { if (currentStep < steps.length - 1) goToStep(currentStep + 1); };
+  const prevStep = () => { if (currentStep > 0) goToStep(currentStep - 1); };
+
+  const handleComplete = () => {
+    onToggleComplete();
+    if (!isCompleted) {
+      setTimeout(() => {
+        const gameType = ["match", "debug", "quiz"][quest.id % 3];
+        let game;
+        if (gameType === "match") game = generateComponentMatchGame(quest.id);
+        else if (gameType === "debug") game = generateDebugCodeGame(quest.id);
+        else game = generateQuizGame(quest.id);
+        onBack();
+        setTimeout(() => onStartMiniGame(game), 100);
+      }, 400);
+    }
+  };
+
+  return React.createElement("div", { style: { minHeight: "100vh", background: "#131a2b" }},
+    // Top bar
+    React.createElement("div", { style: { background: "rgba(19,26,43,0.95)", backdropFilter: "blur(12px)", borderBottom: "1px solid #1e293b", padding: "12px 24px", display: "flex", alignItems: "center", gap: 16, position: "sticky", top: 0, zIndex: 100 }},
+      React.createElement("button", {
+        onClick: onBack,
+        style: { background: "none", border: "1px solid #334155", borderRadius: 8, color: "#94a3b8", padding: "8px 16px", cursor: "pointer", fontFamily: "Nunito", fontSize: 14, transition: "all 0.2s" }
+      }, "← Back to Map"),
+      React.createElement("span", { style: { fontSize: 28 }}, quest.icon),
+      React.createElement("div", { style: { flex: 1 }},
+        React.createElement("span", { style: { fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: quest.color }}, "Quest " + quest.id),
+        React.createElement("h2", { style: { fontSize: 18, fontWeight: 800, color: "#e2e8f0", margin: 0 }}, quest.title)
+      ),
+      isCompleted && React.createElement("div", { style: { fontSize: 24, color: "#22c55e", fontWeight: 800 }}, "✓ COMPLETED")
+    ),
+
+    // Step Progress
+    React.createElement("div", { style: { background: "rgba(19,26,43,0.8)", padding: "16px 24px 12px", borderBottom: "1px solid #1e293b" }},
+      React.createElement("div", { style: { maxWidth: 800, margin: "0 auto", display: "flex", alignItems: "center", gap: 0, overflowX: "auto", paddingBottom: 8 }},
+        steps.map((step, idx) =>
+          React.createElement(React.Fragment, { key: step.id },
+            React.createElement("div", {
+              onClick: () => goToStep(idx),
+              style: { display: "flex", flexDirection: "column", alignItems: "center", cursor: "pointer", flex: "0 0 auto", position: "relative", zIndex: 2, transition: "all 0.3s" }
+            },
+              React.createElement("div", {
+                style: {
+                  width: 44, height: 44, borderRadius: "50%",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 20,
+                  background: idx === currentStep ? quest.color : visitedSteps[idx] ? "rgba(34,197,94,0.15)" : "rgba(30,41,59,0.8)",
+                  border: idx === currentStep ? "3px solid " + quest.color : visitedSteps[idx] ? "2px solid rgba(34,197,94,0.4)" : "2px solid #334155",
+                  color: idx === currentStep ? "#fff" : visitedSteps[idx] ? "#22c55e" : "#64748b",
+                  transition: "all 0.3s",
+                  boxShadow: idx === currentStep ? "0 0 16px " + quest.color + "40" : "none"
+                }
+              }, visitedSteps[idx] && idx !== currentStep ? "✓" : step.icon),
+              React.createElement("span", { style: { marginTop: 6, fontSize: 10, fontWeight: 600, color: "#94a3b8", whiteSpace: "nowrap" }}, step.shortLabel)
+            ),
+            idx < steps.length - 1 && React.createElement("div", {
+              style: {
+                flex: 1, height: 3, margin: "0 4px", marginBottom: 20,
+                background: visitedSteps[idx + 1] ? "rgba(34,197,94,0.3)" : "#1e293b",
+                borderRadius: 2, transition: "all 0.4s", minWidth: 24
+              }
+            })
+          )
+        )
+      )
+    ),
+
+    // Content
+    React.createElement("div", { ref: contentRef, style: { maxWidth: 900, margin: "0 auto", padding: "28px 24px 120px" }},
+      // STEP 0: Story
+      currentStep === 0 && React.createElement("div", { style: { animation: "fadeIn 0.3s ease" }},
+        React.createElement("div", { style: { background: "rgba(26,35,53,0.85)", borderRadius: 20, padding: 32, border: "2px solid " + quest.color + "40", marginBottom: 20, textAlign: "center" }},
+          React.createElement("div", { style: { fontSize: 80, marginBottom: 20 }}, "🤖"),
+          React.createElement("div", { style: { fontSize: 24, fontFamily: "'Fredoka One', cursive", color: quest.color, marginBottom: 12 }}, "Sparky says..."),
+          React.createElement("div", { style: { fontSize: 18, color: "#e2e8f0", lineHeight: 2, fontStyle: "italic", marginBottom: 24 }}, "\"" + quest.questIntro + "\""),
+          React.createElement("div", { style: { fontSize: 14, color: "#94a3b8", padding: 16, background: "rgba(30,41,59,0.5)", borderRadius: 12 }},
+            "This quest will repair Sparky's " + quest.systemRepaired + " system!"
+          )
+        )
+      ),
+
+      // STEP 1: Overview
+      currentStep === 1 && React.createElement("div", { style: { animation: "fadeIn 0.3s ease" }},
+        React.createElement("div", { style: { background: "rgba(26,35,53,0.85)", borderRadius: 16, padding: 24, marginBottom: 20, border: "1px solid #1e293b" }},
+          React.createElement("h3", { style: { color: "#e2e8f0", marginBottom: 12, fontSize: 18 }}, "What you'll build"),
+          React.createElement("p", { style: { fontSize: 16, lineHeight: 1.8, color: "#b0bec5" }}, quest.description)
+        ),
+
+        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }},
+          React.createElement("div", { style: { background: "rgba(26,35,53,0.85)", borderRadius: 16, padding: 20, border: "1px solid #1e293b" }},
+            React.createElement("h4", { style: { color: "#94a3b8", marginBottom: 12, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}, "🧩 Components"),
+            quest.components.map((c, i) =>
+              React.createElement("div", { key: i, style: { padding: "6px 0", color: "#b0bec5", fontSize: 14, borderBottom: i < quest.components.length - 1 ? "1px solid rgba(30,41,59,0.6)" : "none" }}, "• " + c)
+            )
+          ),
+          React.createElement("div", { style: { background: "rgba(26,35,53,0.85)", borderRadius: 16, padding: 20, border: "1px solid #1e293b" }},
+            React.createElement("h4", { style: { color: "#94a3b8", marginBottom: 12, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}, "💡 You'll Learn"),
+            quest.learn.map((l, i) =>
+              React.createElement("div", { key: i, style: { padding: "6px 0", color: "#b0bec5", fontSize: 14, borderBottom: i < quest.learn.length - 1 ? "1px solid rgba(30,41,59,0.6)" : "none" }}, "✓ " + l)
+            )
+          )
+        ),
+
+        React.createElement("div", { style: { background: "rgba(26,35,53,0.85)", borderRadius: 16, padding: 20, border: "1px solid #1e293b" }},
+          React.createElement("h4", { style: { color: "#d4a853", marginBottom: 8, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}, "🔬 Science Corner"),
+          React.createElement("p", { style: { color: "#b0bec5", lineHeight: 1.7, fontSize: 15 }}, quest.science)
+        )
+      ),
+
+      // STEP 2: Wiring
+      currentStep === 2 && React.createElement("div", { style: { animation: "fadeIn 0.3s ease" }},
+        React.createElement("div", { style: { background: "rgba(26,35,53,0.85)", borderRadius: 16, padding: 24, border: "1px solid #1e293b" }},
+          React.createElement("h3", { style: { color: "#e2e8f0", marginBottom: 8, fontSize: 18 }}, "⚡ Wiring Connections"),
+          React.createElement("p", { style: { color: "#7e8a9a", marginBottom: 20, fontSize: 14 }}, "Follow each connection carefully!"),
+          quest.wiring.map((w, i) =>
+            React.createElement("div", { key: i, style: { display: "flex", alignItems: "center", gap: 16, padding: "14px 0", borderBottom: i < quest.wiring.length - 1 ? "1px solid rgba(30,41,59,0.6)" : "none" }},
+              React.createElement("div", { style: { minWidth: 40, height: 40, borderRadius: "50%", background: quest.color + "18", color: quest.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 16, border: "1px solid " + quest.color + "40" }}, i + 1),
+              React.createElement("div", null,
+                React.createElement("div", { style: { color: "#e2e8f0", fontWeight: 700, fontSize: 15 }}, w.from + (w.to ? " → " + w.to : "")),
+                w.note && React.createElement("div", { style: { color: "#7e8a9a", fontSize: 13, marginTop: 3 }}, w.note)
+              )
+            )
+          )
+        )
+      ),
+
+      // STEP 3: Code
+      currentStep === 3 && React.createElement("div", { style: { animation: "fadeIn 0.3s ease" }},
+        React.createElement("div", { style: { background: "rgba(26,35,53,0.85)", borderRadius: 16, padding: 24, border: "1px solid #1e293b" }},
+          React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }},
+            React.createElement("h3", { style: { color: "#e2e8f0", fontSize: 18 }}, "💻 Arduino Code"),
+            React.createElement("button", {
+              onClick: () => {
+                const el = document.createElement("textarea");
+                el.value = quest.code.replace(/<[^>]+>/g, "");
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand("copy");
+                document.body.removeChild(el);
+              },
+              style: { padding: "8px 18px", borderRadius: 8, border: "1px solid #334155", background: "rgba(30,41,59,0.8)", color: "#94a3b8", cursor: "pointer", fontSize: 13, fontFamily: "Nunito", transition: "all 0.2s" }
+            }, "📋 Copy Code")
+          ),
+          React.createElement("pre", null,
+            React.createElement("code", { dangerouslySetInnerHTML: { __html: highlightArduinoCode(quest.code) }})
+          )
+        )
+      ),
+
+      // STEP 4: Challenge
+      currentStep === 4 && React.createElement("div", { style: { animation: "fadeIn 0.3s ease" }},
+        React.createElement("div", { style: { background: "rgba(26,35,53,0.85)", borderRadius: 16, padding: 28, border: "1px solid " + quest.color + "40", marginBottom: 20 }},
+          React.createElement("h3", { style: { color: quest.color, marginBottom: 16, fontSize: 22 }}, "🎯 Level Up Challenge!"),
+          React.createElement("p", { style: { color: "#b0bec5", lineHeight: 1.8, fontSize: 16 }}, quest.challenge)
+        ),
+
+        allStepsVisited && React.createElement("div", { style: { textAlign: "center" }},
+          React.createElement("button", {
+            onClick: handleComplete,
+            style: {
+              padding: "16px 44px", borderRadius: 14, border: "none",
+              background: isCompleted ? "rgba(71,85,105,0.6)" : "linear-gradient(135deg, #22c55e, #16a34a)",
+              color: "#fff", fontSize: 17, fontWeight: 700, cursor: "pointer", fontFamily: "Nunito",
+              transition: "all 0.3s", boxShadow: isCompleted ? "none" : "0 4px 20px rgba(34,197,94,0.3)", marginTop: 24
+            }
+          }, isCompleted ? "✓ Quest Complete" : "✓ Complete Quest (+100 XP) & Play Mini-Game (up to +50 XP)")
+        )
+      ),
+
+      // Navigation
+      React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 32, gap: 16 }},
+        currentStep > 0
+          ? React.createElement("button", {
+              onClick: prevStep,
+              style: {
+                padding: "14px 28px", borderRadius: 12, border: "1px solid #334155",
+                background: "rgba(30,41,59,0.6)", color: "#94a3b8", fontSize: 15, fontWeight: 700,
+                cursor: "pointer", fontFamily: "Nunito", transition: "all 0.2s", display: "flex", alignItems: "center", gap: 8
+              }
+            }, "← Back")
+          : React.createElement("div"),
+
+        currentStep < steps.length - 1
+          ? React.createElement("button", {
+              onClick: nextStep,
+              style: {
+                padding: "14px 32px", borderRadius: 12, border: "none",
+                background: quest.color, color: "#fff", fontSize: 16, fontWeight: 800,
+                cursor: "pointer", fontFamily: "Nunito", transition: "all 0.3s",
+                display: "flex", alignItems: "center", gap: 8,
+                boxShadow: "0 4px 16px " + quest.color + "30", marginLeft: "auto"
+              }
+            }, "Next →")
+          : React.createElement("div")
+      )
+    )
+  );
+}
+
+// ─── MINI-GAME VIEW ────────────────────────────────────────────
+function MiniGameView({ game, onClose, onComplete }) {
+  const [gameState, setGameState] = useState(game);
+
+  if (gameState.type === "match") {
+    return React.createElement(ComponentMatchGame, { game: gameState, setGame: setGameState, onComplete, onClose });
+  }
+  if (gameState.type === "debug") {
+    return React.createElement(DebugCodeGame, { game: gameState, setGame: setGameState, onComplete, onClose });
+  }
+  if (gameState.type === "quiz") {
+    return React.createElement(CircuitQuizGame, { game: gameState, setGame: setGameState, onComplete, onClose });
+  }
+}
+
+function ComponentMatchGame({ game, setGame, onComplete, onClose }) {
+  const [flipped, setFlipped] = useState({});
+  const [matched, setMatched] = useState({});
+  const [movesLeft, setMovesLeft] = useState(20);
+
+  const handleFlip = (idx) => {
+    if (flipped[idx] || matched[idx] || Object.keys(flipped).length >= 2) return;
+
+    const newFlipped = {...flipped, [idx]: true};
+    setFlipped(newFlipped);
+
+    if (Object.keys(newFlipped).length === 2) {
+      const indices = Object.keys(newFlipped).map(Number);
+      const same = game.cards[indices[0]].label === game.cards[indices[1]].label;
+
+      if (same) {
+        setMatched(prev => ({...prev, [indices[0]]: true, [indices[1]]: true}));
+      }
+
+      setTimeout(() => setFlipped({}), 600);
+      setMovesLeft(movesLeft - 1);
+
+      if (Object.keys(matched).length === game.cards.length - 2) {
+        setTimeout(() => onComplete(50), 800);
+      }
+    }
+  };
+
+  return React.createElement("div", { style: { minHeight: "100vh", background: "#131a2b", padding: 24, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }},
+    React.createElement("h2", { style: { fontFamily: "'Fredoka One', cursive", fontSize: 28, color: "#22c55e", marginBottom: 12 }}, "🎮 Component Matching Game"),
+    React.createElement("p", { style: { color: "#94a3b8", marginBottom: 24 }}, "Match the component pairs! Moves left: " + movesLeft),
+    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }},
+      game.cards.map((card, idx) =>
+        React.createElement("div", {
+          onClick: () => handleFlip(idx),
+          key: idx,
+          style: {
+            width: 80,
+            height: 80,
+            background: flipped[idx] || matched[idx] ? "rgba(34,197,94,0.15)" : "rgba(26,35,53,0.85)",
+            border: flipped[idx] || matched[idx] ? "2px solid #22c55e" : "2px solid #334155",
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 32,
+            cursor: "pointer",
+            transition: "all 0.3s",
+            color: flipped[idx] || matched[idx] ? "#e2e8f0" : "#475569"
+          }
+        }, flipped[idx] || matched[idx] ? (card.img ? card.img : card.label) : "?")
+      )
+    ),
+    matched && Object.keys(matched).length === game.cards.length && React.createElement("div", { style: { textAlign: "center", padding: 24, background: "rgba(34,197,94,0.15)", borderRadius: 12, border: "1px solid rgba(34,197,94,0.3)" }},
+      React.createElement("p", { style: { color: "#22c55e", fontSize: 18, fontWeight: 700 }}, "✓ Perfect! +50 Bonus XP!"),
+      React.createElement("button", {
+        onClick: onClose,
+        style: { marginTop: 12, padding: "10px 20px", borderRadius: 8, border: "none", background: "#22c55e", color: "#000", fontWeight: 700, cursor: "pointer" }
+      }, "Continue")
+    )
+  );
+}
+
+function DebugCodeGame({ game, setGame, onComplete, onClose }) {
+  const [answered, setAnswered] = useState(null);
+  const [correct, setCorrect] = useState(null);
+  const [round, setRound] = useState(0);
+  const scoreRef = useRef(0);
+
+  const currentBug = game.bugs[round];
+
+  const handleAnswer = (answerIdx) => {
+    if (answered !== null) return;
+    setAnswered(answerIdx);
+    const isCorrect = answerIdx === currentBug.bugLine;
+    setCorrect(isCorrect);
+
+    if (isCorrect) {
+      scoreRef.current += 1;
+    }
+
+    setTimeout(() => {
+      if (round < 2) {
+        setAnswered(null);
+        setCorrect(null);
+        setRound(round + 1);
+      } else {
+        onComplete(scoreRef.current * 10);
+      }
+    }, 1200);
+  };
+
+  return React.createElement("div", { style: { minHeight: "100vh", background: "#131a2b", padding: 24, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }},
+    React.createElement("h2", { style: { fontFamily: "'Fredoka One', cursive", fontSize: 28, color: "#a855f7", marginBottom: 12 }}, "🐛 Debug the Code"),
+    React.createElement("p", { style: { color: "#94a3b8", marginBottom: 8 }}, "Round " + (round + 1) + " of 3 — Find the line with the bug!"),
+    React.createElement("p", { style: { color: "#a855f7", fontSize: 13, marginBottom: 24, fontStyle: "italic" }}, "Hint: " + currentBug.hint),
+    React.createElement("pre", { style: { background: "#0d1117", border: "1px solid #30363d", borderRadius: 8, padding: 16, marginBottom: 24, color: "#e2e8f0", fontFamily: "'Fira Code', monospace" }}, currentBug.code),
+    React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 }},
+      currentBug.answers.map((ans, idx) => {
+        var isCorrectLine = answered !== null && idx === currentBug.bugLine;
+        var isWrongPick = answered === idx && !correct;
+        return React.createElement("button", {
+          onClick: () => handleAnswer(idx),
+          key: idx,
+          style: {
+            padding: "12px 24px",
+            borderRadius: 8,
+            border: "2px solid " + (isCorrectLine ? "#22c55e" : isWrongPick ? "#ef4444" : "#334155"),
+            background: isCorrectLine ? "rgba(34,197,94,0.15)" : isWrongPick ? "rgba(239,68,68,0.15)" : "rgba(26,35,53,0.85)",
+            color: "#e2e8f0",
+            cursor: answered !== null ? "default" : "pointer",
+            fontWeight: 700,
+            transition: "all 0.3s"
+          }
+        }, ans + (isCorrectLine && answered !== null ? " ✓" : ""));
+      })
+    ),
+    answered !== null && correct !== null && React.createElement("div", { style: { marginTop: 24, padding: 16, background: correct ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", borderRadius: 8, border: "1px solid " + (correct ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"), textAlign: "center" }},
+      React.createElement("p", { style: { color: correct ? "#22c55e" : "#ef4444", fontWeight: 700, marginBottom: 8 }},
+        correct ? "✓ Correct! Nice catch!" : "✗ Not quite — the bug was on " + currentBug.answers[currentBug.bugLine]),
+      React.createElement("p", { style: { color: "#94a3b8", fontSize: 13 }}, currentBug.hint)
+    ),
+    React.createElement("div", { style: { marginTop: 16, color: "#64748b", fontSize: 13, textAlign: "center" }}, "Score: " + scoreRef.current + "/" + (round + 1))
+  );
+}
+
+function CircuitQuizGame({ game, setGame, onComplete, onClose }) {
+  const [answers, setAnswers] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleAnswer = (qIdx, answer) => {
+    if (!submitted) setAnswers(prev => ({...prev, [qIdx]: answer}));
+  };
+
+  const correctCount = game.questions.filter((q, i) => answers[i] === q.a).length;
+  const earnedXp = correctCount * 10;
+  const allAnswered = game.questions.every((_, i) => answers[i]);
+
+  return React.createElement("div", { style: { minHeight: "100vh", background: "#131a2b", padding: 24, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }},
+    React.createElement("h2", { style: { fontFamily: "'Fredoka One', cursive", fontSize: 28, color: "#06b6d4", marginBottom: 12 }}, "💭 Circuit Quiz"),
+    React.createElement("div", { style: { maxWidth: 600, width: "100%" }},
+      game.questions.map((q, qIdx) => {
+        var isCorrect = submitted && answers[qIdx] === q.a;
+        var isWrong = submitted && answers[qIdx] !== q.a;
+        return React.createElement("div", { key: qIdx, style: { marginBottom: 20, padding: 16, background: "rgba(26,35,53,0.85)", borderRadius: 12, border: submitted ? (isCorrect ? "1px solid rgba(34,197,94,0.4)" : "1px solid rgba(239,68,68,0.4)") : "1px solid #1e293b" }},
+          React.createElement("p", { style: { color: "#e2e8f0", fontWeight: 700, marginBottom: 12 }},
+            (qIdx + 1) + ". " + q.q,
+            submitted && React.createElement("span", { style: { marginLeft: 8, color: isCorrect ? "#22c55e" : "#ef4444" }}, isCorrect ? " ✓" : " ✗")
+          ),
+          React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 }},
+            q.options.map((opt, oIdx) => {
+              var optIsCorrect = submitted && opt === q.a;
+              var optIsWrongPick = submitted && answers[qIdx] === opt && opt !== q.a;
+              return React.createElement("label", { key: oIdx, style: { display: "flex", alignItems: "center", gap: 12, padding: 10, borderRadius: 8, background: optIsCorrect ? "rgba(34,197,94,0.15)" : optIsWrongPick ? "rgba(239,68,68,0.1)" : answers[qIdx] === opt ? "rgba(6,182,212,0.15)" : "transparent", border: optIsCorrect ? "1px solid #22c55e" : optIsWrongPick ? "1px solid #ef4444" : answers[qIdx] === opt ? "1px solid #06b6d4" : "1px solid #334155", cursor: submitted ? "default" : "pointer", transition: "all 0.2s" }},
+                React.createElement("input", {
+                  type: "radio",
+                  name: "q" + qIdx,
+                  checked: answers[qIdx] === opt,
+                  onChange: () => handleAnswer(qIdx, opt),
+                  disabled: submitted,
+                  style: { width: 18, height: 18, cursor: submitted ? "default" : "pointer" }
+                }),
+                React.createElement("span", { style: { color: optIsCorrect ? "#22c55e" : optIsWrongPick ? "#ef4444" : "#94a3b8", fontWeight: optIsCorrect ? 700 : 400 }}, opt + (optIsCorrect ? " ✓" : ""))
+              );
+            })
+          )
+        );
+      })
+    ),
+    !submitted && React.createElement("button", {
+      onClick: () => setSubmitted(true),
+      disabled: !allAnswered,
+      style: {
+        marginTop: 24, padding: "14px 32px", borderRadius: 8, border: "none",
+        background: allAnswered ? "#06b6d4" : "#334155", color: "#fff",
+        fontWeight: 700, cursor: allAnswered ? "pointer" : "not-allowed", fontSize: 16
+      }
+    }, "Submit Answers"),
+    submitted && React.createElement("div", { style: { marginTop: 24, padding: 24, background: earnedXp > 0 ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.1)", borderRadius: 12, border: "1px solid " + (earnedXp > 0 ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"), textAlign: "center" }},
+      React.createElement("p", { style: { color: earnedXp > 0 ? "#22c55e" : "#ef4444", fontSize: 18, fontWeight: 700 }},
+        "Quiz Complete! " + correctCount + "/" + game.questions.length + " correct" + (earnedXp > 0 ? " — +" + earnedXp + " Bonus XP!" : " — no bonus XP this time")),
+      React.createElement("p", { style: { color: "#94a3b8", fontSize: 13, marginTop: 8 }},
+        earnedXp > 0 ? "Review your answers above — correct answers are highlighted in green." : "Review the correct answers above in green, then try again next time!"),
+      React.createElement("button", {
+        onClick: () => onComplete(earnedXp),
+        style: { marginTop: 16, padding: "12px 28px", borderRadius: 8, border: "none", background: earnedXp > 0 ? "#22c55e" : "#64748b", color: earnedXp > 0 ? "#000" : "#fff", fontWeight: 700, cursor: "pointer", fontSize: 15 }
+      }, earnedXp > 0 ? "Collect +" + earnedXp + " XP & Continue" : "Continue")
+    )
+  );
+}
+
+// ─── RENDER ────────────────────────────────────────────────────
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(React.createElement(App));
+</script>
+</body>
+</html>
