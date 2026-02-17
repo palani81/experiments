@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Car Combat: First Person</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #111; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; }
+  canvas { display: block; }
+  #ui {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 20px; pointer-events: none; z-index: 10;
+  }
+  .score-panel {
+    padding: 8px 18px; border-radius: 8px; font-size: 20px; font-weight: bold;
+    color: #fff; text-shadow: 1px 1px 3px rgba(0,0,0,0.7);
+  }
+  #blue-score { background: rgba(30, 100, 220, 0.85); }
+  #red-score { background: rgba(220, 40, 40, 0.85); }
+  #info {
+    background: rgba(0,0,0,0.7); color: #ccc; padding: 6px 14px;
+    border-radius: 8px; font-size: 13px; text-align: center;
+  }
+  #start-screen {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.92);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 100; color: #fff;
+  }
+  #start-screen h1 {
+    font-size: 52px; margin-bottom: 8px;
+    background: linear-gradient(90deg, #4af, #f44);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  #start-screen p { color: #aaa; margin-bottom: 30px; font-size: 16px; }
+  #start-screen .controls {
+    background: rgba(255,255,255,0.08); border-radius: 12px; padding: 20px 30px;
+    margin-bottom: 30px; text-align: left; font-size: 14px; color: #ccc; line-height: 2;
+  }
+  #start-screen .controls span { color: #fff; font-weight: bold; }
+  #start-btn {
+    padding: 14px 50px; font-size: 22px; font-weight: bold;
+    background: linear-gradient(135deg, #4af, #27e); color: #fff;
+    border: none; border-radius: 10px; cursor: pointer;
+    transition: transform 0.15s;
+  }
+  #start-btn:hover { transform: scale(1.05); }
+  #respawn-msg {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    color: #fff; font-size: 28px; font-weight: bold; text-shadow: 2px 2px 8px #000;
+    display: none; z-index: 50; text-align: center; pointer-events: none;
+  }
+  #minimap {
+    position: fixed; bottom: 12px; right: 12px; border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 6px; z-index: 10; background: rgba(0,0,0,0.6);
+  }
+  #crosshair {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    pointer-events: none; z-index: 10; color: rgba(255,255,255,0.7);
+    font-size: 30px; text-shadow: 0 0 6px rgba(0,0,0,0.8);
+  }
+  #hit-flash {
+    position: fixed; inset: 0; pointer-events: none; z-index: 8;
+    background: radial-gradient(ellipse, transparent 50%, rgba(255,0,0,0.3) 100%);
+    opacity: 0; transition: opacity 0.1s;
+  }
+  #speed-indicator {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    color: #aaa; font-size: 16px; font-weight: bold; z-index: 10; pointer-events: none;
+    text-shadow: 1px 1px 4px #000;
+  }
+</style>
+</head>
+<body>
+<div id="start-screen">
+  <h1>CAR COMBAT</h1>
+  <p>First Person Edition</p>
+  <div class="controls">
+    <span>WASD</span> — Drive &amp; Steer<br>
+    <span>Mouse</span> — Look &amp; Aim<br>
+    <span>Left Click</span> — Shoot<br>
+    <span>Space</span> — Boost<br>
+    <span>R</span> — Reload<br>
+    Destroy enemy cars. First team to <span>30 kills</span> wins!<br>
+    <span style="color:#fa0">Click to lock mouse — ESC to unlock</span>
+  </div>
+  <button id="start-btn">FIGHT!</button>
+</div>
+
+<div id="ui">
+  <div id="blue-score" class="score-panel">BLUE: 0</div>
+  <div id="info">
+    <div id="hp-text">HP: 180</div>
+    <div id="ammo-text">AMMO: 30 / 30</div>
+    <div id="boost-text">BOOST: 100%</div>
+  </div>
+  <div id="red-score" class="score-panel">RED: 0</div>
+</div>
+
+<div id="crosshair">+</div>
+<div id="hit-flash"></div>
+<div id="respawn-msg"></div>
+<div id="speed-indicator"></div>
+<canvas id="game"></canvas>
+<canvas id="minimap" width="180" height="180"></canvas>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const miniCanvas = document.getElementById('minimap');
+const miniCtx = miniCanvas.getContext('2d');
+
+// Game config
+const WORLD_W = 3000, WORLD_H = 3000;
+const TEAM_SIZE = 5;
+const WIN_SCORE = 30;
+const CAR_W = 40, CAR_H = 24;
+const BULLET_SPEED = 12, BULLET_LIFE = 80, BULLET_DMG = 15;
+const ENEMY_BULLET_DMG = 6;
+const MAX_HP = 180, MAX_AMMO = 30, RELOAD_TIME = 60;
+const ENEMY_HP = 70;
+const BOOST_MAX = 150, BOOST_DRAIN = 0.5, BOOST_REGEN = 0.3;
+const FIRE_COOLDOWN = 6;
+const ENEMY_FIRE_COOLDOWN = 14;
+const FOV = Math.PI * 0.55; // field of view
+const WALL_HEIGHT = 80; // obstacle height in world units
+const VIEW_DIST = 900; // max render distance
+
+let W, H, halfW, halfH;
+function resize() {
+  W = canvas.width = innerWidth; H = canvas.height = innerHeight;
+  halfW = W / 2; halfH = H / 2;
+}
+resize();
+addEventListener('resize', resize);
+
+// Utility (defined early so event handlers can use it)
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// Input
+const keys = {};
+let mouseDown = false;
+let lookAngle = 0; // horizontal look (replaces turretAngle for player)
+let lookPitch = 0; // slight vertical look
+
+addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; if (e.key === ' ') e.preventDefault(); });
+addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+addEventListener('mousedown', e => { if (e.button === 0) mouseDown = true; });
+addEventListener('mouseup', e => { if (e.button === 0) mouseDown = false; });
+
+// Pointer lock for FPS controls
+let pointerLocked = false;
+let needsPointerLock = false;
+
+canvas.addEventListener('click', () => {
+  if (gameOver) {
+    initGame();
+    return;
+  }
+  if (!pointerLocked && gameStarted) {
+    canvas.requestPointerLock().catch(() => {});
+  }
+});
+
+document.addEventListener('pointerlockchange', () => {
+  pointerLocked = document.pointerLockElement === canvas;
+});
+
+document.addEventListener('mousemove', e => {
+  if (pointerLocked) {
+    lookAngle += e.movementX * 0.003;
+    lookPitch = Math.max(-0.4, Math.min(0.4, lookPitch - e.movementY * 0.002));
+  } else if (gameStarted) {
+    // Fallback: use mouse position relative to screen center for aiming
+    let dx = e.clientX - innerWidth / 2;
+    let dy = e.clientY - innerHeight / 2;
+    if (cars.length > 0 && cars[0].alive) {
+      lookAngle = cars[0].angle + dx * 0.004;
+    }
+  }
+});
+
+// Game state
+let cars = [], bullets = [], particles = [], pickups = [];
+let scores = { blue: 0, red: 0 };
+let gameStarted = false, gameOver = false, winTeam = '';
+let obstacles = [];
+let lastPlayerHp = MAX_HP;
+let screenShake = 0;
+let gunRecoil = 0;
+let damageFlash = 0;
+
+function generateObstacles() {
+  obstacles = [];
+  for (let i = 0; i < 35; i++) {
+    let w = 40 + Math.random() * 120;
+    let h = 40 + Math.random() * 120;
+    let x = 100 + Math.random() * (WORLD_W - 200 - w);
+    let y = 100 + Math.random() * (WORLD_H - 200 - h);
+    if ((x < 500 && y < 500) || (x + w > WORLD_W - 500 && y + h > WORLD_H - 500)) continue;
+    obstacles.push({
+      x, y, w, h,
+      color: `hsl(${Math.random()*40+15}, 20%, ${18 + Math.random()*12}%)`,
+      lightColor: `hsl(${Math.random()*40+15}, 18%, ${25 + Math.random()*10}%)`,
+      darkColor: `hsl(${Math.random()*40+15}, 22%, ${12 + Math.random()*8}%)`
+    });
+  }
+}
+
+function spawnPickup() {
+  if (pickups.length > 12) return;
+  pickups.push({
+    x: 150 + Math.random() * (WORLD_W - 300),
+    y: 150 + Math.random() * (WORLD_H - 300),
+    type: Math.random() < 0.6 ? 'health' : 'ammo',
+    timer: 0
+  });
+}
+
+function createCar(team, isPlayer) {
+  let x, y;
+  if (team === 'blue') { x = 100 + Math.random() * 350; y = 100 + Math.random() * 350; }
+  else { x = WORLD_W - 450 + Math.random() * 350; y = WORLD_H - 450 + Math.random() * 350; }
+  return {
+    x, y, angle: Math.random() * Math.PI * 2,
+    turretAngle: 0, vx: 0, vy: 0, speed: 0,
+    hp: (team === 'red') ? ENEMY_HP : MAX_HP,
+    maxHp: (team === 'red') ? ENEMY_HP : MAX_HP,
+    team, isPlayer,
+    ammo: MAX_AMMO, reloading: 0, fireCooldown: 0,
+    boost: BOOST_MAX, boosting: false,
+    alive: true, respawnTimer: 0,
+    ai: isPlayer ? null : {
+      targetId: -1, wanderAngle: Math.random() * Math.PI * 2,
+      wanderTimer: 0, state: 'wander'
+    }
+  };
+}
+
+function initGame() {
+  cars = []; bullets = []; particles = []; pickups = [];
+  scores = { blue: 0, red: 0 };
+  gameOver = false;
+  generateObstacles();
+  cars.push(createCar('blue', true));
+  for (let i = 1; i < TEAM_SIZE; i++) cars.push(createCar('blue', false));
+  for (let i = 0; i < TEAM_SIZE; i++) cars.push(createCar('red', false));
+  for (let i = 0; i < 5; i++) spawnPickup();
+  lookAngle = cars[0].angle;
+  lastPlayerHp = MAX_HP;
+}
+
+function respawnCar(car) {
+  let x, y;
+  if (car.team === 'blue') { x = 100 + Math.random() * 350; y = 100 + Math.random() * 350; }
+  else { x = WORLD_W - 450 + Math.random() * 350; y = WORLD_H - 450 + Math.random() * 350; }
+  car.x = x; car.y = y;
+  car.hp = (car.team === 'red') ? ENEMY_HP : MAX_HP;
+  car.alive = true;
+  car.ammo = MAX_AMMO; car.reloading = 0; car.boost = BOOST_MAX;
+  car.vx = 0; car.vy = 0; car.speed = 0;
+}
+
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+function angleTo(a, b) { return Math.atan2(b.y - a.y, b.x - a.x); }
+function rectCollide(x, y, hw, hh, ox, oy, ow, oh) {
+  return x - hw < ox + ow && x + hw > ox && y - hh < oy + oh && y + hh > oy;
+}
+
+function fireBullet(car) {
+  if (car.ammo <= 0 || car.reloading > 0 || car.fireCooldown > 0) return;
+  car.ammo--;
+  car.fireCooldown = car.isPlayer ? FIRE_COOLDOWN : ENEMY_FIRE_COOLDOWN;
+  let a = car.turretAngle;
+  if (!car.isPlayer) a += (Math.random() - 0.5) * 0.18;
+  let bx = car.x + Math.cos(a) * 28;
+  let by = car.y + Math.sin(a) * 28;
+  let dmg = (car.team === 'red') ? ENEMY_BULLET_DMG : BULLET_DMG;
+  bullets.push({
+    x: bx, y: by,
+    vx: Math.cos(a) * BULLET_SPEED + car.vx * 0.3,
+    vy: Math.sin(a) * BULLET_SPEED + car.vy * 0.3,
+    team: car.team, life: BULLET_LIFE, dmg: dmg
+  });
+  if (car.isPlayer) {
+    gunRecoil = 8;
+    screenShake = Math.max(screenShake, 2);
+  }
+  for (let i = 0; i < 4; i++) {
+    particles.push({
+      x: bx, y: by,
+      vx: Math.cos(a + (Math.random()-0.5)*0.8) * (2+Math.random()*3),
+      vy: Math.sin(a + (Math.random()-0.5)*0.8) * (2+Math.random()*3),
+      life: 8 + Math.random()*6, maxLife: 14, size: 3+Math.random()*3,
+      color: car.team === 'blue' ? '#6cf' : '#fa4'
+    });
+  }
+}
+
+function explode(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    let a = Math.random() * Math.PI * 2;
+    let s = 1 + Math.random() * 5;
+    particles.push({
+      x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s,
+      life: 20+Math.random()*25, maxLife: 45,
+      size: 2+Math.random()*6, color
+    });
+  }
+}
+
+function updateAI(car) {
+  if (!car.alive || !car.ai) return;
+  let ai = car.ai;
+  let nearest = null, nearDist = Infinity;
+  for (let c of cars) {
+    if (c.team === car.team || !c.alive) continue;
+    let d = dist(car, c);
+    if (d < nearDist) { nearDist = d; nearest = c; }
+  }
+  let nearPickup = null, pickDist = Infinity;
+  if (car.hp < 50) {
+    for (let p of pickups) {
+      let d = dist(car, p);
+      if (d < pickDist) { pickDist = d; nearPickup = p; }
+    }
+  }
+  let targetX, targetY;
+  if (nearPickup && pickDist < 400 && car.hp < 40) {
+    targetX = nearPickup.x; targetY = nearPickup.y;
+    ai.state = 'pickup';
+  } else if (nearest && nearDist < (car.team === 'red' ? 600 : 700)) {
+    ai.state = 'combat';
+    targetX = nearest.x; targetY = nearest.y;
+  } else {
+    if (car.team === 'red') {
+      ai.state = 'advance';
+      targetX = 200 + Math.random() * 400;
+      targetY = 200 + Math.random() * 400;
+    } else {
+      ai.state = 'wander';
+      ai.wanderTimer--;
+      if (ai.wanderTimer <= 0) {
+        ai.wanderAngle = Math.random() * Math.PI * 2;
+        ai.wanderTimer = 60 + Math.random() * 120;
+      }
+      targetX = car.x + Math.cos(ai.wanderAngle) * 300;
+      targetY = car.y + Math.sin(ai.wanderAngle) * 300;
+    }
+  }
+  let desiredAngle = angleTo(car, { x: targetX, y: targetY });
+  let angleDiff = desiredAngle - car.angle;
+  while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+  while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+  let turnSpeed = car.team === 'red' ? 0.03 : 0.04;
+  car.angle += clamp(angleDiff, -turnSpeed, turnSpeed);
+  let maxSpd = car.team === 'red' ? 2.5 : 3.5;
+  let accel = ai.state === 'combat' && nearDist < 200 ? 0.06 : 0.12;
+  car.speed = clamp(car.speed + accel, -2, ai.state === 'combat' ? maxSpd : 2.2);
+  car.boosting = ai.state === 'combat' && nearDist > 300 && nearDist < 600 && car.boost > 20;
+  if (nearest) {
+    let aim = angleTo(car, nearest);
+    let tDiff = aim - car.turretAngle;
+    while (tDiff > Math.PI) tDiff -= Math.PI * 2;
+    while (tDiff < -Math.PI) tDiff += Math.PI * 2;
+    let aimSpeed = car.team === 'red' ? 0.045 : 0.07;
+    car.turretAngle += clamp(tDiff, -aimSpeed, aimSpeed);
+    let fireThresh = car.team === 'red' ? 0.15 : 0.2;
+    let fireRange = car.team === 'red' ? 400 : 550;
+    if (Math.abs(tDiff) < fireThresh && nearDist < fireRange) fireBullet(car);
+  }
+  if (car.ammo <= 0 && car.reloading <= 0) car.reloading = RELOAD_TIME;
+  if (car.x < 100) car.angle += 0.05;
+  if (car.x > WORLD_W - 100) car.angle -= 0.05;
+  if (car.y < 100) car.angle += 0.05;
+  if (car.y > WORLD_H - 100) car.angle -= 0.05;
+}
+
+function updateCar(car) {
+  if (!car.alive) {
+    car.respawnTimer--;
+    if (car.respawnTimer <= 0) {
+      respawnCar(car);
+      if (car.isPlayer) {
+        document.getElementById('respawn-msg').style.display = 'none';
+        lookAngle = car.angle;
+      }
+    }
+    return;
+  }
+  if (car.isPlayer) {
+    // FPS controls: A/D steer the car, mouse looks/aims
+    let turnRate = 0.045;
+    if (keys['a']) car.angle -= turnRate;
+    if (keys['d']) car.angle += turnRate;
+    if (keys['w']) car.speed = clamp(car.speed + 0.2, -3, 4.5);
+    else if (keys['s']) car.speed = clamp(car.speed - 0.15, -2, 4.5);
+    else car.speed *= 0.97;
+    car.boosting = keys[' '] && car.boost > 0;
+    if (keys['r'] && car.ammo < MAX_AMMO && car.reloading <= 0) car.reloading = RELOAD_TIME;
+    // Turret follows look angle
+    car.turretAngle = lookAngle;
+    // Car steering also influenced by look
+    let steerDiff = lookAngle - car.angle;
+    while (steerDiff > Math.PI) steerDiff -= Math.PI * 2;
+    while (steerDiff < -Math.PI) steerDiff += Math.PI * 2;
+    car.angle += steerDiff * 0.04; // car gently follows look direction
+    if (mouseDown) fireBullet(car);
+  } else {
+    updateAI(car);
+  }
+  if (car.boosting && car.boost > 0) {
+    car.speed *= 1.04;
+    car.boost -= BOOST_DRAIN;
+    if (Math.random() < 0.5) {
+      particles.push({
+        x: car.x - Math.cos(car.angle)*20 + (Math.random()-0.5)*10,
+        y: car.y - Math.sin(car.angle)*20 + (Math.random()-0.5)*10,
+        vx: -Math.cos(car.angle)*2+Math.random()-0.5,
+        vy: -Math.sin(car.angle)*2+Math.random()-0.5,
+        life: 10+Math.random()*8, maxLife: 18,
+        size: 4+Math.random()*4, color: '#f80'
+      });
+    }
+  } else {
+    car.boost = Math.min(BOOST_MAX, car.boost + BOOST_REGEN);
+  }
+  car.fireCooldown = Math.max(0, car.fireCooldown - 1);
+  if (car.reloading > 0) { car.reloading--; if (car.reloading <= 0) car.ammo = MAX_AMMO; }
+  car.vx = Math.cos(car.angle) * car.speed;
+  car.vy = Math.sin(car.angle) * car.speed;
+  car.x += car.vx; car.y += car.vy;
+  car.speed *= 0.98;
+  car.x = clamp(car.x, 30, WORLD_W - 30);
+  car.y = clamp(car.y, 20, WORLD_H - 20);
+  for (let obs of obstacles) {
+    if (rectCollide(car.x, car.y, CAR_W/2, CAR_H/2, obs.x, obs.y, obs.w, obs.h)) {
+      let cx = obs.x + obs.w/2, cy = obs.y + obs.h/2;
+      let dx = car.x - cx, dy = car.y - cy;
+      let ang = Math.atan2(dy, dx);
+      car.x += Math.cos(ang) * 3; car.y += Math.sin(ang) * 3;
+      car.speed *= 0.5;
+      if (car.isPlayer) screenShake = Math.max(screenShake, 4);
+    }
+  }
+  for (let i = pickups.length - 1; i >= 0; i--) {
+    if (dist(car, pickups[i]) < 30) {
+      if (pickups[i].type === 'health') car.hp = Math.min(car.maxHp, car.hp + 50);
+      else car.ammo = Math.min(MAX_AMMO, car.ammo + 10);
+      explode(pickups[i].x, pickups[i].y, pickups[i].type === 'health' ? '#0f0' : '#ff0', 10);
+      pickups.splice(i, 1);
+    }
+  }
+}
+
+function update() {
+  if (!gameStarted || gameOver) return;
+  let player = cars[0];
+  lastPlayerHp = player.hp;
+
+  for (let car of cars) updateCar(car);
+
+  // Detect player damage
+  if (player.alive && player.hp < lastPlayerHp) {
+    damageFlash = 1;
+    screenShake = Math.max(screenShake, 5);
+  }
+
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    let b = bullets[i];
+    b.x += b.vx; b.y += b.vy; b.life--;
+    if (b.life <= 0 || b.x < 0 || b.x > WORLD_W || b.y < 0 || b.y > WORLD_H) {
+      bullets.splice(i, 1); continue;
+    }
+    let hitObs = false;
+    for (let obs of obstacles) {
+      if (b.x > obs.x && b.x < obs.x+obs.w && b.y > obs.y && b.y < obs.y+obs.h) {
+        explode(b.x, b.y, '#888', 4);
+        bullets.splice(i, 1); hitObs = true; break;
+      }
+    }
+    if (hitObs) continue;
+    for (let car of cars) {
+      if (!car.alive || car.team === b.team) continue;
+      if (dist(b, car) < 22) {
+        car.hp -= b.dmg;
+        explode(b.x, b.y, b.team === 'blue' ? '#4af' : '#f44', 6);
+        bullets.splice(i, 1);
+        if (car.hp <= 0) {
+          car.alive = false; car.respawnTimer = 180;
+          scores[b.team]++;
+          explode(car.x, car.y, car.team === 'blue' ? '#48f' : '#f44', 30);
+          explode(car.x, car.y, '#fa0', 20);
+          if (car.isPlayer) {
+            let msg = document.getElementById('respawn-msg');
+            msg.innerHTML = 'DESTROYED!<br><span style="font-size:18px">Respawning in 3s...</span>';
+            msg.style.display = 'block';
+          }
+          if (scores[b.team] >= WIN_SCORE) { gameOver = true; winTeam = b.team; }
+        }
+        break;
+      }
+    }
+  }
+
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.vx *= 0.96; p.vy *= 0.96;
+    p.life--;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+
+  if (Math.random() < 0.012) spawnPickup();
+
+  // Screen effects decay
+  screenShake *= 0.85;
+  gunRecoil *= 0.8;
+  damageFlash *= 0.9;
+  document.getElementById('hit-flash').style.opacity = damageFlash;
+
+  // UI
+  document.getElementById('blue-score').textContent = `BLUE: ${scores.blue}`;
+  document.getElementById('red-score').textContent = `RED: ${scores.red}`;
+  if (player.alive) {
+    document.getElementById('hp-text').textContent = `HP: ${Math.ceil(player.hp)}`;
+    document.getElementById('ammo-text').textContent = player.reloading > 0
+      ? `RELOADING... ${Math.ceil(player.reloading/60*100)}%`
+      : `AMMO: ${player.ammo} / ${MAX_AMMO}`;
+    document.getElementById('boost-text').textContent = `BOOST: ${Math.round(player.boost)}%`;
+    let mph = Math.round(Math.abs(player.speed) * 18);
+    document.getElementById('speed-indicator').textContent = `${mph} MPH`;
+  }
+}
+
+// ---- 3D PROJECTION ----
+function projectPoint(wx, wy, wz, camX, camY, camAngle) {
+  let dx = wx - camX;
+  let dy = wy - camY;
+  // Rotate into camera space
+  let cos = Math.cos(-camAngle);
+  let sin = Math.sin(-camAngle);
+  let rx = dx * cos - dy * sin; // forward
+  let ry = dx * sin + dy * cos; // right
+  if (rx < 5) return null; // behind camera
+  let focalLen = halfW / Math.tan(FOV / 2);
+  let sx = halfW + (ry / rx) * focalLen;
+  let sy = halfH - ((wz + lookPitch * rx * 0.5) / rx) * focalLen;
+  let scale = focalLen / rx;
+  return { sx, sy, scale, depth: rx };
+}
+
+// ---- DRAWING ----
+
+function drawSky() {
+  let grad = ctx.createLinearGradient(0, 0, 0, halfH);
+  grad.addColorStop(0, '#0a0a1a');
+  grad.addColorStop(0.5, '#151530');
+  grad.addColorStop(1, '#252540');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, halfH + lookPitch * 200);
+}
+
+function drawGround() {
+  let grad = ctx.createLinearGradient(0, halfH + lookPitch * 200, 0, H);
+  grad.addColorStop(0, '#2a2a20');
+  grad.addColorStop(0.3, '#1a1a15');
+  grad.addColorStop(1, '#111110');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, halfH + lookPitch * 200, W, H);
+
+  // Ground lines for speed feel
+  let player = cars[0];
+  if (!player.alive) return;
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  let focalLen = halfW / Math.tan(FOV / 2);
+  for (let d = 60; d < 600; d += 80) {
+    let sy = halfH + (focalLen * 10) / d + lookPitch * 200;
+    if (sy > halfH - 10 && sy < H) {
+      ctx.globalAlpha = clamp(1 - d / 600, 0, 0.12);
+      ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(W, sy); ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawObstacle3D(obs, camX, camY, camAngle) {
+  let corners = [
+    { x: obs.x, y: obs.y },
+    { x: obs.x + obs.w, y: obs.y },
+    { x: obs.x + obs.w, y: obs.y + obs.h },
+    { x: obs.x, y: obs.y + obs.h }
+  ];
+
+  let projected = corners.map(c => ({
+    bot: projectPoint(c.x, c.y, -20, camX, camY, camAngle),
+    top: projectPoint(c.x, c.y, WALL_HEIGHT - 20, camX, camY, camAngle)
+  }));
+
+  // Draw visible faces
+  for (let i = 0; i < 4; i++) {
+    let j = (i + 1) % 4;
+    let a = projected[i], b = projected[j];
+    if (!a.bot || !a.top || !b.bot || !b.top) continue;
+    if (a.bot.depth > VIEW_DIST && b.bot.depth > VIEW_DIST) continue;
+
+    // Face normal check (basic backface culling)
+    let crossZ = (b.bot.sx - a.bot.sx) * (a.top.sy - a.bot.sy) - (a.top.sx - a.bot.sx) * (b.bot.sy - a.bot.sy);
+
+    let avgDepth = (a.bot.depth + b.bot.depth) / 2;
+    let shade = clamp(1 - avgDepth / VIEW_DIST, 0.15, 1);
+
+    ctx.fillStyle = crossZ > 0 ? obs.lightColor : obs.darkColor;
+    ctx.globalAlpha = shade;
+    ctx.beginPath();
+    ctx.moveTo(a.bot.sx, a.bot.sy);
+    ctx.lineTo(b.bot.sx, b.bot.sy);
+    ctx.lineTo(b.top.sx, b.top.sy);
+    ctx.lineTo(a.top.sx, a.top.sy);
+    ctx.closePath();
+    ctx.fill();
+
+    // Edge lines
+    ctx.strokeStyle = `rgba(255,255,255,${0.08 * shade})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Top face
+  let allTop = projected.map(p => p.top).filter(p => p);
+  if (allTop.length === 4) {
+    let avgD = allTop.reduce((s, p) => s + p.depth, 0) / 4;
+    let shade = clamp(1 - avgD / VIEW_DIST, 0.15, 1);
+    ctx.fillStyle = obs.color;
+    ctx.globalAlpha = shade;
+    ctx.beginPath();
+    ctx.moveTo(allTop[0].sx, allTop[0].sy);
+    for (let k = 1; k < 4; k++) ctx.lineTo(allTop[k].sx, allTop[k].sy);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Return avg depth for sorting
+  let depths = projected.map(p => p.bot ? p.bot.depth : 9999);
+  return Math.min(...depths);
+}
+
+function drawCar3D(car, camX, camY, camAngle) {
+  if (!car.alive || car.isPlayer) return 9999;
+  let p = projectPoint(car.x, car.y, 0, camX, camY, camAngle);
+  if (!p || p.depth > VIEW_DIST) return 9999;
+
+  let w = CAR_W * p.scale;
+  let h = CAR_H * p.scale;
+  let bodyH = 28 * p.scale;
+  let shade = clamp(1 - p.depth / VIEW_DIST, 0.2, 1);
+
+  // Shadow on ground
+  ctx.fillStyle = `rgba(0,0,0,${0.3 * shade})`;
+  ctx.beginPath();
+  ctx.ellipse(p.sx + 2*p.scale, p.sy + 2*p.scale, w*0.6, h*0.3, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Car body
+  let bodyColor = car.team === 'blue' ? `rgba(48,102,187,${shade})` : `rgba(204,51,51,${shade})`;
+  let darkColor = car.team === 'blue' ? `rgba(35,79,138,${shade})` : `rgba(153,34,34,${shade})`;
+
+  ctx.save();
+  ctx.translate(p.sx, p.sy);
+
+  // Body
+  ctx.fillStyle = bodyColor;
+  ctx.fillRect(-w/2, -bodyH, w, bodyH);
+  ctx.fillStyle = darkColor;
+  ctx.fillRect(-w/2, -bodyH, w, 4*p.scale);
+  ctx.fillRect(-w/2, -4*p.scale, w, 4*p.scale);
+
+  // Turret
+  let tAngle = car.turretAngle - camAngle;
+  ctx.fillStyle = `rgba(80,80,80,${shade})`;
+  ctx.save();
+  ctx.translate(0, -bodyH * 0.5);
+  ctx.rotate(tAngle);
+  ctx.fillRect(-3*p.scale, -3*p.scale, 22*p.scale, 6*p.scale);
+  ctx.beginPath();
+  ctx.arc(0, 0, 7*p.scale, 0, Math.PI*2);
+  ctx.fillStyle = `rgba(60,60,60,${shade})`;
+  ctx.fill();
+  ctx.restore();
+
+  // Team indicator glow
+  ctx.shadowColor = car.team === 'blue' ? '#4af' : '#f44';
+  ctx.shadowBlur = 10 * shade;
+  ctx.fillStyle = car.team === 'blue' ? `rgba(68,170,255,${0.3*shade})` : `rgba(255,68,68,${0.3*shade})`;
+  ctx.fillRect(-w/2-2, -bodyH-2, w+4, bodyH+4);
+  ctx.shadowBlur = 0;
+
+  // HP bar
+  if (car.hp < car.maxHp) {
+    let bw = w * 1.2;
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(-bw/2, -bodyH - 12*p.scale, bw, 5*p.scale);
+    let ratio = car.hp / car.maxHp;
+    ctx.fillStyle = ratio > 0.5 ? '#4f4' : ratio > 0.25 ? '#fa0' : '#f33';
+    ctx.fillRect(-bw/2, -bodyH - 12*p.scale, bw * ratio, 5*p.scale);
+  }
+
+  // Distance indicator
+  let distM = Math.round(p.depth / 10);
+  if (distM < 60) {
+    ctx.fillStyle = car.team === 'blue' ? `rgba(100,170,255,${shade*0.7})` : `rgba(255,100,100,${shade*0.7})`;
+    ctx.font = `${Math.max(10, 12*p.scale)}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`${distM}m`, 0, -bodyH - 16*p.scale);
+  }
+
+  ctx.restore();
+  return p.depth;
+}
+
+function drawBullet3D(b, camX, camY, camAngle) {
+  let p = projectPoint(b.x, b.y, 15, camX, camY, camAngle);
+  if (!p || p.depth > VIEW_DIST) return;
+  let r = Math.max(2, 5 * p.scale);
+  let shade = clamp(1 - p.depth / VIEW_DIST, 0.3, 1);
+  ctx.fillStyle = b.team === 'blue' ? '#6cf' : '#f64';
+  ctx.shadowColor = b.team === 'blue' ? '#4af' : '#f42';
+  ctx.shadowBlur = 12 * shade;
+  ctx.globalAlpha = shade;
+  ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, Math.PI*2); ctx.fill();
+  // Trail
+  let tp = projectPoint(b.x - b.vx, b.y - b.vy, 15, camX, camY, camAngle);
+  if (tp) {
+    ctx.globalAlpha = shade * 0.4;
+    ctx.beginPath(); ctx.arc(tp.sx, tp.sy, r*0.6, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+}
+
+function drawParticle3D(p, camX, camY, camAngle) {
+  let proj = projectPoint(p.x, p.y, 10, camX, camY, camAngle);
+  if (!proj || proj.depth > 500) return;
+  let r = Math.max(1, p.size * proj.scale * (p.life / p.maxLife));
+  ctx.globalAlpha = (p.life / p.maxLife) * clamp(1 - proj.depth / 500, 0.2, 1);
+  ctx.fillStyle = p.color;
+  ctx.beginPath(); ctx.arc(proj.sx, proj.sy, r, 0, Math.PI*2); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+function drawPickup3D(pk, camX, camY, camAngle) {
+  pk.timer++;
+  let bob = Math.sin(pk.timer * 0.06) * 8;
+  let p = projectPoint(pk.x, pk.y, 20 + bob, camX, camY, camAngle);
+  if (!p || p.depth > VIEW_DIST) return p ? p.depth : 9999;
+  let r = Math.max(6, 16 * p.scale);
+  let shade = clamp(1 - p.depth / VIEW_DIST, 0.3, 1);
+
+  ctx.globalAlpha = shade;
+  // Glow
+  ctx.shadowColor = pk.type === 'health' ? '#0f0' : '#ff0';
+  ctx.shadowBlur = 15 * shade;
+  ctx.fillStyle = pk.type === 'health' ? 'rgba(0,255,0,0.25)' : 'rgba(255,255,0,0.25)';
+  ctx.beginPath(); ctx.arc(p.sx, p.sy, r*1.5, 0, Math.PI*2); ctx.fill();
+
+  ctx.fillStyle = pk.type === 'health' ? '#0f0' : '#ff0';
+  ctx.font = `bold ${Math.max(12, 20*p.scale)}px Arial`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(pk.type === 'health' ? '+' : 'A', p.sx, p.sy);
+  ctx.shadowBlur = 0;
+  ctx.globalAlpha = 1;
+  return p.depth;
+}
+
+function drawGun() {
+  let player = cars[0];
+  if (!player.alive) return;
+
+  // Gun barrel at bottom center
+  let recoilOff = gunRecoil * 2;
+  let gx = halfW + 60;
+  let gy = H - 30 + recoilOff;
+
+  // Gun body
+  ctx.fillStyle = '#3a3a3a';
+  ctx.fillRect(gx - 12, gy - 80, 24, 90);
+  ctx.fillStyle = '#4a4a4a';
+  ctx.fillRect(gx - 8, gy - 90, 16, 20);
+  // Barrel
+  ctx.fillStyle = '#555';
+  ctx.fillRect(gx - 5, gy - 120 + recoilOff, 10, 40);
+  // Muzzle
+  if (gunRecoil > 3) {
+    ctx.fillStyle = '#fa0';
+    ctx.shadowColor = '#fa0';
+    ctx.shadowBlur = 20;
+    ctx.beginPath(); ctx.arc(gx, gy - 122 + recoilOff, 8, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // Car hood at bottom
+  ctx.fillStyle = player.team === 'blue' ? '#1e4a8a' : '#8a1e1e';
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  ctx.lineTo(W, H);
+  ctx.lineTo(W, H - 60);
+  ctx.lineTo(halfW + 120, H - 80);
+  ctx.lineTo(halfW - 120, H - 80);
+  ctx.lineTo(0, H - 60);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+function drawHPBar3D() {
+  let player = cars[0];
+  if (!player.alive) return;
+  let bw = 200, bh = 14;
+  let bx = halfW - bw/2, by = H - 105;
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
+  let ratio = player.hp / player.maxHp;
+  ctx.fillStyle = ratio > 0.5 ? '#4f4' : ratio > 0.25 ? '#fa0' : '#f33';
+  ctx.fillRect(bx, by, bw * ratio, bh);
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(bx - 2, by - 2, bw + 4, bh + 4);
+}
+
+function drawMinimap() {
+  let mw = miniCanvas.width, mh = miniCanvas.height;
+  let sx = mw / WORLD_W, sy = mh / WORLD_H;
+  miniCtx.clearRect(0, 0, mw, mh);
+  miniCtx.fillStyle = 'rgba(20,20,20,0.8)';
+  miniCtx.fillRect(0, 0, mw, mh);
+  miniCtx.fillStyle = 'rgba(100,100,100,0.5)';
+  for (let obs of obstacles) miniCtx.fillRect(obs.x*sx, obs.y*sy, obs.w*sx, obs.h*sy);
+  for (let car of cars) {
+    if (!car.alive) continue;
+    miniCtx.fillStyle = car.isPlayer ? '#fff' : (car.team === 'blue' ? '#48f' : '#f44');
+    miniCtx.beginPath();
+    miniCtx.arc(car.x*sx, car.y*sy, car.isPlayer ? 4 : 2.5, 0, Math.PI*2);
+    miniCtx.fill();
+  }
+  // FOV cone
+  let player = cars[0];
+  if (player.alive) {
+    miniCtx.strokeStyle = 'rgba(255,255,255,0.25)';
+    miniCtx.lineWidth = 1;
+    miniCtx.beginPath();
+    miniCtx.moveTo(player.x*sx, player.y*sy);
+    miniCtx.lineTo(player.x*sx + Math.cos(lookAngle - FOV/2)*50, player.y*sy + Math.sin(lookAngle - FOV/2)*50);
+    miniCtx.moveTo(player.x*sx, player.y*sy);
+    miniCtx.lineTo(player.x*sx + Math.cos(lookAngle + FOV/2)*50, player.y*sy + Math.sin(lookAngle + FOV/2)*50);
+    miniCtx.stroke();
+  }
+}
+
+function drawGameOver() {
+  ctx.fillStyle = 'rgba(0,0,0,0.75)';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = winTeam === 'blue' ? '#4af' : '#f44';
+  ctx.font = 'bold 64px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${winTeam.toUpperCase()} TEAM WINS!`, halfW, halfH - 30);
+  ctx.fillStyle = '#fff';
+  ctx.font = '24px Arial';
+  ctx.fillText(`Blue ${scores.blue} — ${scores.red} Red`, halfW, halfH + 20);
+  ctx.fillText('Click to play again', halfW, halfH + 60);
+}
+
+function draw() {
+  if (!cars.length) {
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, W, H);
+    return;
+  }
+  let player = cars[0];
+  let camX = player.alive ? player.x : (player.x || WORLD_W/2);
+  let camY = player.alive ? player.y : (player.y || WORLD_H/2);
+  let camAngle = lookAngle;
+
+  // Apply screen shake
+  if (screenShake > 0.5) {
+    camX += (Math.random() - 0.5) * screenShake * 2;
+    camY += (Math.random() - 0.5) * screenShake * 2;
+  }
+
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, W, H);
+
+  drawSky();
+  drawGround();
+
+  // Collect all drawable objects with depth for sorting
+  let drawList = [];
+
+  // Obstacles
+  for (let obs of obstacles) {
+    let cx = obs.x + obs.w/2 - camX;
+    let cy = obs.y + obs.h/2 - camY;
+    let cos = Math.cos(-camAngle), sin = Math.sin(-camAngle);
+    let fwd = cx * cos - cy * sin;
+    if (fwd < -50 || fwd > VIEW_DIST) continue;
+    // rough FOV check
+    let right = cx * sin + cy * cos;
+    if (Math.abs(right) > fwd + obs.w + obs.h) continue;
+    drawList.push({ type: 'obs', obj: obs, depth: fwd });
+  }
+
+  // Cars
+  for (let car of cars) {
+    if (!car.alive || car.isPlayer) continue;
+    let dx = car.x - camX, dy = car.y - camY;
+    let cos = Math.cos(-camAngle), sin = Math.sin(-camAngle);
+    let fwd = dx * cos - dy * sin;
+    if (fwd < 5 || fwd > VIEW_DIST) continue;
+    drawList.push({ type: 'car', obj: car, depth: fwd });
+  }
+
+  // Pickups
+  for (let pk of pickups) {
+    let dx = pk.x - camX, dy = pk.y - camY;
+    let cos = Math.cos(-camAngle), sin = Math.sin(-camAngle);
+    let fwd = dx * cos - dy * sin;
+    if (fwd < 5 || fwd > VIEW_DIST) continue;
+    drawList.push({ type: 'pickup', obj: pk, depth: fwd });
+  }
+
+  // Sort back to front
+  drawList.sort((a, b) => b.depth - a.depth);
+
+  for (let item of drawList) {
+    if (item.type === 'obs') drawObstacle3D(item.obj, camX, camY, camAngle);
+    else if (item.type === 'car') drawCar3D(item.obj, camX, camY, camAngle);
+    else if (item.type === 'pickup') drawPickup3D(item.obj, camX, camY, camAngle);
+  }
+
+  // Bullets (draw on top)
+  for (let b of bullets) drawBullet3D(b, camX, camY, camAngle);
+
+  // Particles
+  for (let p of particles) drawParticle3D(p, camX, camY, camAngle);
+
+  // World border warning
+  if (player.alive) {
+    let edgeDist = Math.min(player.x, player.y, WORLD_W - player.x, WORLD_H - player.y);
+    if (edgeDist < 150) {
+      ctx.fillStyle = `rgba(255,0,0,${(1 - edgeDist/150) * 0.3})`;
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#f44';
+      ctx.font = 'bold 24px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('BOUNDARY WARNING', halfW, 80);
+    }
+  }
+
+  // HUD elements
+  drawGun();
+  drawHPBar3D();
+  drawMinimap();
+
+  // Pointer lock prompt
+  if (!pointerLocked && gameStarted && !gameOver && player.alive) {
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 28px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Click anywhere to lock mouse and aim', halfW, halfH);
+    ctx.font = '16px Arial';
+    ctx.fillStyle = '#aaa';
+    ctx.fillText('Press ESC to unlock mouse', halfW, halfH + 35);
+  }
+
+  if (gameOver) drawGameOver();
+
+  if (!player.alive) {
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+function gameLoop() {
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+// Start
+document.getElementById('start-btn').addEventListener('click', () => {
+  document.getElementById('start-screen').style.display = 'none';
+  gameStarted = true;
+  initGame();
+  needsPointerLock = true;
+  // Small delay so the next click goes to canvas for pointer lock
+  setTimeout(() => {
+    try { canvas.requestPointerLock(); } catch(e) {}
+  }, 100);
+});
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+gameLoop();
+</script>
+</body>
+</html>

@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Combat: Team Warfare (Original)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            background: #222;
+        }
+
+        canvas {
+            display: block;
+            background: #111;
+        }
+
+        #gameUI {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #0f0;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+        }
+
+        #teamScore {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #0f0;
+            font-family: monospace;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+        }
+
+        #minimap {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            border: 2px solid #0f0;
+            pointer-events: none;
+        }
+
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            pointer-events: auto;
+        }
+
+        #startScreen h1 {
+            color: #0f0;
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 8px rgba(0,255,0,0.5);
+        }
+
+        #startScreen p {
+            color: #0f0;
+            font-size: 18px;
+            margin: 10px 0;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        #startScreen button {
+            margin-top: 30px;
+            padding: 15px 40px;
+            font-size: 20px;
+            background: #0f0;
+            color: #000;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: all 0.3s;
+            pointer-events: auto;
+        }
+
+        #startScreen button:hover {
+            background: #0f0;
+            transform: scale(1.05);
+        }
+
+        #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 101;
+            pointer-events: auto;
+            display: none;
+        }
+
+        #gameOverScreen h1 {
+            color: #0f0;
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 8px rgba(0,255,0,0.5);
+        }
+
+        #gameOverScreen p {
+            color: #0f0;
+            font-size: 24px;
+            margin: 10px 0;
+        }
+
+        #gameOverScreen button {
+            margin-top: 30px;
+            padding: 15px 40px;
+            font-size: 20px;
+            background: #0f0;
+            color: #000;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: all 0.3s;
+            pointer-events: auto;
+        }
+
+        #gameOverScreen button:hover {
+            transform: scale(1.05);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="gameUI">
+        <div id="hud">
+            <div id="playerStats"></div>
+        </div>
+        <div id="teamScore"></div>
+        <canvas id="minimapCanvas"></canvas>
+    </div>
+    <div id="startScreen">
+        <h1>TEAM COMBAT WARFARE</h1>
+        <p>A tactical 5v5 car combat game</p>
+        <p style="font-size: 14px; margin-top: 20px;">CONTROLS:<br>WASD - Drive | Mouse - Aim | Click - Shoot<br>Space - Boost | R - Reload</p>
+        <button onclick="startGame()">START GAME</button>
+    </div>
+    <div id="gameOverScreen">
+        <h1 id="gameOverTitle">GAME OVER</h1>
+        <p id="gameOverMessage">Team Blue Wins!</p>
+        <button onclick="location.reload()">PLAY AGAIN</button>
+    </div>
+
+    <script>
+        // Game Constants
+        const CANVAS_WIDTH = 1024;
+        const CANVAS_HEIGHT = 768;
+        const WORLD_WIDTH = 3000;
+        const WORLD_HEIGHT = 3000;
+
+        // Weapon Settings
+        const BULLET_SPEED = 12;
+        const BULLET_LIFE = 80;
+        const BULLET_DMG = 12;
+        const FIRE_COOLDOWN = 8;
+
+        // Car Settings
+        const MAX_HP = 100;
+        const CAR_WIDTH = 40;
+        const CAR_HEIGHT = 24;
+        const MAX_SPEED = 5;
+        const ACCELERATION = 0.3;
+        const FRICTION = 0.92;
+        const TURN_SPEED = 0.08;
+
+        // Ammunition
+        const MAX_AMMO = 20;
+        const RELOAD_TIME = 90;
+
+        // Boost
+        const BOOST_MAX = 100;
+        const BOOST_DRAIN = 0.8;
+        const BOOST_REGEN = 0.15;
+        const BOOST_SPEED_MULT = 1.5;
+
+        // AI Settings
+        const AI_FIRE_COOLDOWN = 8;
+        const AI_TURN_SPEED = 0.04;
+        const AI_AIM_SPEED = 0.07;
+        const AI_FIRE_THRESHOLD = 0.2;
+        const AI_FIRE_RANGE = 550;
+        const AI_DETECTION_RANGE = 700;
+        const AI_WANDER_INTERVAL = 120;
+
+        // Game Settings
+        const TEAM_SIZE = 5;
+        const WIN_SCORE = 30;
+
+        // Game state
+        let canvas = document.getElementById('gameCanvas');
+        let ctx = canvas.getContext('2d');
+        let minimapCanvas = document.getElementById('minimapCanvas');
+        let minimapCtx = minimapCanvas.getContext('2d');
+
+        canvas.width = CANVAS_WIDTH;
+        canvas.height = CANVAS_HEIGHT;
+        minimapCanvas.width = 200;
+        minimapCanvas.height = 200;
+        minimapCanvas.style.position = 'absolute';
+        minimapCanvas.style.bottom = '10px';
+        minimapCanvas.style.right = '10px';
+        minimapCanvas.style.border = '2px solid #0f0';
+        minimapCanvas.style.backgroundColor = '#000';
+
+        // Game Objects
+        let player = null;
+        let cars = [];
+        let bullets = [];
+        let obstacles = [];
+        let pickups = [];
+        let gameState = 'menu'; // menu, playing, gameOver
+        let blueScore = 0;
+        let redScore = 0;
+        let gameRunning = false;
+
+        class Car {
+            constructor(x, y, team, isPlayer = false) {
+                this.x = x;
+                this.y = y;
+                this.team = team; // 'blue' or 'red'
+                this.isPlayer = isPlayer;
+                this.angle = 0;
+                this.turretAngle = 0;
+                this.vx = 0;
+                this.vy = 0;
+                this.hp = MAX_HP;
+                this.ammo = MAX_AMMO;
+                this.boost = BOOST_MAX;
+                this.fireCooldown = 0;
+                this.reloadCooldown = 0;
+                this.dead = false;
+                this.respawnTime = 0;
+
+                // AI properties
+                this.isAI = !isPlayer;
+                this.targetEnemy = null;
+                this.wanderAngle = 0;
+                this.wanderTimer = 0;
+                this.lastAttackTime = 0;
+            }
+
+            update() {
+                if (this.dead) {
+                    this.respawnTime--;
+                    if (this.respawnTime <= 0) {
+                        this.resurrect();
+                    }
+                    return;
+                }
+
+                // Update cooldowns
+                if (this.fireCooldown > 0) this.fireCooldown--;
+                if (this.reloadCooldown > 0) this.reloadCooldown--;
+
+                // Boost regeneration
+                if (this.boost < BOOST_MAX) {
+                    this.boost += BOOST_REGEN;
+                    if (this.boost > BOOST_MAX) this.boost = BOOST_MAX;
+                }
+
+                // AI behavior
+                if (this.isAI) {
+                    this.updateAI();
+                }
+
+                // Apply friction
+                this.vx *= FRICTION;
+                this.vy *= FRICTION;
+
+                // Update position
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Boundary wrapping
+                if (this.x < 0) this.x = WORLD_WIDTH;
+                if (this.x > WORLD_WIDTH) this.x = 0;
+                if (this.y < 0) this.y = WORLD_HEIGHT;
+                if (this.y > WORLD_HEIGHT) this.y = 0;
+            }
+
+            updateAI() {
+                // Find nearest enemy
+                let nearestEnemy = null;
+                let minDist = AI_DETECTION_RANGE;
+
+                for (let other of cars) {
+                    if (other.team !== this.team && !other.dead) {
+                        let dist = this.distanceTo(other);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            nearestEnemy = other;
+                        }
+                    }
+                }
+
+                if (nearestEnemy) {
+                    // Target found, engage
+                    this.targetEnemy = nearestEnemy;
+
+                    // Calculate direction to enemy
+                    let dx = nearestEnemy.x - this.x;
+                    let dy = nearestEnemy.y - this.y;
+                    let targetAngle = Math.atan2(dy, dx);
+
+                    // Smooth turn towards enemy
+                    let angleDiff = this.normalizeAngle(targetAngle - this.angle);
+                    if (Math.abs(angleDiff) > 0.1) {
+                        if (angleDiff > 0) {
+                            this.angle += AI_TURN_SPEED;
+                        } else {
+                            this.angle -= AI_TURN_SPEED;
+                        }
+                    } else {
+                        this.angle = targetAngle;
+                    }
+
+                    // Move towards enemy
+                    this.vx += Math.cos(this.angle) * ACCELERATION;
+                    this.vy += Math.sin(this.angle) * ACCELERATION;
+
+                    // Aim turret at enemy
+                    let turretTarget = Math.atan2(dy, dx);
+                    let turretDiff = this.normalizeAngle(turretTarget - this.turretAngle);
+                    if (Math.abs(turretDiff) > AI_FIRE_THRESHOLD) {
+                        if (turretDiff > 0) {
+                            this.turretAngle += AI_AIM_SPEED;
+                        } else {
+                            this.turretAngle -= AI_AIM_SPEED;
+                        }
+                    } else {
+                        this.turretAngle = turretTarget;
+                    }
+
+                    // Fire if aimed
+                    let fireThresholdDist = Math.abs(turretDiff);
+                    if (fireThresholdDist < AI_FIRE_THRESHOLD && minDist < AI_FIRE_RANGE && this.ammo > 0 && this.fireCooldown <= 0) {
+                        this.fire();
+                    }
+                } else {
+                    // Wander randomly
+                    this.wanderTimer--;
+                    if (this.wanderTimer <= 0) {
+                        this.wanderAngle = Math.random() * Math.PI * 2;
+                        this.wanderTimer = AI_WANDER_INTERVAL;
+                    }
+
+                    // Move in wander direction
+                    this.angle = this.wanderAngle;
+                    this.vx += Math.cos(this.angle) * ACCELERATION * 0.5;
+                    this.vy += Math.sin(this.angle) * ACCELERATION * 0.5;
+
+                    // Turret angle follows body
+                    this.turretAngle = this.angle;
+                }
+
+                // Limit speed
+                let speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (speed > MAX_SPEED) {
+                    this.vx = (this.vx / speed) * MAX_SPEED;
+                    this.vy = (this.vy / speed) * MAX_SPEED;
+                }
+            }
+
+            normalizeAngle(angle) {
+                while (angle > Math.PI) angle -= Math.PI * 2;
+                while (angle < -Math.PI) angle += Math.PI * 2;
+                return angle;
+            }
+
+            distanceTo(other) {
+                let dx = other.x - this.x;
+                let dy = other.y - this.y;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+
+            accelerate(angle) {
+                this.vx += Math.cos(angle) * ACCELERATION;
+                this.vy += Math.sin(angle) * ACCELERATION;
+            }
+
+            turn(direction) {
+                this.angle += direction * TURN_SPEED;
+            }
+
+            fire() {
+                if (this.fireCooldown <= 0 && this.ammo > 0) {
+                    let bulletX = this.x + Math.cos(this.turretAngle) * CAR_WIDTH;
+                    let bulletY = this.y + Math.sin(this.turretAngle) * CAR_HEIGHT;
+
+                    let bullet = {
+                        x: bulletX,
+                        y: bulletY,
+                        vx: Math.cos(this.turretAngle) * BULLET_SPEED,
+                        vy: Math.sin(this.turretAngle) * BULLET_SPEED,
+                        owner: this,
+                        life: BULLET_LIFE,
+                        radius: 4
+                    };
+                    bullets.push(bullet);
+
+                    this.ammo--;
+                    this.fireCooldown = FIRE_COOLDOWN;
+                }
+            }
+
+            reload() {
+                if (this.reloadCooldown <= 0) {
+                    this.ammo = MAX_AMMO;
+                    this.reloadCooldown = RELOAD_TIME;
+                }
+            }
+
+            takeDamage(amount) {
+                this.hp -= amount;
+                if (this.hp <= 0) {
+                    this.die();
+                }
+            }
+
+            die() {
+                this.dead = true;
+                this.respawnTime = 180; // 3 seconds at 60 FPS
+
+                // Award score to killing team
+                if (this.team === 'blue') {
+                    redScore += 1;
+                } else {
+                    blueScore += 1;
+                }
+
+                // Check win condition
+                if (blueScore >= WIN_SCORE) {
+                    endGame('blue');
+                } else if (redScore >= WIN_SCORE) {
+                    endGame('red');
+                }
+            }
+
+            resurrect() {
+                this.dead = false;
+                this.hp = MAX_HP;
+                this.ammo = MAX_AMMO;
+                this.boost = BOOST_MAX;
+                this.fireCooldown = 0;
+                this.reloadCooldown = 0;
+
+                // Respawn at team base
+                if (this.team === 'blue') {
+                    this.x = 300 + Math.random() * 200;
+                    this.y = 300 + Math.random() * 200;
+                } else {
+                    this.x = WORLD_WIDTH - 300 - Math.random() * 200;
+                    this.y = WORLD_HEIGHT - 300 - Math.random() * 200;
+                }
+            }
+
+            draw(ctx, cameraX, cameraY) {
+                if (this.dead) return;
+
+                let screenX = this.x - cameraX;
+                let screenY = this.y - cameraY;
+
+                // Draw car body
+                ctx.save();
+                ctx.translate(screenX, screenY);
+                ctx.rotate(this.angle);
+
+                ctx.fillStyle = this.team === 'blue' ? '#00a8ff' : '#ff3333';
+                ctx.fillRect(-CAR_WIDTH / 2, -CAR_HEIGHT / 2, CAR_WIDTH, CAR_HEIGHT);
+
+                // Draw direction indicator
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(CAR_WIDTH / 2 - 8, -CAR_HEIGHT / 4, 8, CAR_HEIGHT / 2);
+
+                ctx.restore();
+
+                // Draw turret
+                ctx.save();
+                ctx.translate(screenX, screenY);
+                ctx.rotate(this.turretAngle);
+
+                ctx.strokeStyle = this.team === 'blue' ? '#00a8ff' : '#ff3333';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(15, 0);
+                ctx.stroke();
+
+                ctx.restore();
+
+                // Draw HP bar
+                let barWidth = 50;
+                let barHeight = 6;
+                let hpPercent = Math.max(0, this.hp / MAX_HP);
+
+                ctx.fillStyle = '#333333';
+                ctx.fillRect(screenX - barWidth / 2, screenY - 40, barWidth, barHeight);
+
+                ctx.fillStyle = hpPercent > 0.3 ? '#00ff00' : '#ff0000';
+                ctx.fillRect(screenX - barWidth / 2, screenY - 40, barWidth * hpPercent, barHeight);
+
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(screenX - barWidth / 2, screenY - 40, barWidth, barHeight);
+            }
+        }
+
+        function createGame() {
+            cars = [];
+            bullets = [];
+            pickups = [];
+
+            // Create obstacles
+            obstacles = [
+                { x: 500, y: 500, width: 200, height: 200 },
+                { x: 1500, y: 500, width: 200, height: 200 },
+                { x: 500, y: 1500, width: 200, height: 200 },
+                { x: 1500, y: 1500, width: 200, height: 200 },
+                { x: 1000, y: 1000, width: 150, height: 150 },
+                { x: 2000, y: 2000, width: 200, height: 200 },
+                { x: 800, y: 2200, width: 150, height: 150 },
+                { x: 2200, y: 800, width: 150, height: 150 }
+            ];
+
+            // Create player (blue team)
+            player = new Car(300, 300, 'blue', true);
+            cars.push(player);
+
+            // Create blue team AI
+            for (let i = 0; i < TEAM_SIZE - 1; i++) {
+                let x = 200 + Math.random() * 400;
+                let y = 200 + Math.random() * 400;
+                cars.push(new Car(x, y, 'blue', false));
+            }
+
+            // Create red team AI
+            for (let i = 0; i < TEAM_SIZE; i++) {
+                let x = WORLD_WIDTH - 300 - Math.random() * 400;
+                let y = WORLD_HEIGHT - 300 - Math.random() * 400;
+                cars.push(new Car(x, y, 'red', false));
+            }
+
+            gameRunning = true;
+        }
+
+        function updateGame() {
+            if (!gameRunning) return;
+
+            // Update cars
+            for (let car of cars) {
+                car.update();
+            }
+
+            // Update bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let bullet = bullets[i];
+                bullet.x += bullet.vx;
+                bullet.y += bullet.vy;
+                bullet.life--;
+
+                // Boundary wrapping
+                if (bullet.x < 0) bullet.x = WORLD_WIDTH;
+                if (bullet.x > WORLD_WIDTH) bullet.x = 0;
+                if (bullet.y < 0) bullet.y = WORLD_HEIGHT;
+                if (bullet.y > WORLD_HEIGHT) bullet.y = 0;
+
+                // Check collision with cars
+                let hit = false;
+                for (let car of cars) {
+                    if (!car.dead && car !== bullet.owner && checkCircleRectCollision(bullet.x, bullet.y, bullet.radius, car.x - CAR_WIDTH / 2, car.y - CAR_HEIGHT / 2, CAR_WIDTH, CAR_HEIGHT)) {
+                        car.takeDamage(BULLET_DMG);
+                        hit = true;
+                        break;
+                    }
+                }
+
+                // Check collision with obstacles
+                if (!hit) {
+                    for (let obs of obstacles) {
+                        if (checkCircleRectCollision(bullet.x, bullet.y, bullet.radius, obs.x, obs.y, obs.width, obs.height)) {
+                            hit = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (hit || bullet.life <= 0) {
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // Spawn pickups
+            if (pickups.length < 8 && Math.random() < 0.005) {
+                let type = Math.random() < 0.5 ? 'health' : 'ammo';
+                let x = Math.random() * WORLD_WIDTH;
+                let y = Math.random() * WORLD_HEIGHT;
+
+                // Check if not in obstacle
+                let inObstacle = false;
+                for (let obs of obstacles) {
+                    if (x > obs.x && x < obs.x + obs.width && y > obs.y && y < obs.y + obs.height) {
+                        inObstacle = true;
+                        break;
+                    }
+                }
+
+                if (!inObstacle) {
+                    pickups.push({ x, y, type, radius: 12 });
+                }
+            }
+
+            // Check pickup collisions
+            for (let i = pickups.length - 1; i >= 0; i--) {
+                let pickup = pickups[i];
+
+                for (let car of cars) {
+                    if (!car.dead && car.distanceTo({x: pickup.x, y: pickup.y}) < car.distanceTo({x: 0, y: 0}) + 50) {
+                        if (pickup.type === 'health') {
+                            car.hp = Math.min(MAX_HP, car.hp + 35);
+                        } else {
+                            car.ammo = MAX_AMMO;
+                        }
+                        pickups.splice(i, 1);
+                        break;
+                    }
+                }
+            }
+        }
+
+        function drawGame() {
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            if (!player || player.dead) {
+                return;
+            }
+
+            // Camera follows player
+            let cameraX = player.x - CANVAS_WIDTH / 2;
+            let cameraY = player.y - CANVAS_HEIGHT / 2;
+
+            // Draw world background grid
+            ctx.strokeStyle = '#1a1a1a';
+            ctx.lineWidth = 1;
+            let gridSize = 100;
+
+            for (let x = Math.floor(cameraX / gridSize) * gridSize; x < cameraX + CANVAS_WIDTH; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x - cameraX, 0);
+                ctx.lineTo(x - cameraX, CANVAS_HEIGHT);
+                ctx.stroke();
+            }
+
+            for (let y = Math.floor(cameraY / gridSize) * gridSize; y < cameraY + CANVAS_HEIGHT; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y - cameraY);
+                ctx.lineTo(CANVAS_WIDTH, y - cameraY);
+                ctx.stroke();
+            }
+
+            // Draw obstacles
+            ctx.fillStyle = '#444444';
+            for (let obs of obstacles) {
+                let screenX = obs.x - cameraX;
+                let screenY = obs.y - cameraY;
+                ctx.fillRect(screenX, screenY, obs.width, obs.height);
+
+                ctx.strokeStyle = '#666666';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(screenX, screenY, obs.width, obs.height);
+            }
+
+            // Draw pickups
+            for (let pickup of pickups) {
+                let screenX = pickup.x - cameraX;
+                let screenY = pickup.y - cameraY;
+
+                ctx.fillStyle = pickup.type === 'health' ? '#00ff00' : '#ffff00';
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, pickup.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // Draw bullets
+            ctx.fillStyle = '#ffff00';
+            for (let bullet of bullets) {
+                let screenX = bullet.x - cameraX;
+                let screenY = bullet.y - cameraY;
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, bullet.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw cars
+            for (let car of cars) {
+                car.draw(ctx, cameraX, cameraY);
+            }
+
+            // Draw minimap
+            drawMinimap(cameraX, cameraY);
+        }
+
+        function drawMinimap(cameraX, cameraY) {
+            minimapCtx.fillStyle = '#000000';
+            minimapCtx.fillRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+
+            let scale = minimapCanvas.width / WORLD_WIDTH;
+
+            // Draw obstacles
+            minimapCtx.fillStyle = '#444444';
+            for (let obs of obstacles) {
+                minimapCtx.fillRect(obs.x * scale, obs.y * scale, obs.width * scale, obs.height * scale);
+            }
+
+            // Draw cars
+            for (let car of cars) {
+                if (car.dead) continue;
+                minimapCtx.fillStyle = car.team === 'blue' ? '#00a8ff' : '#ff3333';
+                minimapCtx.beginPath();
+                minimapCtx.arc(car.x * scale, car.y * scale, 4, 0, Math.PI * 2);
+                minimapCtx.fill();
+
+                // Highlight player
+                if (car.isPlayer) {
+                    minimapCtx.strokeStyle = '#ffffff';
+                    minimapCtx.lineWidth = 2;
+                    minimapCtx.stroke();
+                }
+            }
+
+            // Draw view frustum
+            minimapCtx.strokeStyle = '#00ff00';
+            minimapCtx.lineWidth = 1;
+            minimapCtx.strokeRect(cameraX * scale, cameraY * scale, (CANVAS_WIDTH) * scale, (CANVAS_HEIGHT) * scale);
+        }
+
+        function updateHUD() {
+            if (!player || player.dead) {
+                document.getElementById('playerStats').innerHTML = 'RESPAWNING...';
+                return;
+            }
+
+            document.getElementById('playerStats').innerHTML = `
+                HP: ${Math.ceil(player.hp)} / ${MAX_HP}<br>
+                AMMO: ${player.ammo} / ${MAX_AMMO}<br>
+                BOOST: ${Math.ceil(player.boost)} / ${BOOST_MAX}<br>
+                Fire CD: ${Math.max(0, Math.ceil(player.fireCooldown))}<br>
+                Reload CD: ${Math.max(0, Math.ceil(player.reloadCooldown))}
+            `;
+
+            let blueAlive = cars.filter(c => c.team === 'blue' && !c.dead).length;
+            let redAlive = cars.filter(c => c.team === 'red' && !c.dead).length;
+
+            document.getElementById('teamScore').innerHTML = `
+                BLUE: ${blueScore} | RED: ${redScore}<br>
+                Alive: ${blueAlive} vs ${redAlive}
+            `;
+        }
+
+        function handleInput() {
+            if (!player || player.dead) return;
+
+            let keys = {};
+            document.addEventListener('keydown', (e) => {
+                keys[e.key.toLowerCase()] = true;
+
+                if (e.key === 'r' || e.key === 'R') {
+                    player.reload();
+                }
+            });
+
+            document.addEventListener('keyup', (e) => {
+                keys[e.key.toLowerCase()] = false;
+            });
+
+            // Store for use in game loop
+            window.gameKeys = keys;
+        }
+
+        let mouseX = 0;
+        let mouseY = 0;
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        document.addEventListener('click', (e) => {
+            if (gameRunning && player && !player.dead) {
+                player.fire();
+            }
+        });
+
+        function handlePlayerInput() {
+            if (!player || player.dead) return;
+
+            let keys = window.gameKeys || {};
+
+            // Movement
+            if (keys['w'] || keys['W']) {
+                player.accelerate(player.angle);
+            }
+            if (keys['s'] || keys['S']) {
+                player.accelerate(player.angle + Math.PI);
+            }
+            if (keys['a'] || keys['A']) {
+                player.turn(-1);
+            }
+            if (keys['d'] || keys['D']) {
+                player.turn(1);
+            }
+
+            // Boost
+            if ((keys[' '] || keys['spacebar']) && player.boost >= BOOST_DRAIN) {
+                let boostMult = 1 + (BOOST_SPEED_MULT - 1) * (player.boost / BOOST_MAX);
+                player.vx *= boostMult;
+                player.vy *= boostMult;
+                player.boost -= BOOST_DRAIN;
+            }
+
+            // Aim turret
+            let centerX = CANVAS_WIDTH / 2;
+            let centerY = CANVAS_HEIGHT / 2;
+            let dx = mouseX - centerX;
+            let dy = mouseY - centerY;
+            player.turretAngle = Math.atan2(dy, dx);
+
+            // Limit speed
+            let speed = Math.sqrt(player.vx * player.vx + player.vy * player.vy);
+            if (speed > MAX_SPEED) {
+                player.vx = (player.vx / speed) * MAX_SPEED;
+                player.vy = (player.vy / speed) * MAX_SPEED;
+            }
+        }
+
+        function checkCircleRectCollision(cx, cy, cr, rx, ry, rw, rh) {
+            let closestX = Math.max(rx, Math.min(cx, rx + rw));
+            let closestY = Math.max(ry, Math.min(cy, ry + rh));
+
+            let dx = cx - closestX;
+            let dy = cy - closestY;
+
+            return (dx * dx + dy * dy) < (cr * cr);
+        }
+
+        function gameLoop() {
+            handlePlayerInput();
+            updateGame();
+            drawGame();
+            updateHUD();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            document.getElementById('startScreen').classList.add('hidden');
+            gameState = 'playing';
+            createGame();
+            handleInput();
+            gameLoop();
+        }
+
+        function endGame(winner) {
+            gameRunning = false;
+            document.getElementById('gameOverScreen').style.display = 'flex';
+            document.getElementById('gameOverTitle').textContent = 'GAME OVER';
+            let winnerName = winner === 'blue' ? 'BLUE' : 'RED';
+            document.getElementById('gameOverMessage').textContent = `TEAM ${winnerName} WINS!`;
+        }
+    </script>
+</body>
+</html>
