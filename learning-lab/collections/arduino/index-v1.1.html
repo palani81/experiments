@@ -2188,7 +2188,14 @@ function App() {
     if (!completed[id]) {
       addXpPop(100);
     }
-    setCompleted(prev => ({ ...prev, [id]: !prev[id] }));
+    const newCompleted = { ...completed, [id]: !completed[id] };
+    setCompleted(newCompleted);
+    // Check for badge unlocks
+    const result = checkBadgeUnlocks(newCompleted, bonusXp, gameHistory, badges);
+    if (result.newBadges.length > 0) {
+      setBadges(result.badges);
+      setBadgeToast(result.newBadges[0]);
+    }
   };
 
   const addXpPop = (amount) => {
@@ -2199,14 +2206,14 @@ function App() {
 
   const saveState = (playerName, completedState, bonusXpState) => {
     try {
-      const data = { completed: completedState, bonusXp: bonusXpState, badges: badgesState || {}, lastPlayed: Date.now() };
+      const data = { completed: completedState, bonusXp: bonusXpState, badges: badges || {}, lastPlayed: Date.now() };
       localStorage.setItem('sparkcity_' + playerName.toLowerCase(), JSON.stringify(data));
     } catch(e) {}
   };
 
   useEffect(() => {
     if (player) saveState(player, completed, bonusXp);
-  }, [player, completed, bonusXp]);
+  }, [player, completed, bonusXp, badges]);
 
   if (showSetup) {
     return React.createElement(SetupScreen, { onStart: (name) => {
@@ -2218,6 +2225,7 @@ function App() {
           const data = JSON.parse(saved);
           if (data.completed) setCompleted(data.completed);
           if (data.bonusXp !== undefined) setBonusXp(data.bonusXp);
+          if (data.badges) setBadges(data.badges);
         }
       } catch(e) {}
     }});
@@ -2246,8 +2254,17 @@ function App() {
       onClose: () => setMiniGame(null),
       onComplete: (bonusXpAmount) => {
         addXpPop(bonusXpAmount);
-        setBonusXp(prev => prev + bonusXpAmount);
+        const newBonusXp = bonusXp + bonusXpAmount;
+        setBonusXp(newBonusXp);
         setMiniGame(null);
+        // Check for badge unlocks after mini-game
+        const newHistory = { ...gameHistory, sessionCompletions: gameHistory.sessionCompletions + 1 };
+        setGameHistory(newHistory);
+        const result = checkBadgeUnlocks(completed, newBonusXp, newHistory, badges);
+        if (result.newBadges.length > 0) {
+          setBadges(result.badges);
+          setBadgeToast(result.newBadges[0]);
+        }
       }
     });
   }
@@ -2802,13 +2819,12 @@ function MiniGameView({ game, onClose, onComplete }) {
   }
   if (gameState.type === "quiz") {
     return React.createElement(CircuitQuizGame, { game: gameState, setGame: setGameState, onComplete, onClose });
-
+  }
   if (gameState.type === "wiring") {
-    return React.createElement(WiringGame, { game: gameState, onComplete, onClose });
+    return React.createElement(WiringGame, { game: gameState, setGame: setGameState, onComplete, onClose });
   }
   if (gameState.type === "codecomplete") {
-    return React.createElement(CodeCompletionGame, { game: gameState, onComplete, onClose });
-  }
+    return React.createElement(CodeCompletionGame, { game: gameState, setGame: setGameState, onComplete, onClose });
   }
 }
 

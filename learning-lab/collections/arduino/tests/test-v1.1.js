@@ -329,6 +329,107 @@ test('generateQuizGame uses QUIZ_QUESTIONS', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
+// UI WIRING & BUG FIX TESTS
+// ═══════════════════════════════════════════════════════════════
+console.log('\n── UI Wiring & Bug Fixes ──');
+
+test('Header has Badges button', () => {
+  return jsCode.includes('Badges') && jsCode.includes('setShowAchievements(true)');
+});
+
+test('Header has Parent Dashboard button', () => {
+  return jsCode.includes('Parent') && jsCode.includes('setShowParentDash(true)');
+});
+
+test('MiniGameView routes wiring type correctly', () => {
+  // Should have separate if blocks for each type, not nested
+  const miniGameView = jsCode.match(/function MiniGameView[\s\S]*?^}/m);
+  if (!miniGameView) return 'MiniGameView not found';
+  const fn = miniGameView[0];
+  return fn.includes('gameState.type === "wiring"') &&
+         fn.includes('WiringGame') &&
+         fn.includes('gameState.type === "codecomplete"') &&
+         fn.includes('CodeCompletionGame');
+});
+
+test('MiniGameView has balanced braces (no nesting bug)', () => {
+  const match = jsCode.match(/function MiniGameView\b[\s\S]*?(?=\nfunction\s)/);
+  if (!match) return 'MiniGameView not found';
+  const fn = match[0];
+  let depth = 0;
+  for (const ch of fn) {
+    if (ch === '{') depth++;
+    if (ch === '}') depth--;
+  }
+  return depth === 0;
+});
+
+test('Game selection includes wiring and codecomplete generators', () => {
+  return jsCode.includes('generateWiringGame(quest.id)') &&
+         jsCode.includes('generateCodeCompletionGame(quest.id)');
+});
+
+test('checkBadgeUnlocks is called in toggleComplete', () => {
+  // Find toggleComplete through to its closing };
+  const start = jsCode.indexOf('const toggleComplete');
+  if (start === -1) return 'toggleComplete not found';
+  const block = jsCode.substring(start, start + 500);
+  return block.includes('checkBadgeUnlocks');
+});
+
+test('checkBadgeUnlocks is called after mini-game completion', () => {
+  // Look for checkBadgeUnlocks near onComplete in MiniGameView rendering
+  return (jsCode.match(/checkBadgeUnlocks/g) || []).length >= 2;
+});
+
+test('setBadgeToast is called when badges unlock', () => {
+  return jsCode.includes('setBadgeToast(result.newBadges[0])');
+});
+
+test('saveState uses badges not badgesState', () => {
+  const saveState = jsCode.match(/const saveState[\s\S]*?};/);
+  if (!saveState) return 'saveState not found';
+  return !saveState[0].includes('badgesState') && saveState[0].includes('badges');
+});
+
+test('Badges loaded from localStorage on startup', () => {
+  return jsCode.includes('if (data.badges) setBadges(data.badges)');
+});
+
+test('useEffect includes badges in dependency array', () => {
+  return jsCode.includes('[player, completed, bonusXp, badges]');
+});
+
+test('QuestView receives onShowExplainer prop', () => {
+  return jsCode.includes('onShowExplainer') &&
+         /function QuestView\([^)]*onShowExplainer/.test(jsCode);
+});
+
+test('Science Corner has Learn More explainer buttons', () => {
+  return jsCode.includes('EXPLAINER_CONCEPTS.filter') && jsCode.includes('onShowExplainer(c.id)');
+});
+
+test('ExplainerView rendered conditionally in App', () => {
+  return jsCode.includes('showExplainer && React.createElement(ExplainerView');
+});
+
+test('AchievementModal rendered conditionally in App', () => {
+  return jsCode.includes('showAchievements && React.createElement(AchievementModal');
+});
+
+test('ParentDashboard rendered conditionally in App', () => {
+  return jsCode.includes('showParentDash && React.createElement(ParentDashboard');
+});
+
+test('BadgeToast rendered conditionally in App', () => {
+  return jsCode.includes('badgeToast && React.createElement(BadgeToast');
+});
+
+test('gameHistory state is tracked', () => {
+  return jsCode.includes('setGameHistory') && jsCode.includes('sessionCompletions');
+});
+
+// ═══════════════════════════════════════════════════════════════
 // SUMMARY
 // ═══════════════════════════════════════════════════════════════
 const total = passed + failed;
