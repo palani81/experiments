@@ -1,4 +1,5 @@
 """Shared test fixtures for NAS Explorer tests."""
+from __future__ import annotations
 
 import os
 import sys

@@ -1,4 +1,5 @@
 """File browsing and listing endpoints."""
+from __future__ import annotations
 
 import json
 from fastapi import APIRouter, Depends, Query

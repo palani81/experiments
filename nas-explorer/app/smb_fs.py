@@ -4,6 +4,7 @@ Uses smbprotocol/smbclient for pure-Python SMB access.
 Provides os-like functions: walk, stat, open_file, listdir, etc.
 Supports multiple shares from the same or different hosts.
 """
+from __future__ import annotations
 
 import os
 import tempfile

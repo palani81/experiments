@@ -2,6 +2,7 @@
 
 Supports both local files and SMB files (via temp download).
 """
+from __future__ import annotations
 
 import os
 import subprocess

@@ -1,4 +1,5 @@
 """Admin endpoints: scanning, health, system info."""
+from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 

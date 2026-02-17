@@ -1,4 +1,5 @@
 """Content and metadata extraction from various file types."""
+from __future__ import annotations
 
 import os
 import json

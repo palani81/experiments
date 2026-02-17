@@ -6,6 +6,7 @@ nas_connection.json are never stored in plaintext.
 
 Key storage: data/.encryption_key (auto-created on first use)
 """
+from __future__ import annotations
 
 import os
 import logging

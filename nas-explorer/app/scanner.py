@@ -9,6 +9,7 @@ Phase 2 (Enrichment): Thread pool computes hashes, extracts text content,
 Scans NAS shares over SMB (no OS mount needed).
 Supports multiple sources/shares.
 """
+from __future__ import annotations
 
 import os
 import hashlib

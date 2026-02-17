@@ -1,7 +1,9 @@
 """Configuration management for NAS Explorer."""
+from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Optional
 from pydantic_settings import BaseSettings
 
 
@@ -30,8 +32,8 @@ class Settings(BaseSettings):
     enrichment_workers: int = 4  # Parallel threads for hash/text/metadata extraction
 
     # SSL (optional)
-    ssl_cert_path: str | None = None
-    ssl_key_path: str | None = None
+    ssl_cert_path: Optional[str] = None
+    ssl_key_path: Optional[str] = None
 
     class Config:
         env_file = ".env"

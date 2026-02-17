@@ -1,4 +1,5 @@
 """Full-text search endpoint."""
+from __future__ import annotations
 
 import time
 import json

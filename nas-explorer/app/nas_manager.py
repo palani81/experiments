@@ -3,6 +3,7 @@
 No OS-level mounting required. Uses smbprotocol for direct SMB access.
 Supports multiple shares/folders from one or more NAS devices.
 """
+from __future__ import annotations
 
 import os
 import json

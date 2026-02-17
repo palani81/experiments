@@ -1,4 +1,5 @@
 """Security layer: path validation, auth, read-only enforcement."""
+from __future__ import annotations
 
 import logging
 from fastapi import HTTPException, Security, Request

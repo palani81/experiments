@@ -1,4 +1,5 @@
 """Setup wizard API endpoints — NAS connection, testing, multi-share management."""
+from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel

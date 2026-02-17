@@ -1,7 +1,8 @@
 """Pydantic models for request/response schemas."""
+from __future__ import annotations
 
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 
 class FileItem(BaseModel):
@@ -16,12 +17,12 @@ class FileItem(BaseModel):
     created_at: Optional[str] = None
     modified_at: Optional[str] = None
     indexed_at: Optional[str] = None
-    tags: list[str] = []
+    tags: List[str] = []
     metadata: Optional[dict] = None
     preview_url: Optional[str] = None
 
     @classmethod
-    def from_row(cls, row: dict, tags: list[str] | None = None) -> "FileItem":
+    def from_row(cls, row: dict, tags: Optional[List[str]] = None) -> "FileItem":
         preview_url = None
         mime = row.get("mime_type") or ""
         if mime.startswith(("image/", "video/")) or mime == "application/pdf":
@@ -44,7 +45,7 @@ class FileItem(BaseModel):
 
 
 class FileListResponse(BaseModel):
-    items: list[FileItem]
+    items: List[FileItem]
     total: int
     has_more: bool
 
@@ -52,7 +53,7 @@ class FileListResponse(BaseModel):
 class SearchRequest(BaseModel):
     query: str
     mime_type: Optional[str] = None
-    tags: Optional[list[str]] = None
+    tags: Optional[List[str]] = None
     min_size: Optional[int] = None
     max_size: Optional[int] = None
     sort_by: str = "relevance"
@@ -61,7 +62,7 @@ class SearchRequest(BaseModel):
 
 
 class SearchResponse(BaseModel):
-    items: list[FileItem]
+    items: List[FileItem]
     total: int
     search_time_ms: float
 
@@ -70,7 +71,7 @@ class FolderNode(BaseModel):
     id: int
     name: str
     path: str
-    children: list["FolderNode"] = []
+    children: List["FolderNode"] = []
     file_count: int = 0
 
 
@@ -81,22 +82,22 @@ class DashboardData(BaseModel):
     unique_hashes: int = 0
     duplicate_groups: int = 0
     duplicate_wasted_bytes: int = 0
-    by_type: list[dict] = []
-    largest_files: list[dict] = []
-    recent_files: list[dict] = []
-    duplicates: list[dict] = []
-    tag_counts: list[dict] = []
-    size_by_extension: list[dict] = []
-    files_by_month: list[dict] = []
+    by_type: List[dict] = []
+    largest_files: List[dict] = []
+    recent_files: List[dict] = []
+    duplicates: List[dict] = []
+    tag_counts: List[dict] = []
+    size_by_extension: List[dict] = []
+    files_by_month: List[dict] = []
     # Extended insights
-    oldest_files: list[dict] = []
+    oldest_files: List[dict] = []
     avg_file_size: int = 0
     median_file_size: int = 0
-    size_by_source: list[dict] = []
-    file_age_buckets: list[dict] = []
-    extension_counts: list[dict] = []
+    size_by_source: List[dict] = []
+    file_age_buckets: List[dict] = []
+    extension_counts: List[dict] = []
     empty_files: int = 0
-    deep_paths: list[dict] = []
+    deep_paths: List[dict] = []
 
 
 class ScanStatus(BaseModel):
