@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory android:title="@string/settings_notifications">
+
+        <SwitchPreference
+            android:key="pref_notify_updates"
+            android:title="@string/settings_notify_updates"
+            android:summary="@string/settings_notify_updates_summary"
+            android:defaultValue="true" />
+
+        <SwitchPreference
+            android:key="pref_notify_invites"
+            android:title="@string/settings_notify_invites"
+            android:summary="@string/settings_notify_invites_summary"
+            android:defaultValue="true" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/settings_account">
+
+        <Preference
+            android:key="pref_account_name"
+            android:title="@string/settings_signed_in_as"
+            android:selectable="false" />
+
+        <Preference
+            android:key="pref_app_version"
+            android:title="@string/settings_app_version"
+            android:selectable="false" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

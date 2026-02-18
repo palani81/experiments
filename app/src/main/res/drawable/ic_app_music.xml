@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="160dp"
+    android:viewportWidth="160"
+    android:viewportHeight="160">
+    <!-- Background -->
+    <path android:fillColor="#FF7B1FA2" android:pathData="M0,0h160v160h-160z" />
+    <!-- Headphones -->
+    <path android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="6"
+        android:pathData="M40,95 a40,40 0 0,1 80,0" />
+    <!-- Left ear cup -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M32,85h12v35 a6,6 0 0,1 -12,0z" />
+    <!-- Right ear cup -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M116,85h12v35 a6,6 0 0,1 -12,0z" />
+    <!-- Music notes -->
+    <path android:fillColor="#FFCE93D8"
+        android:pathData="M70,50 a5,5 0 1,0 0.01,0z M70,50v-20h15v5h-10v15" />
+    <path android:fillColor="#FFCE93D8"
+        android:pathData="M95,45 a5,5 0 1,0 0.01,0z M95,45v-20h15v5h-10v15" />
+</vector>

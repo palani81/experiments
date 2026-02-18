@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.BetaAppManager" parent="Theme.Leanback">
+        <item name="android:windowBackground">@color/background_primary</item>
+        <item name="android:colorPrimary">@color/accent_primary</item>
+        <item name="android:colorAccent">@color/accent_primary</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="browseRowsMarginTop">60dp</item>
+        <item name="browsePaddingStart">54dp</item>
+    </style>
+
+    <style name="Theme.BetaAppManager.Details" parent="Theme.Leanback.Details">
+        <item name="android:windowBackground">@color/background_primary</item>
+        <item name="android:colorPrimary">@color/accent_primary</item>
+        <item name="android:colorAccent">@color/accent_primary</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+    </style>
+
+    <style name="Theme.BetaAppManager.Preferences" parent="@style/PreferenceThemeOverlay.v14.Leanback">
+        <item name="android:windowBackground">@color/background_primary</item>
+        <item name="android:colorPrimary">@color/accent_primary</item>
+        <item name="android:colorAccent">@color/accent_primary</item>
+    </style>
+
+</resources>

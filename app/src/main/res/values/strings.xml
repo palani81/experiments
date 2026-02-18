@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Beta App Manager</string>
+    <string name="app_title">Live App Testing</string>
+
+    <!-- Row headers -->
+    <string name="row_updates_available">Updates Available</string>
+    <string name="row_installed_apps">Installed Beta Apps</string>
+    <string name="row_available_apps">Available to Test</string>
+    <string name="row_recently_updated">Recently Updated</string>
+
+    <!-- Detail screen -->
+    <string name="action_install">Install</string>
+    <string name="action_update">Update</string>
+    <string name="action_uninstall">Uninstall</string>
+    <string name="action_reset_iap">Reset IAPs</string>
+    <string name="action_open">Open</string>
+
+    <!-- Status labels -->
+    <string name="status_installed">Installed</string>
+    <string name="status_update_available">Update Available</string>
+    <string name="status_not_installed">Not Installed</string>
+    <string name="status_downloading">Downloading&#8230;</string>
+    <string name="status_installing">Installing&#8230;</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_notify_updates">New version alerts</string>
+    <string name="settings_notify_updates_summary">Get notified when a new beta version is available</string>
+    <string name="settings_notify_invites">New invite alerts</string>
+    <string name="settings_notify_invites_summary">Get notified when you are invited to test a new app</string>
+    <string name="settings_account">Account</string>
+    <string name="settings_signed_in_as">Signed in as</string>
+    <string name="settings_app_version">App version</string>
+
+    <!-- Messages -->
+    <string name="msg_iap_reset_success">In-app purchases have been reset for %s</string>
+    <string name="msg_iap_reset_confirm">Reset all in-app purchases for %s? This cannot be undone.</string>
+    <string name="msg_install_success">%s installed successfully</string>
+    <string name="msg_update_success">%s updated successfully</string>
+    <string name="msg_uninstall_confirm">Uninstall %s?</string>
+    <string name="msg_no_beta_apps">No beta apps available. Accept an invite to get started.</string>
+    <string name="msg_loading">Loading&#8230;</string>
+    <string name="msg_error_generic">Something went wrong. Please try again.</string>
+
+    <!-- Detail labels -->
+    <string name="label_version">Version</string>
+    <string name="label_developer">Developer</string>
+    <string name="label_last_updated">Last updated</string>
+    <string name="label_size">Size</string>
+    <string name="label_changelog">What\'s New</string>
+    <string name="label_iap_items">In-App Purchases</string>
+</resources>

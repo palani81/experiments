@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <!-- Background -->
+    <path
+        android:fillColor="#FF21262D"
+        android:pathData="M0,0h96v96h-96z" />
+    <!-- App icon placeholder (grid/box shape) -->
+    <path
+        android:fillColor="#FFFF9900"
+        android:pathData="M24,24h20v20h-20zM52,24h20v20h-20zM24,52h20v20h-20zM52,52h20v20h-20z" />
+</vector>

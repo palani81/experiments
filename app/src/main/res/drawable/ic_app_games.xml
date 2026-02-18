@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="160dp"
+    android:viewportWidth="160"
+    android:viewportHeight="160">
+    <!-- Background -->
+    <path android:fillColor="#FF546E7A" android:pathData="M0,0h160v160h-160z" />
+    <!-- Game controller body -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M30,75h100 a15,15 0 0,1 15,15v10 a15,15 0 0,1 -15,15h-100 a15,15 0 0,1 -15,-15v-10 a15,15 0 0,1 15,-15z" />
+    <!-- D-pad -->
+    <path android:fillColor="#FF546E7A"
+        android:pathData="M50,85h8v8h-8zM50,101h8v8h-8zM42,93h8v8h-8zM58,93h8v8h-8z" />
+    <!-- Buttons -->
+    <path android:fillColor="#FFE53935"
+        android:pathData="M105,88 a5,5 0 1,0 0.01,0z" />
+    <path android:fillColor="#FF43A047"
+        android:pathData="M118,95 a5,5 0 1,0 0.01,0z" />
+    <path android:fillColor="#FF1E88E5"
+        android:pathData="M105,102 a5,5 0 1,0 0.01,0z" />
+    <path android:fillColor="#FFFDD835"
+        android:pathData="M92,95 a5,5 0 1,0 0.01,0z" />
+    <!-- Joystick bumps -->
+    <path android:fillColor="#FFE0E0E0"
+        android:pathData="M40,68h20v7h-20zM100,68h20v7h-20z" />
+</vector>

@@ -1,0 +1,77 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.amazon.lat.betamanager'
+    compileSdk 33
+
+    defaultConfig {
+        applicationId "com.amazon.lat.betamanager"
+        minSdk 25
+        targetSdk 33
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            debuggable true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+}
+
+dependencies {
+    // Kotlin
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4'
+
+    // AndroidX Core
+    implementation 'androidx.core:core-ktx:1.1.0'
+    implementation 'androidx.appcompat:appcompat:1.1.0'
+    implementation 'androidx.fragment:fragment-ktx:1.1.0'
+
+    // Leanback (TV UI)
+    implementation 'androidx.leanback:leanback:1.1.0-rc02'
+    implementation 'androidx.leanback:leanback-preference:1.1.0-rc01'
+
+    // Lifecycle & ViewModel
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.2.0'
+    implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.2.0'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.2.0'
+
+    // Image loading
+    implementation 'com.github.bumptech.glide:glide:4.15.1'
+
+    // JSON
+    implementation 'com.google.code.gson:gson:2.10.1'
+
+    // HTTP (for future real API)
+    implementation 'com.squareup.okhttp3:okhttp:4.11.0'
+
+    // Login with Amazon SDK (placeholder - add jar to libs/ when available)
+    // implementation files('libs/login-with-amazon-sdk.jar')
+
+    // ── Testing ──
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.6.4'
+    testImplementation 'androidx.arch.core:core-testing:2.1.0'
+}

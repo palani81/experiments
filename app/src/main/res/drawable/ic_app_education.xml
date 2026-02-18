@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="160dp"
+    android:viewportWidth="160"
+    android:viewportHeight="160">
+    <!-- Background -->
+    <path android:fillColor="#FF43A047" android:pathData="M0,0h160v160h-160z" />
+    <!-- Book -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M40,45h35v75h-35z" />
+    <path android:fillColor="#FFE8F5E9"
+        android:pathData="M85,45h35v75h-35z" />
+    <!-- Book spine -->
+    <path android:fillColor="#FFC8E6C9"
+        android:pathData="M75,45h10v75h-10z" />
+    <!-- Star on cover -->
+    <path android:fillColor="#FFFDD835"
+        android:pathData="M57,70l4,8l9,1.5l-6.5,6.5l1.5,9l-8,-4.2l-8,4.2l1.5,-9l-6.5,-6.5l9,-1.5z" />
+    <!-- ABC text -->
+    <path android:fillColor="#FF43A047"
+        android:pathData="M90,65h25v4h-25zM90,75h20v4h-20zM90,85h22v4h-22z" />
+</vector>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="160dp"
+    android:viewportWidth="160"
+    android:viewportHeight="160">
+    <!-- Background -->
+    <path android:fillColor="#FFFF8F00" android:pathData="M0,0h160v160h-160z" />
+    <!-- Chef hat -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M55,70 a25,25 0 0,1 50,0 v30 h-50z" />
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M50,68 a20,20 0 0,1 15,-18 a18,18 0 0,1 30,0 a20,20 0 0,1 15,18z" />
+    <!-- Hat band -->
+    <path android:fillColor="#FFFF8F00"
+        android:pathData="M55,95h50v5h-50z" />
+    <!-- Utensils below -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M70,108v30M80,108v30M90,108v30" />
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M65,138h30v3h-30z" />
+</vector>

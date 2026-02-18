@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="160dp"
+    android:viewportWidth="160"
+    android:viewportHeight="160">
+    <!-- Background -->
+    <path android:fillColor="#FFE53935" android:pathData="M0,0h160v160h-160z" />
+    <!-- Heart / fitness icon -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M80,125 L40,85 a28,28 0 0,1 40,-28 a28,28 0 0,1 40,28z" />
+    <!-- Pulse line -->
+    <path android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFE53935"
+        android:strokeWidth="5"
+        android:pathData="M30,85 L55,85 L65,65 L75,105 L85,75 L95,95 L105,85 L130,85" />
+</vector>

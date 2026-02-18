@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fire TV inspired dark theme -->
+    <color name="background_primary">#FF0D1117</color>
+    <color name="background_secondary">#FF161B22</color>
+    <color name="background_card">#FF21262D</color>
+    <color name="background_card_focused">#FF30363D</color>
+
+    <!-- Amazon accent colors -->
+    <color name="accent_primary">#FFFF9900</color>
+    <color name="accent_secondary">#FFFFB84D</color>
+
+    <!-- Text colors -->
+    <color name="text_primary">#FFF0F6FC</color>
+    <color name="text_secondary">#FF8B949E</color>
+    <color name="text_tertiary">#FF6E7681</color>
+
+    <!-- Status colors -->
+    <color name="status_update">#FF58A6FF</color>
+    <color name="status_installed">#FF3FB950</color>
+    <color name="status_available">#FFFF9900</color>
+    <color name="status_error">#FFF85149</color>
+
+    <!-- Leanback required -->
+    <color name="search_opaque">#FFFF9900</color>
+    <color name="default_background">#FF0D1117</color>
+    <color name="fastlane_background">#FF161B22</color>
+    <color name="headers_zone">#FF161B22</color>
+</resources>
