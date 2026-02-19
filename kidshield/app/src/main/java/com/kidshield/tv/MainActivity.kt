@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
+import com.kidshield.tv.data.iap.AmazonIapManager
 import com.kidshield.tv.data.local.preferences.PinManager
 import com.kidshield.tv.data.repository.SettingsRepository
 import com.kidshield.tv.service.AppMonitorService
@@ -21,6 +22,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var lockTaskHelper: LockTaskHelper
+    
+    @Inject
+    lateinit var iapManager: AmazonIapManager
 
     @Inject
     lateinit var settingsRepository: SettingsRepository
@@ -30,6 +34,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize Amazon IAP
+        iapManager.initialize()
 
         // Ensure usage stats permission (needed for foreground app detection)
         lockTaskHelper.ensureUsageStatsPermission()
@@ -70,6 +77,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        
+        // Refresh IAP purchase status in case purchase completed while app was in background
+        iapManager.refreshPurchaseStatus()
+        
         // If Device Owner, engage lock task (blocks Home/Recent/Status bar)
         if (lockTaskHelper.isDeviceOwner) {
             // Re-apply allowlist every resume in case new apps were installed

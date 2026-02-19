@@ -1,45 +1,29 @@
 package com.kidshield.tv.ui.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.kidshield.tv.data.local.preferences.PinManager
-import com.kidshield.tv.data.repository.SettingsRepository
 import com.kidshield.tv.service.LockTaskHelper
 import com.kidshield.tv.ui.kid.home.KidHomeScreen
 import com.kidshield.tv.ui.kid.timesup.TimesUpScreen
 import com.kidshield.tv.ui.parent.appmanagement.AppManagementScreen
 import com.kidshield.tv.ui.parent.contentsafety.ContentSafetyScreen
 import com.kidshield.tv.ui.parent.dashboard.ParentDashboardScreen
-import com.kidshield.tv.ui.parent.pin.ChangePinScreen
 import com.kidshield.tv.ui.parent.pin.PinEntryScreen
 import com.kidshield.tv.ui.parent.setupwizard.SetupWizardScreen
+import com.kidshield.tv.ui.parent.subscription.SubscriptionScreen
 import com.kidshield.tv.ui.parent.timelimits.AppTimeLimitScreen
 import com.kidshield.tv.ui.parent.timelimits.TimeLimitsScreen
 
 @Composable
 fun KidShieldNavGraph(
     navController: NavHostController,
-    lockTaskHelper: LockTaskHelper,
-    settingsRepository: SettingsRepository,
-    pinManager: PinManager
+    lockTaskHelper: LockTaskHelper
 ) {
-    val isFirstLaunch by settingsRepository.isFirstLaunch().collectAsState(initial = false)
-    val isPinSet = pinManager.isPinSet
-
-    // If first launch and PIN not set, start with setup wizard
-    val startDestination = if (isFirstLaunch && !isPinSet) {
-        Screen.SetupWizard.route
-    } else {
-        Screen.KidHome.route
-    }
-
-    NavHost(navController = navController, startDestination = startDestination) {
+    NavHost(navController = navController, startDestination = Screen.KidHome.route) {
 
         composable(Screen.KidHome.route) {
             KidHomeScreen(
@@ -99,16 +83,32 @@ fun KidShieldNavGraph(
                 onNavigateToAppManagement = { navController.navigate(Screen.AppManagement.route) },
                 onNavigateToContentSafety = { navController.navigate(Screen.ContentSafety.route) },
                 onNavigateToSetupWizard = { navController.navigate(Screen.SetupWizard.route) },
-                onNavigateToChangePin = { navController.navigate(Screen.ChangePin.route) },
+                onNavigateToSubscription = { navController.navigate(Screen.Subscription.route) },
                 onBackToKids = {
                     navController.popBackStack(Screen.KidHome.route, inclusive = false)
                 }
             )
         }
 
-        composable(Screen.TimeLimits.route) {
+        composable(
+            Screen.TimeLimits.route,
+            arguments = listOf(
+                navArgument("fromSetup") { 
+                    type = NavType.BoolType
+                    defaultValue = false
+                }
+            )
+        ) { backStackEntry ->
+            val fromSetup = backStackEntry.arguments?.getBoolean("fromSetup") ?: false
             TimeLimitsScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                showContinueSetup = fromSetup,
+                onContinueSetup = { 
+                    // Navigate back to setup wizard step 3 (completion)
+                    navController.navigate(Screen.SetupWizard.createRoute(step = 3)) {
+                        popUpTo(Screen.SetupWizard.route) { inclusive = true }
+                    }
+                }
             )
         }
 
@@ -132,9 +132,25 @@ fun KidShieldNavGraph(
             )
         }
 
-        composable(Screen.AppManagement.route) {
+        composable(
+            Screen.AppManagement.route,
+            arguments = listOf(
+                navArgument("fromSetup") { 
+                    type = NavType.BoolType
+                    defaultValue = false
+                }
+            )
+        ) { backStackEntry ->
+            val fromSetup = backStackEntry.arguments?.getBoolean("fromSetup") ?: false
             AppManagementScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                showContinueSetup = fromSetup,
+                onContinueSetup = { 
+                    // Navigate back to setup wizard step 2 (time limits)
+                    navController.navigate(Screen.SetupWizard.createRoute(step = 2)) {
+                        popUpTo(Screen.SetupWizard.route) { inclusive = true }
+                    }
+                }
             )
         }
 
@@ -145,24 +161,30 @@ fun KidShieldNavGraph(
             )
         }
 
-        composable(Screen.SetupWizard.route) {
-            // Determine if this is first launch by checking if PIN is not set
-            val isFirstLaunchSetup = !pinManager.isPinSet
+        composable(
+            Screen.SetupWizard.route,
+            arguments = listOf(
+                navArgument("step") { 
+                    type = NavType.IntType
+                    defaultValue = 0
+                }
+            )
+        ) { backStackEntry ->
+            val initialStep = backStackEntry.arguments?.getInt("step") ?: 0
             SetupWizardScreen(
-                isFirstLaunch = isFirstLaunchSetup,
-                onComplete = {
-                    // After first launch setup, go to kid home
-                    navController.navigate(Screen.KidHome.route) {
-                        popUpTo(0) { inclusive = true }
-                    }
+                initialStep = initialStep,
+                onBack = { navController.popBackStack() },
+                onNavigateToAppManagement = { 
+                    navController.navigate(Screen.AppManagement.createRoute(fromSetup = true))
                 },
-                onBack = { navController.popBackStack() }
+                onNavigateToTimeLimits = { 
+                    navController.navigate(Screen.TimeLimits.createRoute(fromSetup = true))
+                }
             )
         }
 
-        composable(Screen.ChangePin.route) {
-            ChangePinScreen(
-                onPinChanged = { navController.popBackStack() },
+        composable(Screen.Subscription.route) {
+            SubscriptionScreen(
                 onBack = { navController.popBackStack() }
             )
         }

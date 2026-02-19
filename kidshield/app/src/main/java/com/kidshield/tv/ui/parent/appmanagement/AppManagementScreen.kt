@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -34,7 +35,9 @@ import com.kidshield.tv.ui.theme.TvTextStyles
 @Composable
 fun AppManagementScreen(
     viewModel: AppManagementViewModel = hiltViewModel(),
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    showContinueSetup: Boolean = false,
+    onContinueSetup: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -55,7 +58,19 @@ fun AppManagementScreen(
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
-            Text("Manage Apps", style = TvTextStyles.headlineLarge)
+            Column {
+                Text(
+                    if (showContinueSetup) "Setup: Choose Apps" else "Manage Apps", 
+                    style = TvTextStyles.headlineLarge
+                )
+                if (showContinueSetup) {
+                    Text(
+                        "Step 2 of 4",
+                        style = TvTextStyles.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -73,6 +88,39 @@ fun AppManagementScreen(
                     app = app,
                     onToggle = { viewModel.toggleAppAllowed(app.packageName, !app.isAllowed) }
                 )
+            }
+            
+            // Continue setup button when accessed from setup wizard
+            if (showContinueSetup && uiState.apps.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Surface(
+                        onClick = onContinueSetup,
+                        shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(12.dp)),
+                        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
+                        colors = ClickableSurfaceDefaults.colors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            focusedContainerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Continue Setup",
+                                style = TvTextStyles.labelLarge,
+                                color = androidx.compose.ui.graphics.Color.White
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            androidx.tv.material3.Icon(
+                                androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                tint = androidx.compose.ui.graphics.Color.White
+                            )
+                        }
+                    }
+                }
             }
         }
 

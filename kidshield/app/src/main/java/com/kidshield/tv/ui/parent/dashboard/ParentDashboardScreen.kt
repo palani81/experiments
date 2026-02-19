@@ -22,9 +22,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.VpnKey
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -55,7 +55,7 @@ fun ParentDashboardScreen(
     onNavigateToAppManagement: () -> Unit,
     onNavigateToContentSafety: () -> Unit,
     onNavigateToSetupWizard: () -> Unit,
-    onNavigateToChangePin: () -> Unit = {},
+    onNavigateToSubscription: () -> Unit,
     onBackToKids: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -67,22 +67,107 @@ fun ParentDashboardScreen(
         modifier = Modifier.fillMaxSize().padding(48.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // First-time user guidance
+        if (uiState.appUsages.isEmpty()) {
+            item {
+                Surface(
+                    onClick = onNavigateToSetupWizard,
+                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(12.dp)),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
+                    colors = ClickableSurfaceDefaults.colors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        focusedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(20.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Settings,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "🚀 Get Started with Setup Wizard",
+                                style = TvTextStyles.titleLarge,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                "Click here for guided setup to choose apps and set time limits",
+                                style = TvTextStyles.bodyLarge,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
         // Home button protection warning
         if (!isProtected) {
             item {
                 Surface(
                     onClick = {
-                        // Open Home app settings so user can pick KidShield as default
+                        // Multi-approach strategy for setting default launcher
                         try {
-                            val intent = Intent(AndroidSettings.ACTION_HOME_SETTINGS)
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            context.startActivity(intent)
-                        } catch (_: Exception) {
-                            // Fallback: trigger the home chooser dialog
-                            val homeIntent = Intent(Intent.ACTION_MAIN)
-                            homeIntent.addCategory(Intent.CATEGORY_HOME)
-                            homeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            context.startActivity(homeIntent)
+                            // Approach 1: Use Intent.createChooser to force launcher selection
+                            val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                                addCategory(Intent.CATEGORY_HOME)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                            }
+                            
+                            // Force the chooser dialog
+                            val chooser = Intent.createChooser(homeIntent, "Choose Default Launcher")
+                            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            context.startActivity(chooser)
+                            
+                        } catch (e: Exception) {
+                            // Approach 2: Try to open home settings directly
+                            try {
+                                val settingsIntent = Intent().apply {
+                                    action = AndroidSettings.ACTION_HOME_SETTINGS
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(settingsIntent)
+                                
+                            } catch (e2: Exception) {
+                                // Approach 3: Open general app settings
+                                try {
+                                    val appSettingsIntent = Intent().apply {
+                                        action = AndroidSettings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    context.startActivity(appSettingsIntent)
+                                    
+                                } catch (e3: Exception) {
+                                    // Approach 4: Open application settings
+                                    try {
+                                        val generalSettingsIntent = Intent().apply {
+                                            action = AndroidSettings.ACTION_APPLICATION_SETTINGS
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.startActivity(generalSettingsIntent)
+                                        
+                                    } catch (e4: Exception) {
+                                        // Final approach: Trigger home intent to show available launchers
+                                        try {
+                                            val basicHomeIntent = Intent(Intent.ACTION_MAIN).apply {
+                                                addCategory(Intent.CATEGORY_HOME)
+                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                // Clear the default to force selection
+                                                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                            }
+                                            context.startActivity(basicHomeIntent)
+                                        } catch (e5: Exception) {
+                                            // If all else fails, at least we tried
+                                            android.util.Log.w("KidShield", "Could not open launcher settings", e5)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     },
                     shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(12.dp)),
@@ -109,9 +194,14 @@ fun ParentDashboardScreen(
                                 color = Color(0xFFFF6B6B)
                             )
                             Text(
-                                "Click here to set KidShield as default launcher",
+                                "Click to choose KidShield as your default launcher",
                                 style = TvTextStyles.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                "Then select 'Always' when prompted",
+                                style = TvTextStyles.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             )
                         }
                         Icon(Icons.Default.Home, contentDescription = null, tint = Color(0xFFFF6B6B))
@@ -165,7 +255,7 @@ fun ParentDashboardScreen(
                     DashboardNavButton("Setup Wizard", Icons.Default.Settings, onNavigateToSetupWizard)
                 }
                 item {
-                    DashboardNavButton("Change PIN", Icons.Default.VpnKey, onNavigateToChangePin)
+                    DashboardNavButton("Premium", Icons.Default.Star, onNavigateToSubscription)
                 }
             }
         }

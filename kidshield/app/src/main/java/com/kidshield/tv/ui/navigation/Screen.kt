@@ -13,13 +13,19 @@ sealed class Screen(val route: String) {
     }
 
     data object ParentDashboard : Screen("parent_dashboard")
-    data object TimeLimits : Screen("time_limits")
+    data object TimeLimits : Screen("time_limits?fromSetup={fromSetup}") {
+        fun createRoute(fromSetup: Boolean = false) = "time_limits?fromSetup=$fromSetup"
+    }
     data object AppTimeLimit : Screen("app_time_limit/{packageName}/{appName}") {
         fun createRoute(pkg: String, name: String) =
             "app_time_limit/${java.net.URLEncoder.encode(pkg, "UTF-8")}/${java.net.URLEncoder.encode(name, "UTF-8")}"
     }
-    data object AppManagement : Screen("app_management")
+    data object AppManagement : Screen("app_management?fromSetup={fromSetup}") {
+        fun createRoute(fromSetup: Boolean = false) = "app_management?fromSetup=$fromSetup"
+    }
     data object ContentSafety : Screen("content_safety")
-    data object SetupWizard : Screen("setup_wizard")
-    data object ChangePin : Screen("change_pin")
+    data object SetupWizard : Screen("setup_wizard?step={step}") {
+        fun createRoute(step: Int = 0) = "setup_wizard?step=$step"
+    }
+    data object Subscription : Screen("subscription")
 }

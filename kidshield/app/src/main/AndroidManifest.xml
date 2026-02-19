@@ -11,6 +11,10 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    
+    <!-- Amazon IAP Permissions -->
+    <uses-permission android:name="com.amazon.inapp.purchasing.Permission.NOTIFY" 
+        android:protectionLevel="signature" />
 
     <!-- TV Features -->
     <uses-feature
@@ -77,6 +81,15 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Parental control monitoring - tracks foreground app usage to enforce time limits for child safety" />
         </service>
+
+        <!-- Amazon IAP Response Receiver -->
+        <receiver
+            android:name="com.amazon.device.iap.ResponseReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.amazon.inapp.purchasing.NOTIFY" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

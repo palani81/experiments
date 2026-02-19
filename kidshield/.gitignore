@@ -34,3 +34,17 @@ local.properties
 # External native build folder generated in Android Studio 2.2 and later
 .externalNativeBuild/
 .cxx/
+
+# Amazon IAP Testing Files
+test_iap*.json
+amazon.sdktester.json
+
+# Security Keys (DO NOT COMMIT)
+*.pem
+key.pem
+cert.pem
+keystore.p12
+AppstoreAuthenticationKey.pem
+
+# Temporary files
+~$*

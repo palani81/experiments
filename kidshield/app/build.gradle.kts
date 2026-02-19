@@ -15,8 +15,8 @@ android {
         applicationId = "com.kidshield.tv"
         minSdk = 28
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -86,6 +86,9 @@ dependencies {
     // Security
     implementation(libs.security.crypto)
     implementation(libs.bcrypt)
+
+    // Amazon Appstore SDK for In-App Purchasing
+    implementation("com.amazon.device:amazon-appstore-sdk:3.+")
 
     // WorkManager
     implementation(libs.work.runtime)
