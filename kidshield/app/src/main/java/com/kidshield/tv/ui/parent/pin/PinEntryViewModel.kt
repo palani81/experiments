@@ -1,5 +1,6 @@
 package com.kidshield.tv.ui.parent.pin
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import com.kidshield.tv.data.local.preferences.PinManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -11,7 +12,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PinEntryViewModel @Inject constructor(
-    private val pinManager: PinManager
+    private val pinManager: PinManager,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     data class UiState(
@@ -25,14 +27,28 @@ class PinEntryViewModel @Inject constructor(
         val attemptsRemaining: Int = 5
     )
 
-    private val _uiState = MutableStateFlow(UiState(isSetupMode = !pinManager.isPinSet))
+    private val mode: String = savedStateHandle.get<String>("mode") ?: "verify"
+    private val _uiState = MutableStateFlow(
+        UiState(isSetupMode = mode == "create" || !pinManager.isPinSet)
+    )
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
+    init {
+        // Log for debugging
+        android.util.Log.d("PinEntryViewModel", "Initialized with mode=$mode, isPinSet=${pinManager.isPinSet}, isSetupMode=${_uiState.value.isSetupMode}")
+    }
+
     fun onDigitEntered(digit: Int) {
+        android.util.Log.d("PinEntryViewModel", "Digit entered: $digit, current PIN: ${_uiState.value.enteredPin}")
         _uiState.update {
-            if (it.enteredPin.length < it.maxPinLength)
-                it.copy(enteredPin = it.enteredPin + digit, error = null)
-            else it
+            if (it.enteredPin.length < it.maxPinLength) {
+                val newPin = it.enteredPin + digit
+                android.util.Log.d("PinEntryViewModel", "New PIN: $newPin")
+                it.copy(enteredPin = newPin, error = null)
+            } else {
+                android.util.Log.d("PinEntryViewModel", "PIN already at max length")
+                it
+            }
         }
     }
 
@@ -44,6 +60,8 @@ class PinEntryViewModel @Inject constructor(
 
     fun onConfirm() {
         val state = _uiState.value
+        android.util.Log.d("PinEntryViewModel", "Confirm pressed, PIN: ${state.enteredPin}, length: ${state.enteredPin.length}")
+        
         if (state.enteredPin.length < 4) {
             _uiState.update { it.copy(error = "PIN must be at least 4 digits") }
             return
