@@ -137,8 +137,29 @@ async def send_to_kindle(job_id: int):
             status_code=500, detail="Email sender module is not available"
         )
 
+    # Load SMTP settings from database
+    with get_db() as db:
+        settings_rows = db.execute("SELECT key, value FROM app_settings").fetchall()
+    smtp_settings = {r["key"]: r["value"] for r in settings_rows}
+
+    required = ["smtp_host", "smtp_port", "smtp_user", "smtp_password", "kindle_email"]
+    missing = [k for k in required if not smtp_settings.get(k)]
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Email settings not configured: {', '.join(missing)}. Update via /api/settings first.",
+        )
+
     try:
-        email_sender.send_to_kindle(row["pdf_path"])
+        email_sender.send_to_kindle(
+            pdf_path=row["pdf_path"],
+            kindle_email=smtp_settings["kindle_email"],
+            smtp_host=smtp_settings["smtp_host"],
+            smtp_port=int(smtp_settings["smtp_port"]),
+            smtp_user=smtp_settings["smtp_user"],
+            smtp_password=smtp_settings["smtp_password"],
+            smtp_use_tls=str(smtp_settings.get("smtp_use_tls", "true")).lower() in ("true", "1", "yes"),
+        )
     except Exception as e:
         logger.exception("Failed to send job %s to Kindle", job_id)
         raise HTTPException(status_code=500, detail=f"Failed to send email: {e}")
