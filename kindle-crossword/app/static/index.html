@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kindle Crossword</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f5f5f5; color: #222; min-height: 100vh;
+  }
+
+  header {
+    background: #1a1a2e; color: #fff; padding: 16px 20px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  header h1 { font-size: 20px; font-weight: 600; }
+  header .icon { font-size: 24px; }
+  header nav { margin-left: auto; }
+  header nav button {
+    background: none; border: 1px solid rgba(255,255,255,.3); color: #fff;
+    padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  header nav button:hover { background: rgba(255,255,255,.1); }
+
+  .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+
+  /* Upload area */
+  .upload-area {
+    border: 2px dashed #bbb; border-radius: 12px; padding: 40px 20px;
+    text-align: center; cursor: pointer; transition: all .2s;
+    background: #fff; margin-bottom: 20px;
+  }
+  .upload-area:hover, .upload-area.dragover {
+    border-color: #4a6cf7; background: #f0f4ff;
+  }
+  .upload-area .label { font-size: 16px; color: #555; margin-top: 8px; }
+  .upload-area .sublabel { font-size: 13px; color: #999; margin-top: 4px; }
+  .upload-area .camera-icon { font-size: 48px; color: #999; }
+  .upload-area input { display: none; }
+
+  /* Options toggle */
+  .options-toggle {
+    background: none; border: none; color: #4a6cf7; cursor: pointer;
+    font-size: 13px; padding: 4px 0; margin-bottom: 12px;
+  }
+  .options-panel { display: none; background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .options-panel.open { display: block; }
+  .options-panel label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; }
+  .options-panel select, .options-panel input[type=range] { width: 100%; margin-bottom: 12px; }
+  .options-panel .range-row { display: flex; align-items: center; gap: 8px; }
+  .options-panel .range-val { font-size: 13px; color: #666; min-width: 32px; text-align: right; }
+
+  /* Progress */
+  .progress-bar {
+    display: none; background: #e0e0e0; border-radius: 4px; height: 6px;
+    margin-bottom: 16px; overflow: hidden;
+  }
+  .progress-bar.active { display: block; }
+  .progress-bar .fill {
+    height: 100%; background: #4a6cf7; border-radius: 4px;
+    transition: width .3s; width: 0%;
+  }
+  .status-msg { font-size: 14px; color: #555; margin-bottom: 16px; text-align: center; }
+  .status-msg.error { color: #d32f2f; }
+
+  /* Result card */
+  .result-card {
+    display: none; background: #fff; border-radius: 12px;
+    overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.08); margin-bottom: 20px;
+  }
+  .result-card.visible { display: block; }
+  .result-card img {
+    width: 100%; max-height: 500px; object-fit: contain; background: #eee;
+  }
+  .result-card .actions {
+    display: flex; gap: 8px; padding: 16px; flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 18px; border: none; border-radius: 8px;
+    font-size: 14px; font-weight: 500; cursor: pointer; transition: all .15s;
+  }
+  .btn-primary { background: #4a6cf7; color: #fff; flex: 1; justify-content: center; }
+  .btn-primary:hover { background: #3b5de7; }
+  .btn-primary:disabled { background: #a0b0f0; cursor: not-allowed; }
+  .btn-secondary { background: #e8e8e8; color: #333; }
+  .btn-secondary:hover { background: #ddd; }
+  .btn-danger { background: #fdecea; color: #d32f2f; }
+  .btn-danger:hover { background: #f5c6c2; }
+
+  /* Jobs list */
+  .section-title {
+    font-size: 15px; font-weight: 600; margin: 24px 0 12px; color: #444;
+  }
+  .job-list { list-style: none; }
+  .job-item {
+    background: #fff; border-radius: 8px; padding: 12px 16px;
+    margin-bottom: 8px; display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06); cursor: pointer; transition: all .15s;
+  }
+  .job-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+  .job-item .name { font-size: 14px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .job-item .meta { font-size: 12px; color: #999; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+  }
+  .badge-processed { background: #e8f5e9; color: #2e7d32; }
+  .badge-sent { background: #e3f2fd; color: #1565c0; }
+  .badge-failed { background: #fdecea; color: #d32f2f; }
+  .badge-processing { background: #fff3e0; color: #e65100; }
+
+  /* Settings modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4);
+    z-index: 100; align-items: flex-end; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: #fff; border-radius: 16px 16px 0 0; width: 100%; max-width: 600px;
+    max-height: 85vh; overflow-y: auto; padding: 24px 20px;
+  }
+  .modal h2 { font-size: 18px; margin-bottom: 16px; }
+  .modal .form-group { margin-bottom: 14px; }
+  .modal label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; }
+  .modal input, .modal select {
+    width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px;
+    font-size: 14px; outline: none;
+  }
+  .modal input:focus { border-color: #4a6cf7; }
+  .modal .btn-row { display: flex; gap: 8px; margin-top: 20px; }
+
+  .empty { text-align: center; color: #999; font-size: 14px; padding: 24px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="icon">&#9638;</span>
+  <h1>Kindle Crossword</h1>
+  <nav><button onclick="openSettings()">Settings</button></nav>
+</header>
+
+<div class="container">
+  <!-- Upload -->
+  <div class="upload-area" id="dropZone">
+    <div class="camera-icon">&#128247;</div>
+    <div class="label">Tap to upload or take a photo</div>
+    <div class="sublabel">JPG, PNG, WebP, HEIC</div>
+    <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/heic">
+  </div>
+
+  <button class="options-toggle" onclick="toggleOptions()">Processing options &#9660;</button>
+  <div class="options-panel" id="optionsPanel">
+    <label>Threshold mode</label>
+    <select id="optThreshold">
+      <option value="adaptive" selected>Adaptive (recommended)</option>
+      <option value="otsu">Otsu</option>
+      <option value="none">None</option>
+    </select>
+    <label>Contrast</label>
+    <div class="range-row">
+      <input type="range" id="optContrast" min="1" max="8" step="0.5" value="3">
+      <span class="range-val" id="contrastVal">3.0</span>
+    </div>
+    <label>Sharpness</label>
+    <div class="range-row">
+      <input type="range" id="optSharpness" min="0.5" max="3" step="0.1" value="1.2">
+      <span class="range-val" id="sharpnessVal">1.2</span>
+    </div>
+    <label><input type="checkbox" id="optPerspective" checked> Auto perspective correction</label>
+  </div>
+
+  <div class="progress-bar" id="progressBar"><div class="fill" id="progressFill"></div></div>
+  <div class="status-msg" id="statusMsg"></div>
+
+  <!-- Result -->
+  <div class="result-card" id="resultCard">
+    <img id="previewImg" alt="Processed crossword">
+    <div class="actions">
+      <button class="btn btn-primary" id="sendBtn" onclick="sendToKindle()">Send to Kindle</button>
+      <a class="btn btn-secondary" id="downloadBtn" href="#" download>PDF</a>
+      <button class="btn btn-danger" id="deleteBtn" onclick="deleteJob()">Delete</button>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="section-title">Recent</div>
+  <ul class="job-list" id="jobList">
+    <li class="empty">No crosswords yet</li>
+  </ul>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <h2>Email Settings</h2>
+    <div class="form-group">
+      <label>Kindle email</label>
+      <input id="sKindleEmail" type="email" placeholder="your-kindle@kindle.com">
+    </div>
+    <div class="form-group">
+      <label>SMTP host</label>
+      <input id="sSmtpHost" placeholder="smtp.gmail.com">
+    </div>
+    <div class="form-group">
+      <label>SMTP port</label>
+      <input id="sSmtpPort" type="number" placeholder="587">
+    </div>
+    <div class="form-group">
+      <label>SMTP user</label>
+      <input id="sSmtpUser" type="email" placeholder="you@gmail.com">
+    </div>
+    <div class="form-group">
+      <label>SMTP password</label>
+      <input id="sSmtpPassword" type="password" placeholder="app password">
+    </div>
+    <div class="form-group">
+      <label><input type="checkbox" id="sSmtpTls" checked> Use TLS</label>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="saveSettings()" style="flex:1">Save</button>
+      <button class="btn btn-secondary" onclick="testEmail()">Test</button>
+      <button class="btn btn-secondary" onclick="closeSettings()">Cancel</button>
+    </div>
+    <div class="status-msg" id="settingsMsg" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let currentJobId = null;
+
+// Upload area
+const dropZone = $('dropZone');
+const fileInput = $('fileInput');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) uploadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length) uploadFile(fileInput.files[0]);
+});
+
+// Range sliders
+$('optContrast').addEventListener('input', e => $('contrastVal').textContent = parseFloat(e.target.value).toFixed(1));
+$('optSharpness').addEventListener('input', e => $('sharpnessVal').textContent = parseFloat(e.target.value).toFixed(1));
+
+function toggleOptions() {
+  $('optionsPanel').classList.toggle('open');
+}
+
+function setStatus(msg, isError) {
+  const el = $('statusMsg');
+  el.textContent = msg;
+  el.className = 'status-msg' + (isError ? ' error' : '');
+}
+
+function showProgress(pct) {
+  const bar = $('progressBar');
+  bar.classList.add('active');
+  $('progressFill').style.width = pct + '%';
+}
+function hideProgress() {
+  $('progressBar').classList.remove('active');
+}
+
+async function uploadFile(file) {
+  setStatus('Uploading and processing...');
+  showProgress(30);
+  $('resultCard').classList.remove('visible');
+  currentJobId = null;
+
+  const form = new FormData();
+  form.append('file', file);
+  form.append('auto_perspective', $('optPerspective').checked);
+  form.append('threshold_mode', $('optThreshold').value);
+  form.append('contrast_clip_limit', $('optContrast').value);
+  form.append('sharpness', $('optSharpness').value);
+
+  try {
+    showProgress(60);
+    const res = await fetch('/api/upload', { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Upload failed');
+
+    showProgress(100);
+    currentJobId = data.job_id;
+    $('previewImg').src = `/api/jobs/${data.job_id}/preview`;
+    $('downloadBtn').href = `/api/jobs/${data.job_id}/pdf`;
+    $('sendBtn').disabled = false;
+    $('resultCard').classList.add('visible');
+    setStatus('Done! Review your crossword below.');
+    loadJobs();
+  } catch (err) {
+    setStatus(err.message, true);
+  } finally {
+    hideProgress();
+    fileInput.value = '';
+  }
+}
+
+async function sendToKindle() {
+  if (!currentJobId) return;
+  $('sendBtn').disabled = true;
+  $('sendBtn').textContent = 'Sending...';
+  try {
+    const res = await fetch(`/api/jobs/${currentJobId}/send`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Send failed');
+    $('sendBtn').textContent = 'Sent!';
+    setStatus('PDF sent to your Kindle.');
+    loadJobs();
+  } catch (err) {
+    $('sendBtn').disabled = false;
+    $('sendBtn').textContent = 'Send to Kindle';
+    setStatus(err.message, true);
+  }
+}
+
+async function deleteJob() {
+  if (!currentJobId) return;
+  if (!confirm('Delete this crossword?')) return;
+  try {
+    await fetch(`/api/jobs/${currentJobId}`, { method: 'DELETE' });
+    $('resultCard').classList.remove('visible');
+    currentJobId = null;
+    setStatus('');
+    loadJobs();
+  } catch (err) {
+    setStatus(err.message, true);
+  }
+}
+
+function selectJob(jobId) {
+  currentJobId = jobId;
+  $('previewImg').src = `/api/jobs/${jobId}/preview`;
+  $('downloadBtn').href = `/api/jobs/${jobId}/pdf`;
+  $('sendBtn').disabled = false;
+  $('sendBtn').textContent = 'Send to Kindle';
+  $('resultCard').classList.add('visible');
+  setStatus('');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function loadJobs() {
+  try {
+    const res = await fetch('/api/jobs?limit=20');
+    const jobs = await res.json();
+    const list = $('jobList');
+    if (!jobs.length) { list.innerHTML = '<li class="empty">No crosswords yet</li>'; return; }
+    list.innerHTML = jobs.map(j => {
+      const badge = j.status;
+      const date = new Date(j.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      return `<li class="job-item" onclick="selectJob(${j.id})">
+        <span class="name">${esc(j.original_filename)}</span>
+        <span class="meta">${date}</span>
+        <span class="badge badge-${badge}">${badge}</span>
+      </li>`;
+    }).join('');
+  } catch (e) { /* ignore */ }
+}
+
+function esc(s) {
+  const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+}
+
+// Settings
+async function openSettings() {
+  $('settingsModal').classList.add('open');
+  $('settingsMsg').textContent = '';
+  try {
+    const res = await fetch('/api/settings');
+    const s = await res.json();
+    $('sKindleEmail').value = s.kindle_email || '';
+    $('sSmtpHost').value = s.smtp_host || '';
+    $('sSmtpPort').value = s.smtp_port || '';
+    $('sSmtpUser').value = s.smtp_user || '';
+    $('sSmtpPassword').value = '';
+    $('sSmtpTls').checked = s.smtp_use_tls !== false;
+  } catch (e) { /* fresh form */ }
+}
+
+function closeSettings() { $('settingsModal').classList.remove('open'); }
+
+$('settingsModal').addEventListener('click', e => {
+  if (e.target === $('settingsModal')) closeSettings();
+});
+
+async function saveSettings() {
+  const body = {
+    kindle_email: $('sKindleEmail').value || null,
+    smtp_host: $('sSmtpHost').value || null,
+    smtp_port: parseInt($('sSmtpPort').value) || null,
+    smtp_user: $('sSmtpUser').value || null,
+    smtp_use_tls: $('sSmtpTls').checked,
+  };
+  const pw = $('sSmtpPassword').value;
+  if (pw) body.smtp_password = pw;
+
+  try {
+    const res = await fetch('/api/settings', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.detail); }
+    $('settingsMsg').textContent = 'Saved!';
+    $('settingsMsg').className = 'status-msg';
+    setTimeout(closeSettings, 800);
+  } catch (err) {
+    $('settingsMsg').textContent = err.message;
+    $('settingsMsg').className = 'status-msg error';
+  }
+}
+
+async function testEmail() {
+  $('settingsMsg').textContent = 'Sending test...';
+  $('settingsMsg').className = 'status-msg';
+  try {
+    const res = await fetch('/api/settings/test-email', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail);
+    $('settingsMsg').textContent = 'Test email sent!';
+  } catch (err) {
+    $('settingsMsg').textContent = err.message;
+    $('settingsMsg').className = 'status-msg error';
+  }
+}
+
+// Init
+loadJobs();
+</script>
+</body>
+</html>
