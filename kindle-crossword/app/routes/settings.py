@@ -5,6 +5,7 @@ from email.mime.text import MIMEText
 
 from fastapi import APIRouter, HTTPException
 
+from app.crypto import decrypt, encrypt
 from app.database import get_db
 from app.models import SettingsRequest, SettingsResponse
 
@@ -49,11 +50,12 @@ async def update_settings(request: SettingsRequest):
 
     with get_db() as db:
         for key, value in updates.items():
+            store_value = encrypt(str(value)) if key == "smtp_password" else str(value)
             db.execute(
                 """INSERT INTO app_settings (key, value, updated_at)
                    VALUES (?, ?, ?)
                    ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at""",
-                (key, str(value), now),
+                (key, store_value, now),
             )
 
     raw = _load_settings()
@@ -67,7 +69,7 @@ async def test_email():
     smtp_host = raw.get("smtp_host")
     smtp_port = raw.get("smtp_port")
     smtp_user = raw.get("smtp_user")
-    smtp_password = raw.get("smtp_password")
+    smtp_password = decrypt(raw.get("smtp_password", ""))
     smtp_use_tls = raw.get("smtp_use_tls")
     kindle_email = raw.get("kindle_email")
 

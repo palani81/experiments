@@ -8,6 +8,7 @@ from fastapi import APIRouter, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from app.config import settings
+from app.crypto import decrypt
 from app.database import get_db
 from app.image_processor import process_image
 from app.models import ProcessingOptions, UploadResponse
@@ -157,7 +158,7 @@ async def send_to_kindle(job_id: int):
             smtp_host=smtp_settings["smtp_host"],
             smtp_port=int(smtp_settings["smtp_port"]),
             smtp_user=smtp_settings["smtp_user"],
-            smtp_password=smtp_settings["smtp_password"],
+            smtp_password=decrypt(smtp_settings["smtp_password"]),
             smtp_use_tls=str(smtp_settings.get("smtp_use_tls", "true")).lower() in ("true", "1", "yes"),
         )
     except Exception as e:

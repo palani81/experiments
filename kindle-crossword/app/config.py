@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     upload_path: str = "./data/uploads"
     output_path: str = "./data/output"
 
+    # Auth: set APP_PASSWORD env var to require login
+    app_password: str = ""
+    secret_key: str = "change-me-in-production"
+
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""
