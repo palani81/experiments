@@ -1,5 +1,7 @@
 """Card CRUD endpoints."""
 
+from __future__ import annotations
+
 from fastapi import APIRouter, HTTPException, Header
 
 from config import settings

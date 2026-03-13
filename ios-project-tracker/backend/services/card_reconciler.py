@@ -1,5 +1,7 @@
 """Reconciles sessions with cards — auto-matches and auto-creates cards."""
 
+from __future__ import annotations
+
 from datetime import datetime, timezone
 
 from models import Card, CardSource, CardStatus, Session

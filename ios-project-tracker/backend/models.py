@@ -1,8 +1,10 @@
 """Core data models for the Claude Code Tracker."""
 
+from __future__ import annotations
+
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 
 from ksuid import Ksuid
 from pydantic import BaseModel, Field
@@ -30,33 +32,33 @@ class Card(BaseModel):
     id: str = Field(default_factory=generate_id)
     title: str
     status: CardStatus = CardStatus.BACKLOG
-    session_id: str | None = None
-    branch: str | None = None
-    pr_url: str | None = None
-    project_path: str | None = None
+    session_id: Optional[str] = None
+    branch: Optional[str] = None
+    pr_url: Optional[str] = None
+    project_path: Optional[str] = None
     source: CardSource = CardSource.LOCAL
     last_activity: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    conversation_summary: str | None = None
+    conversation_summary: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class CardCreate(BaseModel):
     title: str
     status: CardStatus = CardStatus.BACKLOG
-    session_id: str | None = None
-    branch: str | None = None
-    project_path: str | None = None
+    session_id: Optional[str] = None
+    branch: Optional[str] = None
+    project_path: Optional[str] = None
     source: CardSource = CardSource.LOCAL
 
 
 class CardUpdate(BaseModel):
-    title: str | None = None
-    status: CardStatus | None = None
-    session_id: str | None = None
-    branch: str | None = None
-    pr_url: str | None = None
-    project_path: str | None = None
-    conversation_summary: str | None = None
+    title: Optional[str] = None
+    status: Optional[CardStatus] = None
+    session_id: Optional[str] = None
+    branch: Optional[str] = None
+    pr_url: Optional[str] = None
+    project_path: Optional[str] = None
+    conversation_summary: Optional[str] = None
 
 
 class HookEventType(str, Enum):

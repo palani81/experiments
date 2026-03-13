@@ -1,5 +1,7 @@
 """Git/GitHub service for tracking PR status."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 import shutil
