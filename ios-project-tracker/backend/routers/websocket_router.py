@@ -15,6 +15,7 @@ _clients: set[WebSocket] = set()
 
 async def broadcast(event_type: str, data: dict[str, Any]):
     """Broadcast a message to all connected WebSocket clients."""
+    global _clients
     message = json.dumps({"type": event_type, "data": data}, default=str)
     disconnected = set()
     for ws in _clients:
