@@ -1,6 +1,6 @@
 """Card CRUD endpoints."""
 
-from __future__ import annotations
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Header
 
@@ -20,7 +20,7 @@ def verify_token(authorization: str = Header()):
 
 @router.get("")
 async def list_cards(
-    status: CardStatus | None = None,
+    status: Optional[CardStatus] = None,
     authorization: str = Header(default=""),
 ):
     verify_token(authorization)
