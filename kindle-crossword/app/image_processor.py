@@ -45,17 +45,17 @@ def process_image(input_path: str, output_path: str, options: dict) -> dict:
 
     img = _to_grayscale(img)
 
-    # Background normalization: removes shadows, uneven lighting, newspaper tint.
-    # Divides by a heavily blurred copy to flatten background to white while
-    # preserving text/lines as dark.
-    img = _normalize_background(img)
+    # Gentle local contrast enhancement — just enough to even out lighting
+    # without washing out the image. clipLimit=1.0 is very conservative.
+    clahe = cv2.createCLAHE(clipLimit=1.0, tileGridSize=(8, 8))
+    img = clahe.apply(img)
 
     # Resize for Kindle
     target = options.get("kindle_model", "scribe")
     img = _resize_for_kindle(img, target)
 
     # Sharpen for e-ink clarity
-    sharpness = options.get("sharpness", 1.5)
+    sharpness = options.get("sharpness", 1.2)
     pil_img = _sharpen(img, sharpness)
 
     metadata["processed_size"] = pil_img.size
