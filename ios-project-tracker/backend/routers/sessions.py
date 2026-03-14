@@ -6,9 +6,10 @@ import asyncio
 import os
 import re
 
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel
 
 from config import settings
@@ -34,13 +35,21 @@ def verify_token(authorization: str = Header()):
 
 
 @router.get("")
-async def list_sessions(authorization: str = Header(default="")):
+async def list_sessions(
+    authorization: str = Header(default=""),
+    days: int = Query(default=7, description="Only return sessions active within the last N days. Use 0 for all."),
+):
     """List all discovered Claude Code sessions (local + cloud)."""
     verify_token(authorization)
     local_sessions = session_monitor.get_sessions()
     cloud_sessions = cloud_poller.get_cloud_sessions()
     all_sessions = local_sessions + cloud_sessions
-    log.info(f"List sessions: {len(local_sessions)} local, {len(cloud_sessions)} cloud")
+
+    if days > 0:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        all_sessions = [s for s in all_sessions if s.last_activity >= cutoff]
+
+    log.info(f"List sessions: {len(all_sessions)} (filtered to last {days} days)")
     return {"sessions": [s.model_dump(mode="json") for s in all_sessions]}
 
 

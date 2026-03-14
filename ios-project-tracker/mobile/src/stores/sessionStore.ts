@@ -29,10 +29,10 @@ function setState(partial: Partial<SessionState> | ((prev: SessionState) => Part
 }
 
 // ── Actions ────────────────────────────────────────────────────
-async function loadSessions() {
+async function loadSessions(days: number = 7) {
   setState({ isLoading: true, error: null });
   try {
-    const sessions = await api.fetchSessions();
+    const sessions = await api.fetchSessions(days);
     setState({ sessions, isLoading: false });
   } catch (err: any) {
     setState({ error: err.message || 'Failed to load sessions', isLoading: false });

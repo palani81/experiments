@@ -74,31 +74,35 @@ export function SessionsScreen() {
   // Done section collapsed by default
   const [doneCollapsed, setDoneCollapsed] = useState(true);
 
+  // How far back to fetch sessions (days). 7 = recent, 0 = all time.
+  const [showAllSessions, setShowAllSessions] = useState(false);
+  const filterDays = showAllSessions ? 0 : 7;
+
   useEffect(() => {
     if (isConfigured) {
-      loadSessions();
+      loadSessions(filterDays);
       connectWebSocket();
     }
-  }, [isConfigured]);
+  }, [isConfigured, filterDays]);
 
   // Reload when screen comes into focus (returning from detail, switching tabs)
   useFocusEffect(
     useCallback(() => {
-      if (isConfigured) loadSessions();
-    }, [isConfigured])
+      if (isConfigured) loadSessions(filterDays);
+    }, [isConfigured, filterDays])
   );
 
   // Auto-poll every 10s so new/updated sessions appear
   useEffect(() => {
     if (!isConfigured) return;
-    const interval = setInterval(loadSessions, 10000);
+    const interval = setInterval(() => loadSessions(filterDays), 10000);
     return () => clearInterval(interval);
-  }, [isConfigured]);
+  }, [isConfigured, filterDays]);
 
   // Reload when app comes back to foreground
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && isConfigured) loadSessions();
+      if (state === 'active' && isConfigured) loadSessions(filterDays);
     });
     return () => sub.remove();
   }, [isConfigured]);
@@ -117,9 +121,9 @@ export function SessionsScreen() {
       await createSession(name);
       resetModal();
       Alert.alert('Session Started', `"${name}" is running. It will appear here shortly.`);
-      loadSessions();
-      setTimeout(loadSessions, 3000);
-      setTimeout(loadSessions, 8000);
+      loadSessions(filterDays);
+      setTimeout(() => loadSessions(filterDays), 3000);
+      setTimeout(() => loadSessions(filterDays), 8000);
     } catch (e: any) {
       Alert.alert('Error', e?.response?.data?.detail || 'Failed to start session.');
     } finally {
@@ -141,7 +145,7 @@ export function SessionsScreen() {
     try {
       await addCloudSession(sessionId, title, url);
       resetModal();
-      loadSessions();
+      loadSessions(filterDays);
     } catch (e: any) {
       Alert.alert('Error', e?.response?.data?.detail || 'Failed to link conversation.');
     } finally {
@@ -266,6 +270,19 @@ export function SessionsScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Filter toggle */}
+      <TouchableOpacity
+        style={styles.filterToggle}
+        onPress={() => setShowAllSessions((v) => !v)}
+      >
+        <Text style={styles.filterToggleText}>
+          {showAllSessions ? 'Showing all sessions' : 'Last 7 days'}
+        </Text>
+        <Text style={styles.filterToggleAction}>
+          {showAllSessions ? 'Show recent only' : 'Show all'}
+        </Text>
+      </TouchableOpacity>
+
       {error && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{error}</Text>
@@ -279,7 +296,7 @@ export function SessionsScreen() {
         renderItem={renderSession}
         renderSectionHeader={renderSectionHeader}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={loadSessions} tintColor="#3b82f6" />
+          <RefreshControl refreshing={isLoading} onRefresh={() => loadSessions(filterDays)} tintColor="#3b82f6" />
         }
         contentContainerStyle={[styles.listContent, sections.length === 0 && { flexGrow: 1 }]}
         stickySectionHeadersEnabled={false}
@@ -289,7 +306,7 @@ export function SessionsScreen() {
             <Text style={styles.emptyText}>
               Tap "+ New" to start a Claude session or link a cloud conversation.
             </Text>
-            <TouchableOpacity style={styles.refreshButton} onPress={loadSessions}>
+            <TouchableOpacity style={styles.refreshButton} onPress={() => loadSessions(filterDays)}>
               <Text style={styles.refreshButtonText}>
                 {isLoading ? 'Loading...' : 'Refresh'}
               </Text>
@@ -633,6 +650,30 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+  },
+
+  // Filter toggle
+  filterToggle: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#1e1e2e',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2a2a3e',
+  },
+  filterToggleText: {
+    color: '#6b7280',
+    fontSize: 12,
+  },
+  filterToggleAction: {
+    color: '#3b82f6',
+    fontSize: 12,
+    fontWeight: '600',
   },
 
   // Error banner
