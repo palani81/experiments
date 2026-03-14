@@ -1,5 +1,5 @@
 /**
- * WebSocket client for real-time updates from the backend.
+ * WebSocket client for real-time session updates from the backend.
  */
 
 import { useSettingsStore } from '../stores/settingsStore';
@@ -19,7 +19,6 @@ class WebSocketClient {
     const { serverUrl, authToken } = useSettingsStore.getState();
     if (!serverUrl || !authToken) return;
 
-    // Convert http(s) to ws(s)
     const wsUrl = serverUrl.replace(/^http/, 'ws') + `/ws?token=${authToken}`;
 
     try {

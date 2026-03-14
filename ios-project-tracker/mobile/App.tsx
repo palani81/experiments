@@ -1,11 +1,10 @@
 /**
- * Claude Code Tracker — Root App with 2-tab navigation (Tasks + Settings).
+ * Claude Tracker — Sessions-only app with 2-tab navigation.
  */
 
 import React, { Component, useEffect } from 'react';
 import { LogBox } from 'react-native';
 
-// Suppress known react-native-screens warning in Expo Go
 LogBox.ignoreLogs(['Could not access feature flag']);
 
 import { enableScreens } from 'react-native-screens';
@@ -17,11 +16,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Text, View, ScrollView } from 'react-native';
 
-import { TaskListScreen } from './src/screens/TaskListScreen';
-import { SettingsScreen } from './src/screens/SettingsScreen';
-import { CardDetailScreen } from './src/screens/CardDetailScreen';
 import { SessionsScreen } from './src/screens/SessionsScreen';
 import { SessionDetailScreen } from './src/screens/SessionDetailScreen';
+import { SettingsScreen } from './src/screens/SettingsScreen';
 import { useSettingsStore } from './src/stores/settingsStore';
 
 const Tab = createBottomTabNavigator();
@@ -40,7 +37,6 @@ const DarkTheme = {
   },
 };
 
-// Error boundary to catch and display runtime errors on-screen
 class ErrorBoundary extends Component<
   { children: React.ReactNode },
   { error: Error | null }
@@ -75,7 +71,6 @@ class ErrorBoundary extends Component<
 
 function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const icons: Record<string, string> = {
-    Tasks: 'T',
     Sessions: 'S',
     Settings: 'G',
   };
@@ -89,30 +84,6 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
     >
       {icons[label] || label[0]}
     </Text>
-  );
-}
-
-function TasksStack() {
-  return (
-    <Stack.Navigator
-      detachInactiveScreens={false}
-      screenOptions={{
-        headerShown: false,
-        cardStyle: { backgroundColor: '#0a0a1a' },
-      }}
-    >
-      <Stack.Screen name="TaskList" component={TaskListScreen} />
-      <Stack.Screen
-        name="CardDetail"
-        component={CardDetailScreen}
-        options={{
-          headerShown: true,
-          headerTitle: 'Task Detail',
-          headerStyle: { backgroundColor: '#13131f' },
-          headerTintColor: '#e0e0e0',
-        }}
-      />
-    </Stack.Navigator>
   );
 }
 
@@ -168,7 +139,6 @@ function AppInner() {
           tabBarIcon: ({ focused }) => <TabIcon label={route.name} focused={focused} />,
         })}
       >
-        <Tab.Screen name="Tasks" component={TasksStack} />
         <Tab.Screen name="Sessions" component={SessionsStack} />
         <Tab.Screen name="Settings" component={SettingsScreen} />
       </Tab.Navigator>

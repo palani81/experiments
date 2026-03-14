@@ -1,10 +1,11 @@
 /**
  * REST API client for the Claude Code Tracker backend.
+ * Sessions-only — no more cards.
  */
 
 import axios, { AxiosInstance } from 'axios';
 import { useSettingsStore } from '../stores/settingsStore';
-import { Card, CardCreate, CardUpdate, Session } from '../models/types';
+import { Session } from '../models/types';
 
 function getClient(): AxiosInstance {
   const { serverUrl, authToken } = useSettingsStore.getState();
@@ -16,27 +17,6 @@ function getClient(): AxiosInstance {
     },
     timeout: 10000,
   });
-}
-
-// Cards API
-export async function fetchCards(status?: string): Promise<Card[]> {
-  const params = status ? { status } : {};
-  const { data } = await getClient().get('/api/cards', { params });
-  return data.cards;
-}
-
-export async function createCard(card: CardCreate): Promise<Card> {
-  const { data } = await getClient().post('/api/cards', card);
-  return data;
-}
-
-export async function updateCard(id: string, update: CardUpdate): Promise<Card> {
-  const { data } = await getClient().patch(`/api/cards/${id}`, update);
-  return data;
-}
-
-export async function deleteCard(id: string): Promise<void> {
-  await getClient().delete(`/api/cards/${id}`);
 }
 
 // Sessions API

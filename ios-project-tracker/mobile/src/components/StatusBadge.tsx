@@ -1,20 +1,20 @@
 /**
- * Visual status indicator badge for cards.
+ * Visual status indicator badge for sessions.
  */
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { CardSource, CardStatus, KANBAN_COLUMNS } from '../models/types';
+import { SessionSource, SessionStatus, SESSION_STATUSES } from '../models/types';
 
 interface StatusBadgeProps {
-  status: CardStatus;
-  source?: CardSource;
+  status: SessionStatus;
+  source?: SessionSource;
 }
 
 export function StatusBadge({ status, source }: StatusBadgeProps) {
-  const column = KANBAN_COLUMNS.find((c) => c.key === status);
-  const color = column?.color || '#6b7280';
-  const label = column?.label || status;
+  const info = SESSION_STATUSES.find((s) => s.key === status);
+  const color = info?.color || '#6b7280';
+  const label = info?.label || status;
 
   return (
     <View style={styles.container}>

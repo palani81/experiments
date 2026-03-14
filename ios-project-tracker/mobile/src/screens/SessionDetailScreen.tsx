@@ -1,6 +1,6 @@
 /**
  * Full-screen chat interface for a Claude session.
- * Shows conversation history and allows sending replies.
+ * Shows conversation history and allows sending replies when session is waiting.
  */
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
@@ -13,11 +13,14 @@ import {
   Platform,
   ActivityIndicator,
   RefreshControl,
+  TouchableOpacity,
+  Alert,
 } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { ConversationEntry } from '../models/types';
+import { StatusBadge } from '../components/StatusBadge';
 import { ReplyComposer } from '../components/ReplyComposer';
-import { fetchSession, replyToSession } from '../api/client';
+import { fetchSession, replyToSession, removeCloudSession } from '../api/client';
 
 function MessageBubble({ entry }: { entry: ConversationEntry }) {
   const isUser = entry.role === 'user';
@@ -42,11 +45,13 @@ function MessageBubble({ entry }: { entry: ConversationEntry }) {
 
 export function SessionDetailScreen() {
   const route = useRoute<any>();
+  const navigation = useNavigation();
   const sessionId: string = route.params?.sessionId;
   const [conversation, setConversation] = useState<ConversationEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sessionStatus, setSessionStatus] = useState('');
+  const [sessionSource, setSessionSource] = useState<'local' | 'cloud'>('local');
   const flatListRef = useRef<FlatList>(null);
 
   const loadSession = useCallback(async () => {
@@ -54,6 +59,7 @@ export function SessionDetailScreen() {
       const session = await fetchSession(sessionId);
       setConversation(session.conversation);
       setSessionStatus(session.status);
+      setSessionSource(session.source);
     } catch {
       // session may not be available
     }
@@ -66,7 +72,7 @@ export function SessionDetailScreen() {
     })();
   }, [loadSession]);
 
-  // Auto-poll every 5s when session is active
+  // Auto-poll every 5s when session is active or waiting
   useEffect(() => {
     if (sessionStatus !== 'active' && sessionStatus !== 'waiting') return;
     const interval = setInterval(loadSession, 5000);
@@ -85,8 +91,25 @@ export function SessionDetailScreen() {
       ...prev,
       { role: 'user', content: message, type: 'message' },
     ]);
-    // Refresh to get Claude's response
     setTimeout(loadSession, 2000);
+  };
+
+  const handleDelete = () => {
+    Alert.alert('Remove Session', 'Remove this session from tracking?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await removeCloudSession(sessionId);
+          } catch {
+            // May fail for local sessions — that's OK
+          }
+          navigation.goBack();
+        },
+      },
+    ]);
   };
 
   if (loading) {
@@ -107,10 +130,21 @@ export function SessionDetailScreen() {
     >
       {/* Status bar */}
       <View style={styles.statusBar}>
-        <View style={[styles.statusDot, { backgroundColor: sessionStatus === 'active' ? '#10b981' : sessionStatus === 'waiting' ? '#f59e0b' : '#6b7280' }]} />
-        <Text style={styles.statusText}>{sessionStatus || 'unknown'}</Text>
+        <StatusBadge status={sessionStatus as any} source={sessionSource} />
         <Text style={styles.messageCount}>{conversation.length} messages</Text>
+        <TouchableOpacity onPress={handleDelete} style={styles.deleteLink}>
+          <Text style={styles.deleteLinkText}>Remove</Text>
+        </TouchableOpacity>
       </View>
+
+      {/* Waiting alert */}
+      {isWaiting && (
+        <View style={styles.waitingAlert}>
+          <Text style={styles.waitingAlertText}>
+            Claude needs your input — reply below
+          </Text>
+        </View>
+      )}
 
       {/* Conversation */}
       <FlatList
@@ -130,7 +164,7 @@ export function SessionDetailScreen() {
         }
       />
 
-      {/* Reply composer — always visible, but hint when not waiting */}
+      {/* Reply composer */}
       <ReplyComposer
         onSend={handleReply}
         disabled={!isWaiting}
@@ -160,21 +194,32 @@ const styles = StyleSheet.create({
     borderBottomColor: '#1e1e2e',
     gap: 8,
   },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusText: {
-    color: '#9ca3af',
-    fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
   messageCount: {
     color: '#4b5563',
     fontSize: 12,
     marginLeft: 'auto',
+  },
+  deleteLink: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  deleteLinkText: {
+    color: '#ef4444',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  waitingAlert: {
+    backgroundColor: '#f59e0b20',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f59e0b40',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  waitingAlertText: {
+    color: '#f59e0b',
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   messageList: {
     padding: 16,

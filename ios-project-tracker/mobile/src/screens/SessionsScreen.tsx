@@ -1,6 +1,6 @@
 /**
- * Browse all discovered Claude Code sessions (local + cloud).
- * Supports creating new local sessions and adding cloud sessions.
+ * Main screen — all sessions grouped by status.
+ * "Needs Reply" sessions are shown first with alert styling.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -8,7 +8,7 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  SectionList,
   TouchableOpacity,
   RefreshControl,
   TextInput,
@@ -20,52 +20,63 @@ import {
   Linking,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Session } from '../models/types';
-import { fetchSessions, createSession, addCloudSession, createCard } from '../api/client';
-import { StatusBadge } from '../components/StatusBadge';
+import { Session, SessionStatus, SESSION_STATUSES } from '../models/types';
+import { useSessionStore } from '../stores/sessionStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { StatusBadge } from '../components/StatusBadge';
+import { createSession, addCloudSession } from '../api/client';
 
-type ModalType = null | 'local' | 'cloud';
+type AddMode = null | 'choose' | 'local' | 'cloud';
+
+// Status display order: waiting first (needs attention), then active, then done
+const STATUS_ORDER: SessionStatus[] = ['waiting', 'active', 'done'];
+
+function getTimeAgo(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diff = Math.floor((now - then) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function getLastMessage(session: Session): string | null {
+  const messages = session.conversation;
+  if (messages.length === 0) return null;
+  const last = messages[messages.length - 1];
+  const content = last.content.slice(0, 80);
+  return content + (last.content.length > 80 ? '...' : '');
+}
 
 export function SessionsScreen() {
   const navigation = useNavigation<any>();
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState('');
+  const { sessions, isLoading, error, loadSessions, connectWebSocket } = useSessionStore();
   const { isConfigured } = useSettingsStore();
 
-  // Modal state
-  const [modalType, setModalType] = useState<ModalType>(null);
+  // Add modal state
+  const [addMode, setAddMode] = useState<AddMode>(null);
   const [newTitle, setNewTitle] = useState('');
   const [newProjectPath, setNewProjectPath] = useState('');
   const [newPrompt, setNewPrompt] = useState('');
-  const [newSessionId, setNewSessionId] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const loadSessions = async () => {
-    if (!isConfigured) return;
-    setLoading(true);
-    try {
-      const data = await fetchSessions();
-      setSessions(data);
-    } catch {
-      // Handle error silently
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Done section collapsed by default
+  const [doneCollapsed, setDoneCollapsed] = useState(true);
 
   useEffect(() => {
-    loadSessions();
+    if (isConfigured) {
+      loadSessions();
+      connectWebSocket();
+    }
   }, [isConfigured]);
 
   const resetModal = () => {
-    setModalType(null);
+    setAddMode(null);
     setNewTitle('');
     setNewProjectPath('');
     setNewPrompt('');
-    setNewSessionId('');
     setNewUrl('');
     Keyboard.dismiss();
   };
@@ -79,9 +90,8 @@ export function SessionsScreen() {
     try {
       await createSession(newProjectPath.trim(), newPrompt.trim(), newTitle.trim());
       resetModal();
-      Alert.alert('Session Started', 'A new Claude session has been kicked off. It will appear here shortly.');
-      // Refresh after a short delay to give the monitor time to pick it up
-      setTimeout(loadSessions, 5000);
+      Alert.alert('Session Started', 'A new Claude session has been kicked off.');
+      setTimeout(loadSessions, 3000);
     } catch (e: any) {
       Alert.alert('Error', e?.response?.data?.detail || 'Failed to start session.');
     } finally {
@@ -89,149 +99,203 @@ export function SessionsScreen() {
     }
   };
 
-  const handleAddConversation = async () => {
+  const handleLinkCloud = async () => {
     if (!newUrl.trim()) {
-      Alert.alert('Missing fields', 'Please paste the Claude conversation URL.');
+      Alert.alert('Missing URL', 'Please paste the Claude conversation URL.');
       return;
     }
     const title = newTitle.trim() || 'Claude Conversation';
     const url = newUrl.trim();
-
-    // Try to extract a session/conversation ID from the URL
     const urlParts = url.split('/');
-    const sessionId = newSessionId.trim() || urlParts[urlParts.length - 1] || `conv-${Date.now()}`;
+    const sessionId = urlParts[urlParts.length - 1] || `conv-${Date.now()}`;
 
     setSubmitting(true);
     try {
-      // Register as a cloud session so it shows in the sessions list
       await addCloudSession(sessionId, title, url);
-      // Also create a card on the board with a link to open the conversation
-      await createCard({ title, status: 'in_progress', source: 'cloud', pr_url: url });
       resetModal();
       loadSessions();
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.detail || 'Failed to add conversation.');
+      Alert.alert('Error', e?.response?.data?.detail || 'Failed to link conversation.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const filteredSessions = sessions.filter((s) => {
-    const term = search.toLowerCase();
-    return (
-      s.id.toLowerCase().includes(term) ||
-      s.project_path.toLowerCase().includes(term) ||
-      s.status.toLowerCase().includes(term)
-    );
-  });
-
-  const handleSessionPress = (item: Session) => {
-    // Cloud sessions with a URL open in the browser
-    if (item.source === 'cloud' && item.project_path.startsWith('http')) {
-      Linking.openURL(item.project_path);
+  const handleSessionPress = (session: Session) => {
+    if (session.source === 'cloud' && session.project_path.startsWith('http')) {
+      Linking.openURL(session.project_path);
       return;
     }
-    // Local sessions open the chat detail screen
-    navigation.navigate('SessionDetail', { sessionId: item.id, title: item.project_path });
+    navigation.navigate('SessionDetail', { sessionId: session.id, title: session.project_path });
   };
 
-  const renderSession = ({ item }: { item: Session }) => (
-    <TouchableOpacity style={styles.sessionItem} onPress={() => handleSessionPress(item)}>
-      <View style={styles.sessionHeader}>
-        <Text style={styles.sessionId} numberOfLines={1}>
-          {item.id.slice(0, 12)}...
-        </Text>
-        <View style={styles.badgeRow}>
-          <StatusBadge
-            status={item.status === 'active' ? 'in_progress' : item.status === 'waiting' ? 'waiting' : 'backlog'}
-            source={item.source}
-          />
-          {item.source === 'cloud' && (
-            <View style={styles.cloudBadge}>
-              <Text style={styles.cloudBadgeText}>Cloud</Text>
-            </View>
-          )}
+  // Build sections from sessions
+  const sections = STATUS_ORDER.map((status) => {
+    const statusInfo = SESSION_STATUSES.find((s) => s.key === status)!;
+    const sectionSessions = sessions.filter((s) => s.status === status);
+    return {
+      status,
+      title: statusInfo.label,
+      color: statusInfo.color,
+      data: status === 'done' && doneCollapsed ? [] : sectionSessions,
+      count: sectionSessions.length,
+      collapsed: status === 'done' && doneCollapsed,
+    };
+  }).filter((s) => s.count > 0);
+
+  const waitingCount = sessions.filter((s) => s.status === 'waiting').length;
+
+  const renderSession = ({ item }: { item: Session }) => {
+    const isWaiting = item.status === 'waiting';
+    const lastMsg = getLastMessage(item);
+
+    return (
+      <TouchableOpacity
+        style={[styles.card, isWaiting && styles.cardWaiting]}
+        onPress={() => handleSessionPress(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cardTop}>
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            {item.id.slice(0, 16)}
+          </Text>
+          <StatusBadge status={item.status} source={item.source} />
         </View>
-      </View>
-      <Text style={styles.projectPath} numberOfLines={1}>
-        {item.source === 'cloud' && item.project_path.startsWith('http')
-          ? item.project_path
-          : item.project_path}
-      </Text>
-      <View style={styles.sessionFooter}>
-        <Text style={styles.messageCount}>
-          {item.conversation.length} messages
+        <Text style={styles.cardPath} numberOfLines={1}>
+          {item.project_path}
         </Text>
-        <Text style={styles.lastActivity}>
-          {new Date(item.last_activity).toLocaleDateString()}
-        </Text>
+        {lastMsg && (
+          <Text style={styles.cardPreview} numberOfLines={2}>
+            {lastMsg}
+          </Text>
+        )}
+        {isWaiting && (
+          <View style={styles.waitingBanner}>
+            <Text style={styles.waitingBannerText}>Claude is waiting for your reply</Text>
+          </View>
+        )}
+        <View style={styles.cardBottom}>
+          <Text style={styles.cardMeta}>
+            {item.conversation.length} messages
+          </Text>
+          <Text style={styles.cardTime}>{getTimeAgo(item.last_activity)}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderSectionHeader = ({ section }: { section: any }) => (
+    <TouchableOpacity
+      style={styles.sectionHeader}
+      onPress={() => {
+        if (section.status === 'done') setDoneCollapsed((v) => !v);
+      }}
+      activeOpacity={section.status === 'done' ? 0.6 : 1}
+    >
+      <View style={[styles.sectionDot, { backgroundColor: section.color }]} />
+      <Text style={styles.sectionTitle}>{section.title}</Text>
+      <View style={styles.sectionCount}>
+        <Text style={styles.sectionCountText}>{section.count}</Text>
       </View>
+      {section.status === 'done' && (
+        <Text style={styles.collapseArrow}>{section.collapsed ? '▸' : '▾'}</Text>
+      )}
     </TouchableOpacity>
   );
 
   if (!isConfigured) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.notConfigured}>Configure your server in Settings first.</Text>
+        <Text style={styles.setupTitle}>Claude Tracker</Text>
+        <Text style={styles.setupText}>
+          Configure your backend server in Settings to get started.
+        </Text>
+        <TouchableOpacity
+          style={styles.setupButton}
+          onPress={() => navigation.navigate('Settings')}
+        >
+          <Text style={styles.setupButtonText}>Go to Settings</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Sessions</Text>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => setModalType('local')}
-          >
-            <Text style={styles.addButtonText}>+ Local</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.addButton, styles.cloudButton]}
-            onPress={() => setModalType('cloud')}
-          >
-            <Text style={styles.addButtonText}>+ Link</Text>
-          </TouchableOpacity>
+        <View style={styles.headerLeft}>
+          <Text style={styles.title}>Sessions</Text>
+          {waitingCount > 0 && (
+            <View style={styles.waitingBadge}>
+              <Text style={styles.waitingBadgeText}>{waitingCount}</Text>
+            </View>
+          )}
         </View>
+        <TouchableOpacity style={styles.addButton} onPress={() => setAddMode('choose')}>
+          <Text style={styles.addButtonText}>+ New</Text>
+        </TouchableOpacity>
       </View>
 
-      <TextInput
-        style={styles.searchInput}
-        value={search}
-        onChangeText={setSearch}
-        placeholder="Search sessions..."
-        placeholderTextColor="#6b7280"
-      />
+      {error && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
 
-      <FlatList
-        data={filteredSessions}
+      {/* Session List */}
+      <SectionList
+        sections={sections}
         keyExtractor={(item) => item.id}
         renderItem={renderSession}
+        renderSectionHeader={renderSectionHeader}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={loadSessions} tintColor="#3b82f6" />
+          <RefreshControl refreshing={isLoading} onRefresh={loadSessions} tintColor="#3b82f6" />
         }
-        contentContainerStyle={styles.list}
+        contentContainerStyle={styles.listContent}
+        stickySectionHeadersEnabled={false}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>
-            {loading ? 'Loading sessions...' : 'No sessions found. Tap + to start one.'}
-          </Text>
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyTitle}>No sessions yet</Text>
+            <Text style={styles.emptyText}>
+              Tap "+ New" to start a Claude session or link a cloud conversation.
+            </Text>
+          </View>
         }
       />
 
+      {/* Choose Action Modal */}
+      <Modal visible={addMode === 'choose'} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={resetModal}>
+          <View style={styles.chooseSheet}>
+            <Text style={styles.chooseTitle}>New Session</Text>
+            <TouchableOpacity style={styles.chooseOption} onPress={() => setAddMode('local')}>
+              <Text style={styles.chooseOptionTitle}>Start Local Session</Text>
+              <Text style={styles.chooseOptionDesc}>Launch Claude Code on a local project</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.chooseOption} onPress={() => setAddMode('cloud')}>
+              <Text style={styles.chooseOptionTitle}>Link Cloud Session</Text>
+              <Text style={styles.chooseOptionDesc}>Track a claude.ai conversation</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelButton} onPress={resetModal}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* New Local Session Modal */}
-      <Modal visible={modalType === 'local'} animationType="slide" transparent>
+      <Modal visible={addMode === 'local'} transparent animationType="slide">
         <KeyboardAvoidingView
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>New Local Session</Text>
+          <View style={styles.formSheet}>
+            <Text style={styles.formTitle}>New Local Session</Text>
 
             <Text style={styles.fieldLabel}>Name (optional)</Text>
             <TextInput
-              style={styles.modalInput}
+              style={styles.formInput}
               value={newTitle}
               onChangeText={setNewTitle}
               placeholder="e.g. Fix auth bug"
@@ -240,7 +304,7 @@ export function SessionsScreen() {
 
             <Text style={styles.fieldLabel}>Project Path</Text>
             <TextInput
-              style={styles.modalInput}
+              style={styles.formInput}
               value={newProjectPath}
               onChangeText={setNewProjectPath}
               placeholder="e.g. ~/projects/my-app"
@@ -251,7 +315,7 @@ export function SessionsScreen() {
 
             <Text style={styles.fieldLabel}>Prompt</Text>
             <TextInput
-              style={[styles.modalInput, styles.promptInput]}
+              style={[styles.formInput, styles.promptInput]}
               value={newPrompt}
               onChangeText={setNewPrompt}
               placeholder="What should Claude work on?"
@@ -259,46 +323,45 @@ export function SessionsScreen() {
               multiline
             />
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelButton} onPress={resetModal}>
+            <View style={styles.formActions}>
+              <TouchableOpacity style={styles.formCancel} onPress={resetModal}>
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.submitButton, submitting && styles.submitDisabled]}
+                style={[styles.formSubmit, submitting && styles.formSubmitDisabled]}
                 onPress={handleCreateLocal}
                 disabled={submitting}
               >
-                <Text style={styles.submitText}>{submitting ? 'Starting...' : 'Start Session'}</Text>
+                <Text style={styles.formSubmitText}>
+                  {submitting ? 'Starting...' : 'Start'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Add Conversation Link Modal */}
-      <Modal visible={modalType === 'cloud'} animationType="slide" transparent>
+      {/* Link Cloud Session Modal */}
+      <Modal visible={addMode === 'cloud'} transparent animationType="slide">
         <KeyboardAvoidingView
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Link Claude Conversation</Text>
-            <Text style={styles.modalSubtitle}>
-              Paste a claude.ai conversation or code session URL to track it on your board.
-            </Text>
+          <View style={styles.formSheet}>
+            <Text style={styles.formTitle}>Link Cloud Session</Text>
 
             <Text style={styles.fieldLabel}>Name</Text>
             <TextInput
-              style={styles.modalInput}
+              style={styles.formInput}
               value={newTitle}
               onChangeText={setNewTitle}
-              placeholder="e.g. iOS tracker app session"
+              placeholder="e.g. iOS tracker session"
               placeholderTextColor="#6b7280"
             />
 
             <Text style={styles.fieldLabel}>Claude URL</Text>
             <TextInput
-              style={styles.modalInput}
+              style={styles.formInput}
               value={newUrl}
               onChangeText={setNewUrl}
               placeholder="https://claude.ai/chat/... or /code/..."
@@ -308,16 +371,18 @@ export function SessionsScreen() {
               keyboardType="url"
             />
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelButton} onPress={resetModal}>
+            <View style={styles.formActions}>
+              <TouchableOpacity style={styles.formCancel} onPress={resetModal}>
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.submitButton, styles.cloudSubmitButton, submitting && styles.submitDisabled]}
-                onPress={handleAddConversation}
+                style={[styles.formSubmit, styles.cloudSubmit, submitting && styles.formSubmitDisabled]}
+                onPress={handleLinkCloud}
                 disabled={submitting}
               >
-                <Text style={styles.submitText}>{submitting ? 'Adding...' : 'Link'}</Text>
+                <Text style={styles.formSubmitText}>
+                  {submitting ? 'Linking...' : 'Link'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -333,150 +398,278 @@ const styles = StyleSheet.create({
     backgroundColor: '#0a0a1a',
   },
   header: {
-    paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 60,
+    paddingBottom: 12,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   title: {
     color: '#fff',
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
   },
-  headerButtons: {
-    flexDirection: 'row',
-    gap: 8,
+  waitingBadge: {
+    backgroundColor: '#f59e0b',
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  waitingBadgeText: {
+    color: '#000',
+    fontSize: 13,
+    fontWeight: '800',
   },
   addButton: {
     backgroundColor: '#3b82f6',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  cloudButton: {
-    backgroundColor: '#8b5cf6',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
   addButtonText: {
     color: '#fff',
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: 14,
   },
-  searchInput: {
-    backgroundColor: '#1e1e2e',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginHorizontal: 16,
-    marginBottom: 12,
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 30,
+  },
+
+  // Section headers
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    gap: 8,
+    marginTop: 8,
+  },
+  sectionDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  sectionTitle: {
     color: '#e0e0e0',
     fontSize: 15,
-    borderWidth: 1,
-    borderColor: '#2a2a3e',
+    fontWeight: '700',
+    flex: 1,
   },
-  list: {
-    paddingHorizontal: 16,
-    paddingBottom: 20,
+  sectionCount: {
+    backgroundColor: '#2a2a3e',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
-  sessionItem: {
+  sectionCountText: {
+    color: '#9ca3af',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  collapseArrow: {
+    color: '#6b7280',
+    fontSize: 14,
+    marginLeft: 4,
+  },
+
+  // Session cards
+  card: {
     backgroundColor: '#1e1e2e',
     borderRadius: 12,
     padding: 14,
-    marginBottom: 10,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#2a2a3e',
   },
-  sessionHeader: {
+  cardWaiting: {
+    borderColor: '#f59e0b',
+    borderWidth: 1.5,
+    backgroundColor: '#f59e0b08',
+  },
+  cardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
-  sessionId: {
+  cardTitle: {
     color: '#e0e0e0',
     fontSize: 14,
-    fontFamily: 'monospace',
     fontWeight: '600',
+    fontFamily: 'monospace',
     flex: 1,
     marginRight: 8,
   },
-  projectPath: {
+  cardPath: {
     color: '#6b7280',
     fontSize: 12,
     fontFamily: 'monospace',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  badgeRow: {
-    flexDirection: 'row',
-    gap: 6,
-    alignItems: 'center',
+  cardPreview: {
+    color: '#9ca3af',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 4,
   },
-  sessionFooter: {
+  waitingBanner: {
+    backgroundColor: '#f59e0b20',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 6,
+    marginTop: 2,
+  },
+  waitingBannerText: {
+    color: '#f59e0b',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  cardBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 4,
   },
-  messageCount: {
-    color: '#9ca3af',
+  cardMeta: {
+    color: '#4b5563',
     fontSize: 12,
   },
-  lastActivity: {
+  cardTime: {
     color: '#6b7280',
     fontSize: 12,
   },
-  cloudBadge: {
-    backgroundColor: '#8b5cf620',
-    borderColor: '#8b5cf6',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  cloudBadgeText: {
-    color: '#8b5cf6',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
+
+  // Empty state
+  emptyContainer: {
+    padding: 40,
     alignItems: 'center',
-    backgroundColor: '#0a0a1a',
   },
-  notConfigured: {
-    color: '#6b7280',
-    fontSize: 14,
+  emptyTitle: {
+    color: '#9ca3af',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
   },
   emptyText: {
     color: '#6b7280',
     fontSize: 14,
     textAlign: 'center',
-    marginTop: 40,
+    lineHeight: 20,
   },
-  // Modal styles
+
+  // Setup state
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#0a0a1a',
+    padding: 32,
+  },
+  setupTitle: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '800',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  setupText: {
+    color: '#9ca3af',
+    fontSize: 15,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  setupButton: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  setupButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+
+  // Error banner
+  errorBanner: {
+    backgroundColor: '#ef444420',
+    borderColor: '#ef4444',
+    borderWidth: 1,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    padding: 10,
+    borderRadius: 8,
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 13,
+  },
+
+  // Modal shared
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'flex-end',
   },
-  modalContent: {
+
+  // Choose action sheet
+  chooseSheet: {
     backgroundColor: '#1a1a2e',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
     paddingBottom: 40,
   },
-  modalTitle: {
+  chooseTitle: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '700',
+    marginBottom: 16,
+  },
+  chooseOption: {
+    backgroundColor: '#0d0d1a',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#2a2a3e',
+  },
+  chooseOptionTitle: {
+    color: '#e0e0e0',
+    fontSize: 16,
+    fontWeight: '600',
     marginBottom: 4,
   },
-  modalSubtitle: {
+  chooseOptionDesc: {
     color: '#6b7280',
     fontSize: 13,
-    marginBottom: 12,
+  },
+
+  // Form sheets
+  formSheet: {
+    backgroundColor: '#1a1a2e',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  formTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 16,
   },
   fieldLabel: {
     color: '#9ca3af',
@@ -485,7 +678,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     marginTop: 8,
   },
-  modalInput: {
+  formInput: {
     backgroundColor: '#0d0d1a',
     borderRadius: 10,
     borderWidth: 1,
@@ -499,37 +692,42 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: 'top',
   },
-  modalActions: {
+  formActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: 10,
     marginTop: 20,
   },
-  cancelButton: {
+  formCancel: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#6b7280',
   },
+  cancelButton: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginTop: 4,
+  },
   cancelText: {
     color: '#9ca3af',
     fontWeight: '600',
     fontSize: 15,
   },
-  submitButton: {
+  formSubmit: {
     backgroundColor: '#3b82f6',
     borderRadius: 10,
     paddingHorizontal: 18,
     paddingVertical: 10,
   },
-  cloudSubmitButton: {
+  cloudSubmit: {
     backgroundColor: '#8b5cf6',
   },
-  submitDisabled: {
-    backgroundColor: '#3b82f640',
+  formSubmitDisabled: {
+    opacity: 0.4,
   },
-  submitText: {
+  formSubmitText: {
     color: '#fff',
     fontWeight: '700',
     fontSize: 15,
