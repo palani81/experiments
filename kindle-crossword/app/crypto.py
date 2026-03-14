@@ -2,7 +2,7 @@
 
 Uses the app SECRET_KEY to derive an encryption key via SHA-256,
 then encrypts with AES-GCM via the cryptography library's Fernet.
-Falls back to base64 obfuscation if cryptography is not installed.
+Falls back to base64 obfuscation if cryptography is not available.
 """
 
 import base64
@@ -10,6 +10,12 @@ import hashlib
 import os
 
 from app.config import settings
+
+# Try to import Fernet at module level; set to None if unavailable
+try:
+    from cryptography.fernet import Fernet as _Fernet
+except BaseException:
+    _Fernet = None
 
 
 def _derive_key() -> bytes:
@@ -22,13 +28,11 @@ def encrypt(plaintext: str) -> str:
     """Encrypt a string and return a prefixed ciphertext."""
     if not plaintext:
         return ""
-    try:
-        from cryptography.fernet import Fernet
-        f = Fernet(_derive_key())
+    if _Fernet is not None:
+        f = _Fernet(_derive_key())
         return "enc:" + f.encrypt(plaintext.encode()).decode()
-    except ImportError:
-        # Fallback: base64 encode (not true encryption, but better than plaintext)
-        return "b64:" + base64.b64encode(plaintext.encode()).decode()
+    # Fallback: base64 encode (not true encryption, but better than plaintext)
+    return "b64:" + base64.b64encode(plaintext.encode()).decode()
 
 
 def decrypt(stored: str) -> str:
@@ -36,9 +40,10 @@ def decrypt(stored: str) -> str:
     if not stored:
         return ""
     if stored.startswith("enc:"):
-        from cryptography.fernet import Fernet
-        f = Fernet(_derive_key())
-        return f.decrypt(stored[4:].encode()).decode()
+        if _Fernet is not None:
+            f = _Fernet(_derive_key())
+            return f.decrypt(stored[4:].encode()).decode()
+        return ""
     if stored.startswith("b64:"):
         return base64.b64decode(stored[4:]).decode()
     # Legacy plaintext value

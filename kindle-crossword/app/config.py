@@ -2,13 +2,17 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings
 
+# Project root: parent of the app/ package
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_DATA_DIR = str(_PROJECT_ROOT / "data")
+
 
 class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
-    database_path: str = "./data/kindle_crossword.db"
-    upload_path: str = "./data/uploads"
-    output_path: str = "./data/output"
+    database_path: str = str(Path(_DATA_DIR) / "kindle_crossword.db")
+    upload_path: str = str(Path(_DATA_DIR) / "uploads")
+    output_path: str = str(Path(_DATA_DIR) / "output")
 
     # Auth: set APP_PASSWORD env var to require login
     app_password: str = ""
