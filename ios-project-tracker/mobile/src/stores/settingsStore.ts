@@ -13,7 +13,7 @@ interface SettingsState {
   loadSettings: () => Promise<void>;
 }
 
-export const useSettingsStore = create<SettingsState>((set) => ({
+export const useSettingsStore = create<SettingsState>()((set) => ({
   serverUrl: '',
   authToken: '',
   isConfigured: false,
