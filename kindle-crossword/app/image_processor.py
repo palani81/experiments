@@ -45,10 +45,13 @@ def process_image(input_path: str, output_path: str, options: dict) -> dict:
 
     img = _to_grayscale(img)
 
-    # Background normalization — removes shadows, uneven lighting, newspaper tint
-    img = _normalize_background(img)
+    # CLAHE: local contrast enhancement that makes text/lines darker relative
+    # to their surrounding background. Works well for newspaper photos where
+    # the background varies but you want to preserve all detail.
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    img = clahe.apply(img)
 
-    # Simple contrast boost — just stretch the histogram, no gamma tricks
+    # Stretch histogram so darkest goes to black, lightest to white
     img = _boost_contrast(img)
 
     # Resize for Kindle
