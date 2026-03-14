@@ -21,6 +21,14 @@ import { ConversationEntry } from '../models/types';
 import { StatusBadge } from '../components/StatusBadge';
 import { ReplyComposer } from '../components/ReplyComposer';
 import { fetchSession, replyToSession, removeCloudSession } from '../api/client';
+import { SessionStatus } from '../models/types';
+
+function normalizeStatus(status: string): SessionStatus {
+  const s = status.toLowerCase();
+  if (s === 'waiting' || s === 'paused') return 'waiting';
+  if (s === 'done' || s === 'completed' || s === 'finished') return 'done';
+  return 'active';
+}
 
 function MessageBubble({ entry }: { entry: ConversationEntry }) {
   const isUser = entry.role === 'user';
@@ -74,7 +82,8 @@ export function SessionDetailScreen() {
 
   // Auto-poll every 5s when session is active or waiting
   useEffect(() => {
-    if (sessionStatus !== 'active' && sessionStatus !== 'waiting') return;
+    const n = normalizeStatus(sessionStatus);
+    if (n !== 'active' && n !== 'waiting') return;
     const interval = setInterval(loadSession, 5000);
     return () => clearInterval(interval);
   }, [sessionStatus, loadSession]);
@@ -120,7 +129,8 @@ export function SessionDetailScreen() {
     );
   }
 
-  const isWaiting = sessionStatus === 'waiting';
+  const normalized = normalizeStatus(sessionStatus);
+  const isWaiting = normalized === 'waiting';
 
   return (
     <KeyboardAvoidingView
@@ -130,7 +140,7 @@ export function SessionDetailScreen() {
     >
       {/* Status bar */}
       <View style={styles.statusBar}>
-        <StatusBadge status={sessionStatus as any} source={sessionSource} />
+        <StatusBadge status={normalized} source={sessionSource} />
         <Text style={styles.messageCount}>{conversation.length} messages</Text>
         <TouchableOpacity onPress={handleDelete} style={styles.deleteLink}>
           <Text style={styles.deleteLinkText}>Remove</Text>

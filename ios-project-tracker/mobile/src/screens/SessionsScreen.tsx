@@ -3,7 +3,7 @@
  * "Needs Reply" sessions are shown first with alert styling.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,8 +18,9 @@ import {
   Platform,
   Keyboard,
   Linking,
+  AppState,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Session, SessionStatus, SESSION_STATUSES } from '../models/types';
 import { useSessionStore } from '../stores/sessionStore';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -30,6 +31,14 @@ type AddMode = null | 'choose' | 'local' | 'cloud';
 
 // Status display order: waiting first (needs attention), then active, then done
 const STATUS_ORDER: SessionStatus[] = ['waiting', 'active', 'done'];
+
+// Map backend status strings to our display statuses
+function normalizeStatus(status: string): SessionStatus {
+  const s = status.toLowerCase();
+  if (s === 'waiting' || s === 'paused') return 'waiting';
+  if (s === 'done' || s === 'completed' || s === 'finished') return 'done';
+  return 'active'; // active, running, unknown — all show as active
+}
 
 function getTimeAgo(dateStr: string): string {
   const now = Date.now();
@@ -72,6 +81,28 @@ export function SessionsScreen() {
     }
   }, [isConfigured]);
 
+  // Reload when screen comes into focus (returning from detail, switching tabs)
+  useFocusEffect(
+    useCallback(() => {
+      if (isConfigured) loadSessions();
+    }, [isConfigured])
+  );
+
+  // Auto-poll every 10s so new/updated sessions appear
+  useEffect(() => {
+    if (!isConfigured) return;
+    const interval = setInterval(loadSessions, 10000);
+    return () => clearInterval(interval);
+  }, [isConfigured]);
+
+  // Reload when app comes back to foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && isConfigured) loadSessions();
+    });
+    return () => sub.remove();
+  }, [isConfigured]);
+
   const resetModal = () => {
     setAddMode(null);
     setNewTitle('');
@@ -91,7 +122,10 @@ export function SessionsScreen() {
       await createSession(newProjectPath.trim(), newPrompt.trim(), newTitle.trim());
       resetModal();
       Alert.alert('Session Started', 'A new Claude session has been kicked off.');
+      // Retry multiple times — backend monitor may take a few seconds to discover it
+      loadSessions();
       setTimeout(loadSessions, 3000);
+      setTimeout(loadSessions, 8000);
     } catch (e: any) {
       Alert.alert('Error', e?.response?.data?.detail || 'Failed to start session.');
     } finally {
@@ -129,10 +163,10 @@ export function SessionsScreen() {
     navigation.navigate('SessionDetail', { sessionId: session.id, title: session.project_path });
   };
 
-  // Build sections from sessions
+  // Build sections from sessions, normalizing backend statuses
   const sections = STATUS_ORDER.map((status) => {
     const statusInfo = SESSION_STATUSES.find((s) => s.key === status)!;
-    const sectionSessions = sessions.filter((s) => s.status === status);
+    const sectionSessions = sessions.filter((s) => normalizeStatus(s.status) === status);
     return {
       status,
       title: statusInfo.label,
@@ -143,10 +177,11 @@ export function SessionsScreen() {
     };
   }).filter((s) => s.count > 0);
 
-  const waitingCount = sessions.filter((s) => s.status === 'waiting').length;
+  const waitingCount = sessions.filter((s) => normalizeStatus(s.status) === 'waiting').length;
 
   const renderSession = ({ item }: { item: Session }) => {
-    const isWaiting = item.status === 'waiting';
+    const normalized = normalizeStatus(item.status);
+    const isWaiting = normalized === 'waiting';
     const lastMsg = getLastMessage(item);
 
     return (
@@ -159,7 +194,7 @@ export function SessionsScreen() {
           <Text style={styles.cardTitle} numberOfLines={1}>
             {item.id.slice(0, 16)}
           </Text>
-          <StatusBadge status={item.status} source={item.source} />
+          <StatusBadge status={normalized} source={item.source} />
         </View>
         <Text style={styles.cardPath} numberOfLines={1}>
           {item.project_path}
@@ -252,7 +287,7 @@ export function SessionsScreen() {
         refreshControl={
           <RefreshControl refreshing={isLoading} onRefresh={loadSessions} tintColor="#3b82f6" />
         }
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, sections.length === 0 && { flexGrow: 1 }]}
         stickySectionHeadersEnabled={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -260,6 +295,11 @@ export function SessionsScreen() {
             <Text style={styles.emptyText}>
               Tap "+ New" to start a Claude session or link a cloud conversation.
             </Text>
+            <TouchableOpacity style={styles.refreshButton} onPress={loadSessions}>
+              <Text style={styles.refreshButtonText}>
+                {isLoading ? 'Loading...' : 'Refresh'}
+              </Text>
+            </TouchableOpacity>
           </View>
         }
       />
@@ -566,6 +606,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  refreshButton: {
+    marginTop: 20,
+    backgroundColor: '#1e1e2e',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#2a2a3e',
+  },
+  refreshButtonText: {
+    color: '#3b82f6',
+    fontWeight: '600',
+    fontSize: 14,
   },
 
   // Setup state
