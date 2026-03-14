@@ -45,6 +45,11 @@ def process_image(input_path: str, output_path: str, options: dict) -> dict:
 
     img = _to_grayscale(img)
 
+    # Background normalization: removes shadows, uneven lighting, newspaper tint.
+    # Divides by a heavily blurred copy to flatten background to white while
+    # preserving text/lines as dark.
+    img = _normalize_background(img)
+
     # Resize for Kindle
     target = options.get("kindle_model", "scribe")
     img = _resize_for_kindle(img, target)
