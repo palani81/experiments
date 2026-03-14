@@ -46,6 +46,7 @@ export interface CardCreate {
   status?: CardStatus;
   session_id?: string;
   branch?: string;
+  pr_url?: string;
   project_path?: string;
   source?: CardSource;
 }

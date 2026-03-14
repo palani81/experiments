@@ -17,9 +17,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  Linking,
 } from 'react-native';
 import { Session } from '../models/types';
-import { fetchSessions, createSession, addCloudSession } from '../api/client';
+import { fetchSessions, createSession, addCloudSession, createCard } from '../api/client';
 import { StatusBadge } from '../components/StatusBadge';
 import { useSettingsStore } from '../stores/settingsStore';
 
@@ -86,22 +87,28 @@ export function SessionsScreen() {
     }
   };
 
-  const handleAddCloud = async () => {
-    if (!newSessionId.trim()) {
-      Alert.alert('Missing fields', 'Session ID is required.');
+  const handleAddConversation = async () => {
+    if (!newUrl.trim()) {
+      Alert.alert('Missing fields', 'Please paste the Claude conversation URL.');
       return;
     }
+    const title = newTitle.trim() || 'Claude Conversation';
+    const url = newUrl.trim();
+
+    // Try to extract a session/conversation ID from the URL
+    const urlParts = url.split('/');
+    const sessionId = newSessionId.trim() || urlParts[urlParts.length - 1] || `conv-${Date.now()}`;
+
     setSubmitting(true);
     try {
-      await addCloudSession(
-        newSessionId.trim(),
-        newTitle.trim() || `Cloud: ${newSessionId.trim().slice(0, 8)}`,
-        newUrl.trim(),
-      );
+      // Register as a cloud session so it shows in the sessions list
+      await addCloudSession(sessionId, title, url);
+      // Also create a card on the board with a link to open the conversation
+      await createCard({ title, status: 'in_progress', source: 'cloud', pr_url: url });
       resetModal();
       loadSessions();
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.detail || 'Failed to add cloud session.');
+      Alert.alert('Error', e?.response?.data?.detail || 'Failed to add conversation.');
     } finally {
       setSubmitting(false);
     }
@@ -116,19 +123,35 @@ export function SessionsScreen() {
     );
   });
 
+  const handleSessionPress = (item: Session) => {
+    // Cloud sessions with a URL open in the browser
+    if (item.source === 'cloud' && item.project_path.startsWith('http')) {
+      Linking.openURL(item.project_path);
+    }
+  };
+
   const renderSession = ({ item }: { item: Session }) => (
-    <TouchableOpacity style={styles.sessionItem}>
+    <TouchableOpacity style={styles.sessionItem} onPress={() => handleSessionPress(item)}>
       <View style={styles.sessionHeader}>
         <Text style={styles.sessionId} numberOfLines={1}>
           {item.id.slice(0, 12)}...
         </Text>
-        <StatusBadge
-          status={item.status === 'active' ? 'in_progress' : item.status === 'waiting' ? 'waiting' : 'backlog'}
-          source={item.source}
-        />
+        <View style={styles.badgeRow}>
+          <StatusBadge
+            status={item.status === 'active' ? 'in_progress' : item.status === 'waiting' ? 'waiting' : 'backlog'}
+            source={item.source}
+          />
+          {item.source === 'cloud' && (
+            <View style={styles.cloudBadge}>
+              <Text style={styles.cloudBadgeText}>Cloud</Text>
+            </View>
+          )}
+        </View>
       </View>
       <Text style={styles.projectPath} numberOfLines={1}>
-        {item.project_path}
+        {item.source === 'cloud' && item.project_path.startsWith('http')
+          ? item.project_path
+          : item.project_path}
       </Text>
       <View style={styles.sessionFooter}>
         <Text style={styles.messageCount}>
@@ -137,11 +160,6 @@ export function SessionsScreen() {
         <Text style={styles.lastActivity}>
           {new Date(item.last_activity).toLocaleDateString()}
         </Text>
-        {item.source === 'cloud' && (
-          <View style={styles.cloudBadge}>
-            <Text style={styles.cloudBadgeText}>Cloud</Text>
-          </View>
-        )}
       </View>
     </TouchableOpacity>
   );
@@ -169,7 +187,7 @@ export function SessionsScreen() {
             style={[styles.addButton, styles.cloudButton]}
             onPress={() => setModalType('cloud')}
           >
-            <Text style={styles.addButtonText}>+ Cloud</Text>
+            <Text style={styles.addButtonText}>+ Link</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -252,41 +270,33 @@ export function SessionsScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Add Cloud Session Modal */}
+      {/* Add Conversation Link Modal */}
       <Modal visible={modalType === 'cloud'} animationType="slide" transparent>
         <KeyboardAvoidingView
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Cloud Session</Text>
+            <Text style={styles.modalTitle}>Link Claude Conversation</Text>
+            <Text style={styles.modalSubtitle}>
+              Paste a claude.ai conversation or code session URL to track it on your board.
+            </Text>
 
             <Text style={styles.fieldLabel}>Name</Text>
             <TextInput
               style={styles.modalInput}
               value={newTitle}
               onChangeText={setNewTitle}
-              placeholder="e.g. Deploy pipeline"
+              placeholder="e.g. iOS tracker app session"
               placeholderTextColor="#6b7280"
             />
 
-            <Text style={styles.fieldLabel}>Session ID</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={newSessionId}
-              onChangeText={setNewSessionId}
-              placeholder="Paste the session ID from claude.ai"
-              placeholderTextColor="#6b7280"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-
-            <Text style={styles.fieldLabel}>URL (optional)</Text>
+            <Text style={styles.fieldLabel}>Claude URL</Text>
             <TextInput
               style={styles.modalInput}
               value={newUrl}
               onChangeText={setNewUrl}
-              placeholder="https://claude.ai/code/..."
+              placeholder="https://claude.ai/chat/... or /code/..."
               placeholderTextColor="#6b7280"
               autoCapitalize="none"
               autoCorrect={false}
@@ -298,11 +308,11 @@ export function SessionsScreen() {
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.submitButton, submitting && styles.submitDisabled]}
-                onPress={handleAddCloud}
+                style={[styles.submitButton, styles.cloudSubmitButton, submitting && styles.submitDisabled]}
+                onPress={handleAddConversation}
                 disabled={submitting}
               >
-                <Text style={styles.submitText}>{submitting ? 'Adding...' : 'Add Session'}</Text>
+                <Text style={styles.submitText}>{submitting ? 'Adding...' : 'Link'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -392,6 +402,11 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     marginBottom: 8,
   },
+  badgeRow: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+  },
   sessionFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -451,7 +466,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 16,
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    color: '#6b7280',
+    fontSize: 13,
+    marginBottom: 12,
   },
   fieldLabel: {
     color: '#9ca3af',
@@ -497,6 +517,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 18,
     paddingVertical: 10,
+  },
+  cloudSubmitButton: {
+    backgroundColor: '#8b5cf6',
   },
   submitDisabled: {
     backgroundColor: '#3b82f640',

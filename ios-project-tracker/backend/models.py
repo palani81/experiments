@@ -47,6 +47,7 @@ class CardCreate(BaseModel):
     status: CardStatus = CardStatus.BACKLOG
     session_id: Optional[str] = None
     branch: Optional[str] = None
+    pr_url: Optional[str] = None
     project_path: Optional[str] = None
     source: CardSource = CardSource.LOCAL
 
