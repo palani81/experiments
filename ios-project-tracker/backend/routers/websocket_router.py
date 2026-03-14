@@ -1,5 +1,7 @@
 """WebSocket endpoint for real-time updates."""
 
+from __future__ import annotations
+
 import json
 from typing import Any
 

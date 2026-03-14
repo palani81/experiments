@@ -27,7 +27,7 @@ async def start_new_session(project_path: str, prompt: str) -> Optional[str]:
         proc = await asyncio.create_subprocess_exec(
             claude_path,
             "-p", prompt,
-            "--yes",
+            "--dangerously-skip-permissions",
             "--output-format", "json",
             cwd=project_path,
             stdout=asyncio.subprocess.PIPE,
@@ -65,12 +65,12 @@ async def start_new_session_background(project_path: str, prompt: str) -> None:
 
     log.info(f"Starting background session in {project_path}")
     log.info(f"  prompt: {prompt[:120]}")
-    log.info(f"  command: {claude_path} -p '...' --yes --cwd {project_path}")
+    log.info(f"  command: {claude_path} -p '...' --dangerously-skip-permissions  cwd={project_path}")
 
     proc = await asyncio.create_subprocess_exec(
         claude_path,
         "-p", prompt,
-        "--yes",
+        "--dangerously-skip-permissions",
         cwd=project_path,
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.DEVNULL,
@@ -115,7 +115,7 @@ async def _try_cli_resume(session_id: str, message: str) -> bool:
         proc = await asyncio.create_subprocess_exec(
             claude_path,
             "--resume", session_id,
-            "--yes",
+            "--dangerously-skip-permissions",
             "-p", message,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,

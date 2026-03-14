@@ -1,5 +1,7 @@
 """Webhook receiver endpoints for Claude Code hooks."""
 
+from __future__ import annotations
+
 from datetime import datetime, timezone
 
 from fastapi import APIRouter

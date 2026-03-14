@@ -1,5 +1,7 @@
 """Polls claude.ai/code cloud-hosted project status."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 from datetime import datetime, timezone
@@ -84,3 +86,7 @@ class CloudPoller:
             except Exception as e:
                 log.error(f"Cloud poll failed: {e}")
             await asyncio.sleep(settings.cloud_poll_interval_seconds)
+
+
+# Singleton instance
+cloud_poller = CloudPoller()

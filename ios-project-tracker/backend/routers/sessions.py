@@ -1,5 +1,7 @@
 """Session listing, detail, and reply endpoints."""
 
+from __future__ import annotations
+
 import asyncio
 import os
 import re
@@ -12,8 +14,8 @@ from pydantic import BaseModel
 from config import settings
 from log_config import get_logger
 from models import Card, CardStatus, CreateSessionRequest, ReplyRequest
-from services.cloud_poller import CloudPoller
-from services.session_monitor import SessionMonitor
+from services.cloud_poller import cloud_poller
+from services.session_monitor import session_monitor
 from services.session_input import send_reply_to_session, start_new_session_background
 from storage import storage
 
@@ -23,8 +25,6 @@ log = get_logger("sessions_api")
 SESSIONS_BASE_DIR = Path.home() / "claude-sessions"
 
 router = APIRouter()
-monitor = SessionMonitor()
-cloud_poller = CloudPoller()
 
 
 def verify_token(authorization: str = Header()):
@@ -37,7 +37,7 @@ def verify_token(authorization: str = Header()):
 async def list_sessions(authorization: str = Header(default="")):
     """List all discovered Claude Code sessions (local + cloud)."""
     verify_token(authorization)
-    local_sessions = monitor.get_sessions()
+    local_sessions = session_monitor.get_sessions()
     cloud_sessions = cloud_poller.get_cloud_sessions()
     all_sessions = local_sessions + cloud_sessions
     log.info(f"List sessions: {len(local_sessions)} local, {len(cloud_sessions)} cloud")
@@ -48,7 +48,7 @@ async def list_sessions(authorization: str = Header(default="")):
 async def get_session(session_id: str, authorization: str = Header(default="")):
     """Get a single session with conversation history."""
     verify_token(authorization)
-    all_sessions = monitor.get_sessions() + cloud_poller.get_cloud_sessions()
+    all_sessions = session_monitor.get_sessions() + cloud_poller.get_cloud_sessions()
     for s in all_sessions:
         if s.id == session_id:
             return s.model_dump(mode="json")

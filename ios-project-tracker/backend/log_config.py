@@ -1,5 +1,7 @@
 """Centralized logging configuration with in-memory ring buffer for /api/logs."""
 
+from __future__ import annotations
+
 import logging
 import collections
 from datetime import datetime, timezone
@@ -35,8 +37,16 @@ ring_handler = RingBufferHandler(capacity=500)
 ring_handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
 
 
+_initialized = False
+
+
 def setup_logging():
     """Configure logging for the entire application."""
+    global _initialized
+    if _initialized:
+        return
+    _initialized = True
+
     # Root logger
     root = logging.getLogger()
     root.setLevel(logging.INFO)

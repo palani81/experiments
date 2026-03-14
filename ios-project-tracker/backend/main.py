@@ -1,5 +1,7 @@
 """Claude Code Tracker — FastAPI backend server."""
 
+from __future__ import annotations
+
 import asyncio
 from contextlib import asynccontextmanager
 
@@ -8,16 +10,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from log_config import setup_logging, get_logger, ring_handler
-from routers import cards, hooks, sessions, websocket_router
-from services.cloud_poller import CloudPoller
-from services.session_monitor import SessionMonitor
+from routers import hooks, sessions, websocket_router
+from services.cloud_poller import cloud_poller
+from services.session_monitor import session_monitor
 
 # Initialize logging BEFORE anything else
 setup_logging()
 log = get_logger("main")
-
-monitor = SessionMonitor()
-cloud_poller = CloudPoller()
 
 
 @asynccontextmanager
@@ -29,8 +28,8 @@ async def lifespan(app: FastAPI):
     log.info(f"Monitor interval: {settings.monitor_interval_seconds}s")
     log.info(f"Pushover configured: {bool(settings.pushover_app_token)}")
 
-    monitor_task = asyncio.create_task(monitor.run())
-    cloud_task = asyncio.create_task(cloud_poller.run())
+    monitor_task = asyncio.create_task(session_monitor.run())
+    cloud_task = asyncio.create_task(cloud_poller.run())  # noqa: F841
     log.info("Background tasks started (session monitor + cloud poller)")
     yield
     log.info("Shutting down background tasks")
@@ -58,7 +57,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(cards.router, prefix="/api/cards", tags=["cards"])
 app.include_router(sessions.router, prefix="/api/sessions", tags=["sessions"])
 app.include_router(hooks.router, prefix="/hooks", tags=["hooks"])
 app.include_router(websocket_router.router, tags=["websocket"])
@@ -66,7 +64,7 @@ app.include_router(websocket_router.router, tags=["websocket"])
 
 @app.get("/health")
 async def health():
-    session_count = len(monitor.get_sessions()) + len(cloud_poller.get_cloud_sessions())
+    session_count = len(session_monitor.get_sessions()) + len(cloud_poller.get_cloud_sessions())
     return {
         "status": "ok",
         "version": "1.0.0",

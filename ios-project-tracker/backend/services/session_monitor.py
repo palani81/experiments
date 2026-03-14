@@ -1,5 +1,7 @@
 """Monitors ~/.claude/projects/ for Claude Code sessions."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 import os
@@ -111,3 +113,7 @@ class SessionMonitor:
             except Exception as e:
                 log.error(f"Session scan failed: {e}")
             await asyncio.sleep(settings.monitor_interval_seconds)
+
+
+# Singleton instance
+session_monitor = SessionMonitor()
