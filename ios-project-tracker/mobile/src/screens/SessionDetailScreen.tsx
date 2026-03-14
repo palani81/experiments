@@ -23,7 +23,8 @@ import { ReplyComposer } from '../components/ReplyComposer';
 import { fetchSession, replyToSession, removeCloudSession } from '../api/client';
 import { SessionStatus } from '../models/types';
 
-function normalizeStatus(status: string): SessionStatus {
+function normalizeStatus(status: string | undefined): SessionStatus {
+  if (!status) return 'active';
   const s = status.toLowerCase();
   if (s === 'waiting' || s === 'paused') return 'waiting';
   if (s === 'done' || s === 'completed' || s === 'finished') return 'done';

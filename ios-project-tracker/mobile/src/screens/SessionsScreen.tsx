@@ -33,7 +33,8 @@ type AddMode = null | 'choose' | 'local' | 'cloud';
 const STATUS_ORDER: SessionStatus[] = ['waiting', 'active', 'done'];
 
 // Map backend status strings to our display statuses
-function normalizeStatus(status: string): SessionStatus {
+function normalizeStatus(status: string | undefined): SessionStatus {
+  if (!status) return 'active';
   const s = status.toLowerCase();
   if (s === 'waiting' || s === 'paused') return 'waiting';
   if (s === 'done' || s === 'completed' || s === 'finished') return 'done';
