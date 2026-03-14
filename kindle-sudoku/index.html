@@ -64,6 +64,9 @@ td.selected {
 td.conflict {
   background: #ccc;
 }
+td.won {
+  background: #e0e0e0;
+}
 /* Thick borders for 3x3 box boundaries */
 td.bt { border-top: 3px solid #000; }
 td.bb { border-bottom: 3px solid #000; }
@@ -102,6 +105,56 @@ td.br { border-right: 3px solid #000; }
   margin: 1vmin 0;
   min-height: 5vmin;
 }
+
+/* ===== COLOR ENHANCEMENTS (Kindle Colorsoft) ===== */
+@media (color) {
+  h1 {
+    color: #1a3a5c;
+  }
+  .diff-btns button {
+    border-color: #2c5282;
+    color: #2c5282;
+  }
+  .diff-btns button.active {
+    background: #2c5282;
+    color: #fff;
+  }
+  td {
+    border-color: #8a9aad;
+  }
+  td.given {
+    color: #1a3a5c;
+  }
+  td.player {
+    color: #2b6cb0;
+  }
+  td.selected {
+    outline-color: #2c5282;
+    background: #e8f0fe;
+  }
+  td.conflict {
+    background: #fde8e8;
+    color: #c53030;
+  }
+  td.won {
+    background: #e6f5ec;
+  }
+  td.bt { border-top-color: #1a3a5c; }
+  td.bb { border-bottom-color: #1a3a5c; }
+  td.bl { border-left-color: #1a3a5c; }
+  td.br { border-right-color: #1a3a5c; }
+  .numpad button {
+    border-color: #2c5282;
+    color: #2c5282;
+  }
+  .actions button {
+    border-color: #2c5282;
+    color: #2c5282;
+  }
+  #status {
+    color: #276749;
+  }
+}
 </style>
 </head>
 <body>
@@ -127,6 +180,7 @@ var isGiven = [];
 var selectedRow = -1;
 var selectedCol = -1;
 var currentDifficulty = 'easy';
+var gameWon = false;
 
 // ===== UTILITIES =====
 function deepCopy(arr) {
@@ -445,6 +499,9 @@ function renderBoard() {
       if (conflicts[i][j]) {
         classes.push('conflict');
       }
+      if (gameWon) {
+        classes.push('won');
+      }
 
       td.className = classes.join(' ');
       td.innerHTML = board[i][j] === 0 ? '' : board[i][j];
@@ -469,20 +526,26 @@ function selectCell(row, col) {
 }
 
 function enterNumber(num) {
+  if (gameWon) return;
   if (selectedRow < 0 || selectedCol < 0) return;
   if (isGiven[selectedRow][selectedCol]) return;
 
   board[selectedRow][selectedCol] = num;
-  renderBoard();
 
   if (checkWin()) {
+    gameWon = true;
+    selectedRow = -1;
+    selectedCol = -1;
+    renderBoard();
     document.getElementById('status').innerHTML = 'Solved!';
   } else {
+    renderBoard();
     document.getElementById('status').innerHTML = '';
   }
 }
 
 function clearCell() {
+  if (gameWon) return;
   if (selectedRow < 0 || selectedCol < 0) return;
   if (isGiven[selectedRow][selectedCol]) return;
 
@@ -495,6 +558,7 @@ function newGame(difficulty) {
   currentDifficulty = difficulty || 'easy';
   selectedRow = -1;
   selectedCol = -1;
+  gameWon = false;
   document.getElementById('status').innerHTML = '';
 
   // Update active button
