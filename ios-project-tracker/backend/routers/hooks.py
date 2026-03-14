@@ -1,10 +1,18 @@
-"""Webhook receiver endpoints for Claude Code hooks."""
+"""Webhook receiver endpoints for Claude Code hooks.
+
+Supports two input formats:
+1. Native Claude Code hook format (HTTP hooks POST directly from Claude Code)
+   - Fields: session_id, cwd, hook_event_name, transcript_path, etc.
+2. Legacy format (shell scripts that curl our backend)
+   - Fields: event_type, session_id, project_path, payload
+"""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 from log_config import get_logger
 from models import Card, CardSource, CardStatus, HookEvent, HookEventType
@@ -17,9 +25,58 @@ log = get_logger("hooks")
 router = APIRouter()
 
 
+def _parse_hook_input(data: dict[str, Any], event_type: str) -> HookEvent:
+    """Parse native Claude Code hook input into our HookEvent model.
+
+    Native format has: session_id, cwd, hook_event_name, transcript_path,
+    permission_mode, plus event-specific fields.
+    Legacy format has: event_type, session_id, project_path, payload.
+    """
+    # Detect format: native has 'hook_event_name' or 'cwd', legacy has 'event_type'
+    if "hook_event_name" in data or ("cwd" in data and "event_type" not in data):
+        # Native Claude Code format
+        session_id = data.get("session_id", "")
+        project_path = data.get("cwd", "")
+
+        # Build payload from event-specific fields
+        payload: dict[str, Any] = {}
+        for key in ("last_assistant_message", "message", "title",
+                     "notification_type", "reason", "source", "model",
+                     "stop_hook_active", "prompt", "transcript_path"):
+            if key in data:
+                payload[key] = data[key]
+
+        return HookEvent(
+            event_type=event_type,
+            session_id=session_id,
+            project_path=project_path,
+            payload=payload,
+        )
+    else:
+        # Legacy format — pass through
+        return HookEvent(
+            event_type=data.get("event_type", event_type),
+            session_id=data.get("session_id", ""),
+            project_path=data.get("project_path", ""),
+            payload=data.get("payload", {}),
+        )
+
+
 async def _handle_hook(event: HookEvent):
-    """Process a hook event and update card state accordingly."""
-    log.info(f"Hook received: {event.event_type.value} session={event.session_id[:12]} project={event.project_path}")
+    """Process a hook event: update session state, broadcast, notify."""
+    log.info(
+        f"Hook received: {event.event_type.value} "
+        f"session={event.session_id[:12] if event.session_id else '?'} "
+        f"project={event.project_path}"
+    )
+
+    # Broadcast session update to connected WebSocket clients
+    await broadcast("session_updated", {
+        "session_id": event.session_id,
+        "event_type": event.event_type.value,
+        "project_path": event.project_path,
+    })
+
     card = storage.get_card_by_session(event.session_id)
 
     if event.event_type == HookEventType.SESSION_START:
@@ -56,6 +113,12 @@ async def _handle_hook(event: HookEvent):
             )
         else:
             log.warning(f"Stop hook for unknown session {event.session_id[:12]} — no card found")
+            # Still notify — session may not have a card yet
+            await send_notification(
+                title="Claude needs input",
+                message=f"Session {event.session_id[:8]} stopped in {event.project_path}",
+                priority=1,
+            )
 
     elif event.event_type == HookEventType.PROMPT_SUBMIT:
         if card:
@@ -88,43 +151,53 @@ async def _handle_hook(event: HookEvent):
             await broadcast("card_updated", card.model_dump(mode="json"))
 
     elif event.event_type == HookEventType.NOTIFICATION:
-        if card:
-            message = event.payload.get("message", "Notification from Claude")
-            log.info(f"Notification hook: '{card.title}' — {message}")
-            await send_notification(
-                title=f"Alert: {card.title}",
-                message=message,
-                priority=1,
-            )
+        message = event.payload.get("message", "Notification from Claude")
+        notification_type = event.payload.get("notification_type", "")
+        log.info(f"Notification hook: session={event.session_id[:12]} type={notification_type} — {message}")
+        await send_notification(
+            title=f"Claude: {notification_type or 'alert'}",
+            message=message,
+            priority=1 if notification_type == "permission_prompt" else 0,
+        )
 
     return {"status": "ok", "card_id": card.id if card else None}
 
 
 @router.post("/stop")
-async def hook_stop(event: HookEvent):
-    event.event_type = HookEventType.STOP
+async def hook_stop(request: Request):
+    data = await request.json()
+    log.info(f"POST /hooks/stop — raw keys: {list(data.keys())}")
+    event = _parse_hook_input(data, "stop")
     return await _handle_hook(event)
 
 
 @router.post("/session-start")
-async def hook_session_start(event: HookEvent):
-    event.event_type = HookEventType.SESSION_START
+async def hook_session_start(request: Request):
+    data = await request.json()
+    log.info(f"POST /hooks/session-start — raw keys: {list(data.keys())}")
+    event = _parse_hook_input(data, "session_start")
     return await _handle_hook(event)
 
 
 @router.post("/session-end")
-async def hook_session_end(event: HookEvent):
-    event.event_type = HookEventType.SESSION_END
+async def hook_session_end(request: Request):
+    data = await request.json()
+    log.info(f"POST /hooks/session-end — raw keys: {list(data.keys())}")
+    event = _parse_hook_input(data, "session_end")
     return await _handle_hook(event)
 
 
 @router.post("/notification")
-async def hook_notification(event: HookEvent):
-    event.event_type = HookEventType.NOTIFICATION
+async def hook_notification(request: Request):
+    data = await request.json()
+    log.info(f"POST /hooks/notification — raw keys: {list(data.keys())}")
+    event = _parse_hook_input(data, "notification")
     return await _handle_hook(event)
 
 
 @router.post("/prompt-submit")
-async def hook_prompt_submit(event: HookEvent):
-    event.event_type = HookEventType.PROMPT_SUBMIT
+async def hook_prompt_submit(request: Request):
+    data = await request.json()
+    log.info(f"POST /hooks/prompt-submit — raw keys: {list(data.keys())}")
+    event = _parse_hook_input(data, "prompt_submit")
     return await _handle_hook(event)

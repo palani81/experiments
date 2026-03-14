@@ -1,7 +1,9 @@
 #!/bin/bash
-# Claude Code Hook: Notification
+# Claude Code Hook: Notification (command hook fallback)
 # Fires when Claude needs attention (permission prompt, idle, etc).
-# Reads JSON from stdin, forwards to tracker backend.
+# Reads native hook JSON from stdin, forwards to tracker backend.
+#
+# NOTE: Prefer using HTTP hooks via install_hooks.sh instead.
 
 TRACKER_URL="${TRACKER_URL:-http://localhost:8420}"
 HOOK_LOG="/tmp/claude-tracker-hooks.log"
@@ -9,18 +11,16 @@ HOOK_LOG="/tmp/claude-tracker-hooks.log"
 log() { echo "$(date '+%H:%M:%S') [notification] $1" >> "$HOOK_LOG"; }
 
 HOOK_DATA=$(cat)
-log "Hook fired. Raw data: ${HOOK_DATA:0:200}"
+log "Hook fired. Raw data: ${HOOK_DATA:0:300}"
 
 SESSION_ID=$(echo "$HOOK_DATA" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('session_id',''))" 2>/dev/null)
-PROJECT_PATH=$(echo "$HOOK_DATA" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('cwd',''))" 2>/dev/null)
-MESSAGE=$(echo "$HOOK_DATA" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('message',''))" 2>/dev/null)
 
-log "Parsed: session=$SESSION_ID project=$PROJECT_PATH message=$MESSAGE"
+log "Parsed: session=$SESSION_ID"
 
 if [ -n "$SESSION_ID" ]; then
   RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${TRACKER_URL}/hooks/notification" \
     -H "Content-Type: application/json" \
-    -d "{\"event_type\":\"notification\",\"session_id\":\"${SESSION_ID}\",\"project_path\":\"${PROJECT_PATH}\",\"payload\":{\"message\":\"${MESSAGE}\"}}" \
+    -d "$HOOK_DATA" \
     2>&1)
   HTTP_CODE=$(echo "$RESPONSE" | tail -1)
   log "POST ${TRACKER_URL}/hooks/notification -> HTTP $HTTP_CODE"
