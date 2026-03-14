@@ -53,7 +53,8 @@ export function ConversationView({ conversation }: ConversationViewProps) {
   );
 }
 
-function truncateContent(content: string, maxLen = 500): string {
+function truncateContent(content: string | undefined | null, maxLen = 500): string {
+  if (!content) return '';
   if (content.length <= maxLen) return content;
   return content.slice(0, maxLen) + '...';
 }

@@ -28,7 +28,7 @@ export function startNotificationListener() {
 
     if (msg.type === 'card_updated') {
       const data = msg.data as any;
-      if (data.status === 'waiting') {
+      if (data && data.status === 'waiting') {
         _callback(
           'Claude needs input',
           `${data.title || 'A session'} is waiting for your response.`,

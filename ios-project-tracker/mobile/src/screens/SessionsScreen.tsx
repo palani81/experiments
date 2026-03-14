@@ -55,6 +55,7 @@ function getLastMessage(session: Session): string | null {
   const messages = session.conversation;
   if (!messages || messages.length === 0) return null;
   const last = messages[messages.length - 1];
+  if (!last?.content) return null;
   const content = last.content.slice(0, 80);
   return content + (last.content.length > 80 ? '...' : '');
 }
@@ -149,7 +150,7 @@ export function SessionsScreen() {
   };
 
   const handleSessionPress = (session: Session) => {
-    if (session.source === 'cloud' && session.project_path.startsWith('http')) {
+    if (session.source === 'cloud' && session.project_path?.startsWith('http')) {
       Linking.openURL(session.project_path);
       return;
     }
@@ -158,12 +159,12 @@ export function SessionsScreen() {
 
   // Build sections from sessions, normalizing backend statuses
   const sections = STATUS_ORDER.map((status) => {
-    const statusInfo = SESSION_STATUSES.find((s) => s.key === status)!;
+    const statusInfo = SESSION_STATUSES.find((s) => s.key === status);
     const sectionSessions = sessions.filter((s) => normalizeStatus(s.status) === status);
     return {
       status,
-      title: statusInfo.label,
-      color: statusInfo.color,
+      title: statusInfo?.label ?? status,
+      color: statusInfo?.color ?? '#6b7280',
       data: status === 'done' && doneCollapsed ? [] : sectionSessions,
       count: sectionSessions.length,
       collapsed: status === 'done' && doneCollapsed,
@@ -185,12 +186,12 @@ export function SessionsScreen() {
       >
         <View style={styles.cardTop}>
           <Text style={styles.cardTitle} numberOfLines={1}>
-            {item.id.slice(0, 16)}
+            {(item.id || 'unknown').slice(0, 16)}
           </Text>
           <StatusBadge status={normalized} source={item.source} />
         </View>
         <Text style={styles.cardPath} numberOfLines={1}>
-          {item.project_path}
+          {item.project_path || ''}
         </Text>
         {lastMsg && (
           <Text style={styles.cardPreview} numberOfLines={2}>
@@ -204,7 +205,7 @@ export function SessionsScreen() {
         )}
         <View style={styles.cardBottom}>
           <Text style={styles.cardMeta}>
-            {item.conversation.length} messages
+            {(item.conversation?.length || 0)} messages
           </Text>
           <Text style={styles.cardTime}>{getTimeAgo(item.last_activity)}</Text>
         </View>

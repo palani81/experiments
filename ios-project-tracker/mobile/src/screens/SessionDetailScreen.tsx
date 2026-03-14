@@ -66,9 +66,10 @@ export function SessionDetailScreen() {
   const loadSession = useCallback(async () => {
     try {
       const session = await fetchSession(sessionId);
-      setConversation(session.conversation);
-      setSessionStatus(session.status);
-      setSessionSource(session.source);
+      if (!session) return;
+      setConversation(session.conversation || []);
+      setSessionStatus(session.status || '');
+      setSessionSource(session.source || 'local');
     } catch {
       // session may not be available
     }

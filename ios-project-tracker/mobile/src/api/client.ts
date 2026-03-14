@@ -22,7 +22,7 @@ function getClient(): AxiosInstance {
 // Sessions API
 export async function fetchSessions(): Promise<Session[]> {
   const { data } = await getClient().get('/api/sessions');
-  return data.sessions;
+  return data.sessions || [];
 }
 
 export async function fetchSession(id: string): Promise<Session> {
