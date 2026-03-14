@@ -228,12 +228,13 @@ def _normalize_background(img: np.ndarray) -> np.ndarray:
     denoised = cv2.medianBlur(img, 3)
 
     # Step 2: Estimate the background using a very large Gaussian blur.
-    # The kernel must be large enough that text/lines are completely blurred out,
-    # leaving only the background illumination pattern.
+    # The kernel MUST be much larger than grid line thickness so lines
+    # are treated as foreground, not background. Using max(h,w)//4 ensures
+    # even thin 1-2px grid lines survive normalization.
     h, w = denoised.shape[:2]
-    ksize = max(h, w) // 8
+    ksize = max(h, w) // 4
     ksize = ksize if ksize % 2 == 1 else ksize + 1  # must be odd
-    ksize = max(51, ksize)  # minimum 51
+    ksize = max(101, ksize)  # minimum 101
     background = cv2.GaussianBlur(denoised, (ksize, ksize), 0).astype(np.float64)
 
     # Step 3: Divide image by background — this normalizes illumination.
