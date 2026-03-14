@@ -1,11 +1,14 @@
 """Two-way communication: send replies from phone to Claude Code sessions."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 import shutil
+from typing import Optional
 
 
-async def start_new_session(project_path: str, prompt: str) -> str | None:
+async def start_new_session(project_path: str, prompt: str) -> Optional[str]:
     """Start a new Claude Code session in the given project directory.
 
     Returns the session ID if successful, None otherwise.
