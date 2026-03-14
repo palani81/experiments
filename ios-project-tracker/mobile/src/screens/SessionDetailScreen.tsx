@@ -176,12 +176,13 @@ export function SessionDetailScreen() {
         }
       />
 
-      {/* Reply composer */}
-      <ReplyComposer
-        onSend={handleReply}
-        disabled={!isWaiting}
-        placeholder={isWaiting ? 'Reply to Claude...' : `Session is ${sessionStatus || 'not active'} — reply disabled`}
-      />
+      {/* Reply composer — only shown when Claude is waiting for input */}
+      {isWaiting && (
+        <ReplyComposer
+          onSend={handleReply}
+          placeholder="Reply to Claude..."
+        />
+      )}
     </KeyboardAvoidingView>
   );
 }

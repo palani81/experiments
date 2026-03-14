@@ -15,13 +15,11 @@ import {
 
 interface ReplyComposerProps {
   onSend: (message: string) => Promise<void>;
-  disabled?: boolean;
   placeholder?: string;
 }
 
 export function ReplyComposer({
   onSend,
-  disabled = false,
   placeholder = 'Reply to Claude...',
 }: ReplyComposerProps) {
   const [text, setText] = useState('');
@@ -30,7 +28,7 @@ export function ReplyComposer({
 
   const handleSend = async () => {
     const message = text.trim();
-    if (!message || sending || disabled) return;
+    if (!message || sending) return;
 
     Keyboard.dismiss();
     setSending(true);
@@ -56,15 +54,15 @@ export function ReplyComposer({
           placeholderTextColor="#6b7280"
           multiline
           maxLength={5000}
-          editable={!disabled && !sending}
+          editable={!sending}
         />
         <TouchableOpacity
           style={[
             styles.sendButton,
-            (!text.trim() || sending || disabled) && styles.sendButtonDisabled,
+            (!text.trim() || sending) && styles.sendButtonDisabled,
           ]}
           onPress={handleSend}
-          disabled={!text.trim() || sending || disabled}
+          disabled={!text.trim() || sending}
         >
           {sending ? (
             <ActivityIndicator size="small" color="#fff" />
