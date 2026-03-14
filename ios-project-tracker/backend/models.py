@@ -90,6 +90,12 @@ class ReplyRequest(BaseModel):
     message: str
 
 
+class CreateSessionRequest(BaseModel):
+    project_path: str
+    prompt: str
+    title: str = ""
+
+
 class WebSocketMessage(BaseModel):
     type: str  # card_updated, card_created, card_deleted, session_updated, hook_event
     data: dict[str, Any] = Field(default_factory=dict)

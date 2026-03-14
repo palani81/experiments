@@ -8,22 +8,27 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from routers import cards, hooks, sessions, websocket_router
+from services.cloud_poller import CloudPoller
 from services.session_monitor import SessionMonitor
 
 
 monitor = SessionMonitor()
+cloud_poller = CloudPoller()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Start background tasks on startup, clean up on shutdown."""
-    task = asyncio.create_task(monitor.run())
+    monitor_task = asyncio.create_task(monitor.run())
+    cloud_task = asyncio.create_task(cloud_poller.run())
     yield
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
+    monitor_task.cancel()
+    cloud_task.cancel()
+    for task in (monitor_task, cloud_task):
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(

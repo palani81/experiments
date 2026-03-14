@@ -50,6 +50,18 @@ export async function fetchSession(id: string): Promise<Session> {
   return data;
 }
 
+export async function createSession(projectPath: string, prompt: string, title?: string): Promise<void> {
+  await getClient().post('/api/sessions', { project_path: projectPath, prompt, title: title || '' });
+}
+
+export async function addCloudSession(sessionId: string, title: string, url?: string): Promise<void> {
+  await getClient().post('/api/sessions/cloud', { session_id: sessionId, title, url: url || '' });
+}
+
+export async function removeCloudSession(sessionId: string): Promise<void> {
+  await getClient().delete(`/api/sessions/cloud/${sessionId}`);
+}
+
 export async function replyToSession(sessionId: string, message: string): Promise<void> {
   await getClient().post(`/api/sessions/${sessionId}/reply`, { message });
 }

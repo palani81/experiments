@@ -1,7 +1,60 @@
 """Two-way communication: send replies from phone to Claude Code sessions."""
 
 import asyncio
+import json
 import shutil
+
+
+async def start_new_session(project_path: str, prompt: str) -> str | None:
+    """Start a new Claude Code session in the given project directory.
+
+    Returns the session ID if successful, None otherwise.
+    """
+    claude_path = shutil.which("claude")
+    if not claude_path:
+        return None
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            claude_path,
+            "-p", prompt,
+            "--yes",
+            "--output-format", "json",
+            cwd=project_path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=300)
+        if proc.returncode == 0 and stdout:
+            try:
+                result = json.loads(stdout.decode())
+                return result.get("session_id")
+            except (json.JSONDecodeError, KeyError):
+                pass
+    except (asyncio.TimeoutError, Exception):
+        pass
+
+    return None
+
+
+async def start_new_session_background(project_path: str, prompt: str) -> None:
+    """Start a new Claude Code session in the background (fire and forget).
+
+    The session will be discovered by the session monitor once it creates
+    its JSONL file.
+    """
+    claude_path = shutil.which("claude")
+    if not claude_path:
+        raise RuntimeError("claude CLI not found on PATH")
+
+    await asyncio.create_subprocess_exec(
+        claude_path,
+        "-p", prompt,
+        "--yes",
+        cwd=project_path,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
 
 
 async def send_reply_to_session(session_id: str, message: str) -> bool:
