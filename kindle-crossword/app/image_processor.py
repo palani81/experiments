@@ -1,3 +1,14 @@
+"""
+Image processor optimized for crossword puzzles on Kindle e-ink displays.
+
+Key improvements over v1:
+- Gentler adaptive thresholding that preserves thin grid lines and small clue numbers
+- Smarter contrast enhancement with lower CLAHE clip limit (1.5 vs 3.0)
+- Larger adaptive threshold block size (31 vs 15) to avoid destroying fine detail
+- Lanczos resampling for upscaling (sharpest for line art)
+- Optional morphological closing to reconnect broken grid lines
+- Higher unsharp mask radius for crisper lines on e-ink
+"""
 import logging
 from typing import Any
 
@@ -7,7 +18,10 @@ from PIL import Image, ImageFilter
 
 logger = logging.getLogger(__name__)
 
-KINDLE_PORTRAIT = (1860, 2480)
+# Kindle display resolutions at 300 PPI
+KINDLE_PAPERWHITE = (1236, 1648)
+KINDLE_SCRIBE = (1860, 2480)
+KINDLE_PORTRAIT = KINDLE_SCRIBE
 KINDLE_LANDSCAPE = (2480, 1860)
 
 
@@ -30,27 +44,35 @@ def process_image(input_path: str, output_path: str, options: dict) -> dict:
 
     img = _to_grayscale(img)
 
-    clip_limit = options.get("contrast_clip_limit", 3.0)
+    # Gentle contrast enhancement — clip_limit=1.5 avoids blowing out fine lines
+    clip_limit = options.get("contrast_clip_limit", 1.5)
     img = _enhance_contrast(img, clip_limit)
 
     threshold_mode = options.get("threshold_mode", "adaptive")
     if threshold_mode != "none":
         img = _apply_threshold(img, threshold_mode)
 
-    img = _resize_for_kindle(img)
+    # Repair broken grid lines after thresholding
+    if options.get("repair_lines", True):
+        img = _repair_grid_lines(img)
 
-    sharpness = options.get("sharpness", 1.2)
+    # Resize AFTER thresholding to preserve detail at native resolution
+    target = options.get("kindle_model", "scribe")
+    img = _resize_for_kindle(img, target)
+
+    sharpness = options.get("sharpness", 1.5)
     pil_img = _sharpen(img, sharpness)
 
     metadata["processed_size"] = pil_img.size
 
-    pil_img.save(output_path, format="PNG", optimize=True)
+    # Save at 300 DPI with no compression loss
+    pil_img.save(output_path, format="PNG", optimize=False, dpi=(300, 300))
 
     return metadata
 
 
 def _load_and_validate(path: str, metadata: dict) -> np.ndarray:
-    img = cv2.imread(path)
+    img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
     if img is None:
         raise ValueError(f"Failed to load image: {path}")
 
@@ -63,7 +85,7 @@ def _load_and_validate(path: str, metadata: dict) -> np.ndarray:
 
 
 def _perspective_correction(img: np.ndarray) -> tuple[np.ndarray, bool]:
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if len(img.shape) == 3 else img
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     edges = cv2.Canny(blurred, 50, 150)
 
@@ -107,7 +129,11 @@ def _perspective_correction(img: np.ndarray) -> tuple[np.ndarray, bool]:
         )
 
         matrix = cv2.getPerspectiveTransform(pts, dst)
-        warped = cv2.warpPerspective(img, matrix, (max_width, max_height))
+        warped = cv2.warpPerspective(
+            img, matrix, (max_width, max_height),
+            flags=cv2.INTER_LANCZOS4,
+            borderValue=(255, 255, 255),
+        )
         return warped, True
 
     return img, False
@@ -150,7 +176,7 @@ def _rotation_correction(img: np.ndarray) -> tuple[np.ndarray, float]:
 
     median_angle = float(np.median(near_horizontal))
 
-    if abs(median_angle) <= 1.0:
+    if abs(median_angle) <= 0.5:
         return img, 0.0
 
     h, w = img.shape[:2]
@@ -164,7 +190,11 @@ def _rotation_correction(img: np.ndarray) -> tuple[np.ndarray, float]:
     matrix[0, 2] += (new_w - w) / 2
     matrix[1, 2] += (new_h - h) / 2
 
-    rotated = cv2.warpAffine(img, matrix, (new_w, new_h), borderValue=(255, 255, 255))
+    rotated = cv2.warpAffine(
+        img, matrix, (new_w, new_h),
+        flags=cv2.INTER_LANCZOS4,
+        borderValue=(255, 255, 255),
+    )
     return rotated, round(median_angle, 2)
 
 
@@ -181,28 +211,54 @@ def _enhance_contrast(img: np.ndarray, clip_limit: float) -> np.ndarray:
 
 def _apply_threshold(img: np.ndarray, mode: str) -> np.ndarray:
     if mode == "adaptive":
+        # Block size 31 (vs old 15) gives much better results for crossword grids.
+        # C=8 (vs old 10) is gentler — preserves thin lines and small numbers.
         return cv2.adaptiveThreshold(
-            img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 15, 10
+            img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 8
         )
     elif mode == "otsu":
         _, result = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         return result
+    elif mode == "sauvola":
+        # Sauvola method — excellent for documents with varying illumination
+        mean = cv2.blur(img.astype(np.float64), (31, 31))
+        sq_mean = cv2.blur((img.astype(np.float64)) ** 2, (31, 31))
+        std = np.sqrt(np.maximum(sq_mean - mean ** 2, 0))
+        k = 0.2
+        threshold = mean * (1 + k * (std / 128 - 1))
+        result = np.where(img > threshold, 255, 0).astype(np.uint8)
+        return result
     return img
 
 
-def _resize_for_kindle(img: np.ndarray) -> np.ndarray:
+def _repair_grid_lines(img: np.ndarray) -> np.ndarray:
+    """Use morphological closing to reconnect thin grid lines broken by thresholding."""
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    # Invert (lines become white), close gaps, invert back
+    inverted = cv2.bitwise_not(img)
+    closed = cv2.morphologyEx(inverted, cv2.MORPH_CLOSE, kernel, iterations=1)
+    return cv2.bitwise_not(closed)
+
+
+def _resize_for_kindle(img: np.ndarray, target: str = "scribe") -> np.ndarray:
     h, w = img.shape[:2]
 
-    if w > h:
-        target_w, target_h = KINDLE_LANDSCAPE
+    if target == "paperwhite":
+        dims = KINDLE_PAPERWHITE
     else:
-        target_w, target_h = KINDLE_PORTRAIT
+        dims = KINDLE_SCRIBE
+
+    if w > h:
+        target_w, target_h = dims[1], dims[0]
+    else:
+        target_w, target_h = dims
 
     scale = min(target_w / w, target_h / h)
     new_w = int(w * scale)
     new_h = int(h * scale)
 
-    interp = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_CUBIC
+    # INTER_AREA for downscaling, INTER_LANCZOS4 for upscaling (sharpest for line art)
+    interp = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_LANCZOS4
     resized = cv2.resize(img, (new_w, new_h), interpolation=interp)
 
     canvas = np.full((target_h, target_w), 255, dtype=np.uint8)
@@ -216,5 +272,7 @@ def _resize_for_kindle(img: np.ndarray) -> np.ndarray:
 def _sharpen(img: np.ndarray, sharpness: float) -> Image.Image:
     pil_img = Image.fromarray(img).convert("L")
     percent = int(sharpness * 100)
-    sharpened = pil_img.filter(ImageFilter.UnsharpMask(radius=1.5, percent=percent, threshold=2))
+    # radius=2.0 (vs old 1.5) — better for grid lines on e-ink
+    # threshold=3 (vs old 2) — avoids sharpening noise in empty cells
+    sharpened = pil_img.filter(ImageFilter.UnsharpMask(radius=2.0, percent=percent, threshold=3))
     return sharpened
