@@ -6,26 +6,36 @@
 <title>Sudoku</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body {
+html, body {
   font-family: serif;
   background: #fff;
   color: #000;
   text-align: center;
   -webkit-text-size-adjust: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.header-row {
+  display: inline-block;
+  margin: 1vmin 0 0;
 }
 h1 {
-  font-size: 7vmin;
-  margin: 2vmin 0 1vmin;
+  font-size: 5vmin;
   letter-spacing: 0.15em;
+  margin: 0;
+  display: inline;
+  vertical-align: middle;
 }
 .diff-btns {
-  margin: 1vmin 0 2vmin;
+  display: inline;
+  margin-left: 2vmin;
+  vertical-align: middle;
 }
 .diff-btns button {
   font-family: serif;
-  font-size: 4vmin;
-  padding: 1.5vmin 3vmin;
-  margin: 0 1vmin;
+  font-size: 3.5vmin;
+  padding: 1vmin 2vmin;
+  margin: 0 0.5vmin;
   background: #fff;
   color: #000;
   border: 2px solid #000;
@@ -35,16 +45,22 @@ h1 {
   background: #000;
   color: #fff;
 }
+#status {
+  font-size: 3.5vmin;
+  margin: 0.5vmin 0;
+  min-height: 4vmin;
+  font-weight: bold;
+}
 table {
   border-collapse: collapse;
   margin: 0 auto;
 }
 td {
-  width: 9vmin;
-  height: 9vmin;
+  width: 8vmin;
+  height: 8vmin;
   text-align: center;
   vertical-align: middle;
-  font-size: 5.5vmin;
+  font-size: 5vmin;
   border: 1px solid #666;
   cursor: pointer;
   padding: 0;
@@ -73,15 +89,19 @@ td.bt { border-top: 3px solid #000; }
 td.bb { border-bottom: 3px solid #000; }
 td.bl { border-left: 3px solid #000; }
 td.br { border-right: 3px solid #000; }
+.controls {
+  margin: 1vmin 0 0;
+}
 .numpad {
-  margin: 2vmin auto 1vmin;
+  margin: 0 auto;
+  display: inline-block;
 }
 .numpad button {
   font-family: serif;
-  font-size: 5vmin;
-  width: 8.5vmin;
-  height: 8.5vmin;
-  margin: 0.5vmin;
+  font-size: 4.5vmin;
+  width: 7.5vmin;
+  height: 7.5vmin;
+  margin: 0.3vmin;
   background: #fff;
   color: #000;
   border: 2px solid #000;
@@ -89,22 +109,17 @@ td.br { border-right: 3px solid #000; }
   vertical-align: middle;
 }
 .actions {
-  margin: 1vmin 0 2vmin;
+  margin: 0.5vmin 0 0;
 }
 .actions button {
   font-family: serif;
-  font-size: 3.5vmin;
-  padding: 1.5vmin 4vmin;
+  font-size: 3vmin;
+  padding: 1vmin 3vmin;
   margin: 0 1vmin;
   background: #fff;
   color: #000;
   border: 2px solid #000;
   cursor: pointer;
-}
-#status {
-  font-size: 4vmin;
-  margin: 1vmin 0;
-  min-height: 5vmin;
 }
 
 /* ===== COLOR ENHANCEMENTS (Kindle Colorsoft) ===== */
@@ -159,19 +174,23 @@ td.br { border-right: 3px solid #000; }
 </style>
 </head>
 <body>
-<h1>SUDOKU</h1>
-<div class="diff-btns">
-  <button id="btn-easy" onclick="newGame('easy')">Easy</button>
-  <button id="btn-medium" onclick="newGame('medium')">Medium</button>
-  <button id="btn-hard" onclick="newGame('hard')">Hard</button>
-</div>
-<div id="grid-container"></div>
-<div class="numpad" id="numpad"></div>
-<div class="actions">
-  <button onclick="clearCell()">Clear</button>
-  <button onclick="newGame(currentDifficulty)">New Game</button>
+<div class="header-row">
+  <h1>SUDOKU</h1>
+  <div class="diff-btns">
+    <button id="btn-easy" onclick="newGame('easy')">Easy</button>
+    <button id="btn-medium" onclick="newGame('medium')">Medium</button>
+    <button id="btn-hard" onclick="newGame('hard')">Hard</button>
+  </div>
 </div>
 <div id="status"></div>
+<div id="grid-container"></div>
+<div class="controls">
+  <div class="numpad" id="numpad"></div>
+  <div class="actions">
+    <button onclick="clearCell()">Clear</button>
+    <button onclick="newGame(currentDifficulty)">New</button>
+  </div>
+</div>
 
 <script>
 // ===== STATE =====
