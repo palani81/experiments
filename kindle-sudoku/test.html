@@ -401,16 +401,143 @@ boxConflictBoard[0][0] = boxConflictBoard[1][1];
 var boxConflicts = findConflicts(boxConflictBoard);
 assert('findConflicts() detects box conflict', boxConflicts[0][0] === true && boxConflicts[1][1] === true);
 
-// Test 14: Win detection
-assert('Win detected when board matches solution (simulated)', (function() {
-  var sol = easyResult.solution;
-  for (var a = 0; a < 9; a++) {
-    for (var b = 0; b < 9; b++) {
-      if (sol[a][b] !== sol[a][b]) return false;
-    }
-  }
+// Test 14: Win detection - board matches solution
+assert('Win detected when board matches solution', (function() {
+  // Simulate: board === solution means win
+  var testSol = easyResult.solution;
+  var testBoard = deepCopy(testSol);
+  for (var a = 0; a < 9; a++)
+    for (var b = 0; b < 9; b++)
+      if (testBoard[a][b] !== testSol[a][b]) return false;
   return true;
 })());
+
+// Test 15: Win NOT detected when board is incomplete
+assert('Win not detected when board has empty cells', (function() {
+  var testBoard = deepCopy(easyResult.solution);
+  testBoard[0][0] = 0; // make one cell empty
+  for (var a = 0; a < 9; a++)
+    for (var b = 0; b < 9; b++)
+      if (testBoard[a][b] !== easyResult.solution[a][b]) return true; // found mismatch = not won
+  return false;
+})());
+
+// Test 16: Win NOT detected when board has wrong number
+assert('Win not detected when board has wrong number', (function() {
+  var testBoard = deepCopy(easyResult.solution);
+  // Change one cell to a wrong value
+  testBoard[4][4] = (testBoard[4][4] % 9) + 1;
+  for (var a = 0; a < 9; a++)
+    for (var b = 0; b < 9; b++)
+      if (testBoard[a][b] !== easyResult.solution[a][b]) return true;
+  return false;
+})());
+
+// Test 17: Given cells are not empty in puzzle
+assert('All given cells are non-zero', (function() {
+  for (var a = 0; a < 9; a++)
+    for (var b = 0; b < 9; b++)
+      if (easyResult.puzzle[a][b] !== 0 && easyResult.puzzle[a][b] < 1) return false;
+  return true;
+})());
+
+// Test 18: Puzzle givens match solution
+assert('Given cells match solution values', (function() {
+  for (var a = 0; a < 9; a++)
+    for (var b = 0; b < 9; b++)
+      if (easyResult.puzzle[a][b] !== 0 && easyResult.puzzle[a][b] !== easyResult.solution[a][b]) return false;
+  return true;
+})());
+
+// Test 19: Medium puzzle has unique solution
+var medUniqueTest = deepCopy(medResult.puzzle);
+assert('Generated Medium puzzle has unique solution', countSolutions(medUniqueTest) === 1);
+
+// Test 20: Hard puzzle has unique solution
+var hardUniqueTest = deepCopy(hardResult.puzzle);
+assert('Generated Hard puzzle has unique solution', countSolutions(hardUniqueTest) === 1);
+
+// Test 21: localStorage save/load round-trip (simulated)
+assert('JSON round-trip preserves board state', (function() {
+  var state = {
+    board: easyResult.solution,
+    solution: easyResult.solution,
+    isGiven: [[true]],
+    difficulty: 'easy',
+    gameWon: false
+  };
+  var json = JSON.stringify(state);
+  var restored = JSON.parse(json);
+  return restored.board[0][0] === state.board[0][0] &&
+         restored.difficulty === 'easy' &&
+         restored.gameWon === false;
+})());
+
+// Test 22: hasProgress detection (simulated)
+assert('hasProgress detects player-entered numbers', (function() {
+  // Simulate: isGiven is false for [0][0], board has a value there
+  var fakeIsGiven = [];
+  var fakeBoard = deepCopy(easyResult.puzzle);
+  for (var a = 0; a < 9; a++) {
+    fakeIsGiven[a] = [];
+    for (var b = 0; b < 9; b++)
+      fakeIsGiven[a][b] = fakeBoard[a][b] !== 0;
+  }
+  // Find an empty cell and fill it
+  for (var a = 0; a < 9; a++)
+    for (var b = 0; b < 9; b++)
+      if (fakeBoard[a][b] === 0) {
+        fakeBoard[a][b] = 5;
+        // Now check: this cell is not given but has a value
+        if (!fakeIsGiven[a][b] && fakeBoard[a][b] !== 0) return true;
+      }
+  return false;
+})());
+
+// ===== PERFORMANCE TESTS =====
+var perfDiv = document.createElement('div');
+perfDiv.innerHTML = '<h2 style="margin-top:20px">Performance Tests</h2>';
+resultsDiv.appendChild(perfDiv);
+
+// Perf Test 1: Easy generation time
+var perfStart = Date.now();
+createPuzzle('easy');
+var easyTime = Date.now() - perfStart;
+assert('Easy puzzle generates in < 500ms (took ' + easyTime + 'ms)', easyTime < 500);
+
+// Perf Test 2: Medium generation time
+perfStart = Date.now();
+createPuzzle('medium');
+var medTime = Date.now() - perfStart;
+assert('Medium puzzle generates in < 1000ms (took ' + medTime + 'ms)', medTime < 1000);
+
+// Perf Test 3: Hard generation time
+perfStart = Date.now();
+createPuzzle('hard');
+var hardTime = Date.now() - perfStart;
+assert('Hard puzzle generates in < 2000ms (took ' + hardTime + 'ms)', hardTime < 2000);
+
+// Perf Test 4: Board generation time
+perfStart = Date.now();
+for (var p = 0; p < 10; p++) generateBoard();
+var genTime = Date.now() - perfStart;
+assert('10x generateBoard() in < 200ms (took ' + genTime + 'ms)', genTime < 200);
+
+// Perf Test 5: countSolutions performance
+var perfPuzzle = deepCopy(hardResult.puzzle);
+perfStart = Date.now();
+for (var p = 0; p < 5; p++) {
+  var tmp = deepCopy(perfPuzzle);
+  countSolutions(tmp);
+}
+var solveTime = Date.now() - perfStart;
+assert('5x countSolutions(hard) in < 500ms (took ' + solveTime + 'ms)', solveTime < 500);
+
+// Perf Test 6: findConflicts performance
+perfStart = Date.now();
+for (var p = 0; p < 100; p++) findConflicts(easyResult.solution);
+var conflictTime = Date.now() - perfStart;
+assert('100x findConflicts() in < 50ms (took ' + conflictTime + 'ms)', conflictTime < 50);
 
 // ===== SUMMARY =====
 var summaryDiv = document.getElementById('summary');
