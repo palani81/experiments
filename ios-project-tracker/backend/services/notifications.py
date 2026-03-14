@@ -5,6 +5,9 @@ import time
 import httpx
 
 from config import settings
+from log_config import get_logger
+
+log = get_logger("notifications")
 
 PUSHOVER_API_URL = "https://api.pushover.net/1/messages.json"
 
@@ -19,27 +22,23 @@ async def send_notification(
     priority: int = 0,
     sound: str = "cosmic",
 ):
-    """Send a push notification via Pushover.
-
-    Args:
-        title: Notification title
-        message: Notification body
-        priority: -2 (silent) to 2 (emergency). 1 = high priority.
-        sound: Pushover sound name
-    """
+    """Send a push notification via Pushover."""
     if not settings.pushover_app_token or not settings.pushover_user_key:
-        return  # Notifications not configured
+        log.info(f"Notification (not configured): {title} — {message}")
+        return
 
     # Deduplication
     now = time.time()
     dedup_key = f"{title}:{message}"
     if dedup_key in _last_sent and (now - _last_sent[dedup_key]) < DEDUP_WINDOW_SECONDS:
+        log.info(f"Notification deduplicated: {title}")
         return
     _last_sent[dedup_key] = now
 
+    log.info(f"Sending notification: {title} — {message}")
     try:
         async with httpx.AsyncClient() as client:
-            await client.post(
+            resp = await client.post(
                 PUSHOVER_API_URL,
                 data={
                     "token": settings.pushover_app_token,
@@ -51,5 +50,9 @@ async def send_notification(
                 },
                 timeout=10,
             )
-    except Exception:
-        pass  # Don't crash the server if notifications fail
+            if resp.status_code == 200:
+                log.info(f"Notification sent successfully: {title}")
+            else:
+                log.error(f"Notification failed (HTTP {resp.status_code}): {resp.text[:200]}")
+    except Exception as e:
+        log.error(f"Notification error: {e}")

@@ -47,11 +47,24 @@ export async function replyToSession(sessionId: string, message: string): Promis
 }
 
 // Health check
-export async function checkHealth(): Promise<boolean> {
+export async function checkHealth(): Promise<{ ok: boolean; info?: any }> {
   try {
     const { data } = await getClient().get('/health');
-    return data.status === 'ok';
+    return { ok: data.status === 'ok', info: data };
   } catch {
-    return false;
+    return { ok: false };
   }
+}
+
+// Server logs
+export interface LogEntry {
+  ts: string;
+  level: string;
+  logger: string;
+  message: string;
+}
+
+export async function fetchLogs(limit: number = 100): Promise<LogEntry[]> {
+  const { data } = await getClient().get('/api/logs', { params: { limit } });
+  return data.logs || [];
 }

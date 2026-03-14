@@ -6,15 +6,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from config import settings
+from log_config import get_logger
 from models import CardSource, Session
+
+log = get_logger("cloud_poller")
 
 
 class CloudPoller:
-    """Polls for cloud-hosted Claude Code session status.
-
-    Cloud sessions are manually registered by the user via the mobile app.
-    This service periodically checks their status.
-    """
+    """Polls for cloud-hosted Claude Code session status."""
 
     def __init__(self):
         self._cloud_sessions: dict[str, dict] = {}
@@ -23,12 +22,19 @@ class CloudPoller:
 
     def _load(self):
         if self._config_path.exists():
-            with open(self._config_path) as f:
-                self._cloud_sessions = json.load(f)
+            try:
+                with open(self._config_path) as f:
+                    self._cloud_sessions = json.load(f)
+                log.info(f"Loaded {len(self._cloud_sessions)} cloud sessions from disk")
+            except Exception as e:
+                log.error(f"Failed to load cloud sessions: {e}")
 
     def _save(self):
-        with open(self._config_path, "w") as f:
-            json.dump(self._cloud_sessions, f, indent=2)
+        try:
+            with open(self._config_path, "w") as f:
+                json.dump(self._cloud_sessions, f, indent=2)
+        except Exception as e:
+            log.error(f"Failed to save cloud sessions: {e}")
 
     def add_cloud_session(self, session_id: str, url: str = "", title: str = ""):
         """Register a cloud session for tracking."""
@@ -39,11 +45,16 @@ class CloudPoller:
             "last_status": "unknown",
         }
         self._save()
+        log.info(f"Added cloud session: {session_id[:12]} title='{title}'")
 
     def remove_cloud_session(self, session_id: str):
         """Stop tracking a cloud session."""
-        self._cloud_sessions.pop(session_id, None)
+        removed = self._cloud_sessions.pop(session_id, None)
         self._save()
+        if removed:
+            log.info(f"Removed cloud session: {session_id[:12]}")
+        else:
+            log.warning(f"Cloud session not found for removal: {session_id[:12]}")
 
     def get_cloud_sessions(self) -> list[Session]:
         """Return all tracked cloud sessions as Session objects."""
@@ -61,21 +72,15 @@ class CloudPoller:
         return sessions
 
     async def poll(self):
-        """Poll cloud sessions for status updates.
-
-        Note: This is a placeholder for when Claude Code provides a proper API
-        for querying cloud session status. Currently, cloud sessions are
-        manually managed by the user.
-        """
-        # Future: Use Claude Code API to poll session status
-        # For now, cloud sessions are manually updated
+        """Poll cloud sessions for status updates (placeholder)."""
         pass
 
     async def run(self):
         """Background task: poll cloud sessions periodically."""
+        log.info(f"Cloud poller started — {len(self._cloud_sessions)} sessions tracked")
         while True:
             try:
                 await self.poll()
-            except Exception:
-                pass
+            except Exception as e:
+                log.error(f"Cloud poll failed: {e}")
             await asyncio.sleep(settings.cloud_poll_interval_seconds)

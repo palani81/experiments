@@ -10,11 +10,14 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
 from config import settings
+from log_config import get_logger
 from models import Card, CardStatus, CreateSessionRequest, ReplyRequest
 from services.cloud_poller import CloudPoller
 from services.session_monitor import SessionMonitor
 from services.session_input import send_reply_to_session, start_new_session_background
 from storage import storage
+
+log = get_logger("sessions_api")
 
 # Default base directory for auto-created session projects
 SESSIONS_BASE_DIR = Path.home() / "claude-sessions"
@@ -37,6 +40,7 @@ async def list_sessions(authorization: str = Header(default="")):
     local_sessions = monitor.get_sessions()
     cloud_sessions = cloud_poller.get_cloud_sessions()
     all_sessions = local_sessions + cloud_sessions
+    log.info(f"List sessions: {len(local_sessions)} local, {len(cloud_sessions)} cloud")
     return {"sessions": [s.model_dump(mode="json") for s in all_sessions]}
 
 
@@ -65,6 +69,8 @@ async def create_session(body: CreateSessionRequest, authorization: str = Header
 
     # Determine session name (fall back to title for backwards compat)
     name = body.name.strip() or body.title.strip() or "New Session"
+    log.info(f"Create session request: name='{name}', path='{body.project_path}', prompt='{body.prompt[:80] if body.prompt else ''}'")
+
 
     # Determine project path — auto-create under ~/claude-sessions/ if not provided
     if body.project_path.strip():
@@ -74,7 +80,9 @@ async def create_session(body: CreateSessionRequest, authorization: str = Header
         project_path = str(SESSIONS_BASE_DIR / slug)
 
     # Create directory if it doesn't exist
+    log.info(f"Using project path: {project_path}")
     os.makedirs(project_path, exist_ok=True)
+    log.info(f"Directory ensured: {project_path}")
 
     # Determine prompt — use the name as context if not provided
     prompt = body.prompt.strip() if body.prompt.strip() else f"Work on: {name}"
@@ -97,6 +105,7 @@ class AddCloudSessionRequest(BaseModel):
 async def add_cloud_session(body: AddCloudSessionRequest, authorization: str = Header(default="")):
     """Register a Claude Code cloud session for tracking."""
     verify_token(authorization)
+    log.info(f"Adding cloud session: {body.session_id} title='{body.title}' url='{body.url}'")
     cloud_poller.add_cloud_session(body.session_id, url=body.url, title=body.title)
     return {"status": "added", "session_id": body.session_id}
 

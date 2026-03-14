@@ -6,6 +6,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+from log_config import get_logger
+
+log = get_logger("transcript")
+
 
 def parse_transcript(file_path: Path) -> list[dict[str, Any]]:
     """Parse a JSONL session file into a list of conversation entries.
@@ -16,21 +20,24 @@ def parse_transcript(file_path: Path) -> list[dict[str, Any]]:
 
     try:
         with open(file_path) as f:
+            line_count = 0
             for line in f:
+                line_count += 1
                 line = line.strip()
                 if not line:
                     continue
                 try:
                     entry = json.loads(line)
-                except json.JSONDecodeError:
+                except json.JSONDecodeError as e:
+                    log.warning(f"Bad JSON at {file_path.name}:{line_count}: {e}")
                     continue
 
                 # Handle different entry formats
                 parsed = _parse_entry(entry)
                 if parsed:
                     conversation.append(parsed)
-    except Exception:
-        pass
+    except Exception as e:
+        log.error(f"Failed to read transcript {file_path}: {e}")
 
     return conversation
 
