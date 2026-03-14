@@ -27,7 +27,7 @@ interface CardState {
   getCardsByStatus: (status: CardStatus) => Card[];
 }
 
-export const useCardStore = create<CardState>()((set, get) => ({
+export const useCardStore = create<CardState>((set, get) => ({
   cards: [],
   isLoading: false,
   error: null,
