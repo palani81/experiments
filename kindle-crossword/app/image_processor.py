@@ -245,10 +245,17 @@ def _normalize_background(img: np.ndarray) -> np.ndarray:
     normalized = normalized * 255.0
     normalized = np.clip(normalized, 0, 255).astype(np.uint8)
 
-    # Step 5: Stretch contrast to use the full dynamic range
-    p_low, p_high = np.percentile(normalized, (2, 98))
+    # Step 5: Levels adjustment — set black and white points, then apply
+    # gamma to restore natural-looking contrast with solid blacks.
+    p_low, p_high = np.percentile(normalized, (1, 95))
     if p_high > p_low:
-        stretched = (normalized.astype(np.float64) - p_low) / (p_high - p_low) * 255.0
+        stretched = (normalized.astype(np.float64) - p_low) / (p_high - p_low)
+        stretched = np.clip(stretched, 0, 1.0)
+
+        # Gamma < 1.0 pushes midtones darker → restores solid blacks for
+        # grid lines and text without crushing white cells
+        gamma = 0.6
+        stretched = np.power(stretched, gamma) * 255.0
         stretched = np.clip(stretched, 0, 255).astype(np.uint8)
     else:
         stretched = normalized
