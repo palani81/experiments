@@ -544,6 +544,7 @@ function enterNumber(num) {
     renderBoard();
     document.getElementById('status').innerHTML = '';
   }
+  saveGame();
 }
 
 function clearCell() {
@@ -554,12 +555,30 @@ function clearCell() {
   board[selectedRow][selectedCol] = 0;
   renderBoard();
   document.getElementById('status').innerHTML = '';
+  saveGame();
+}
+
+function hasProgress() {
+  if (gameWon) return false;
+  for (var i = 0; i < 9; i++) {
+    for (var j = 0; j < 9; j++) {
+      if (!isGiven[i] || !isGiven[i][j]) {
+        if (board[i] && board[i][j] !== 0) return true;
+      }
+    }
+  }
+  return false;
 }
 
 function newGame(difficulty) {
   if (generating) return;
-  generating = true;
 
+  // Confirm if game in progress
+  if (hasProgress()) {
+    if (!confirm('Start a new game? Current progress will be lost.')) return;
+  }
+
+  generating = true;
   currentDifficulty = difficulty || 'easy';
   selectedRow = -1;
   selectedCol = -1;
@@ -600,15 +619,63 @@ function newGame(difficulty) {
     }
 
     renderBoard();
+    saveGame();
     document.getElementById('status').innerHTML = '';
     generating = false;
   }, 50);
 }
 
+// ===== SAVE / LOAD =====
+function saveGame() {
+  try {
+    var state = {
+      board: board,
+      solution: solution,
+      isGiven: isGiven,
+      difficulty: currentDifficulty,
+      gameWon: gameWon
+    };
+    localStorage.setItem('sudoku_save', JSON.stringify(state));
+  } catch (e) { /* localStorage unavailable */ }
+}
+
+function loadGame() {
+  try {
+    var data = localStorage.getItem('sudoku_save');
+    if (!data) return false;
+    var state = JSON.parse(data);
+    if (!state.board || !state.solution || !state.isGiven) return false;
+    board = state.board;
+    solution = state.solution;
+    isGiven = state.isGiven;
+    currentDifficulty = state.difficulty || 'easy';
+    gameWon = state.gameWon || false;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 // ===== INIT =====
 buildGrid();
 buildNumpad();
-newGame('easy');
+
+if (loadGame()) {
+  // Restore saved game
+  selectedRow = -1;
+  selectedCol = -1;
+  var btns = ['easy', 'medium', 'hard'];
+  for (var b = 0; b < btns.length; b++) {
+    var el = document.getElementById('btn-' + btns[b]);
+    el.className = (btns[b] === currentDifficulty) ? 'active' : '';
+  }
+  renderBoard();
+  if (gameWon) {
+    document.getElementById('status').innerHTML = 'Solved!';
+  }
+} else {
+  newGame('easy');
+}
 </script>
 </body>
 </html>
