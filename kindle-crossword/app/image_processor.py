@@ -203,23 +203,35 @@ def _to_grayscale(img: np.ndarray) -> np.ndarray:
 
 def _normalize_background(img: np.ndarray) -> np.ndarray:
     """
-    Remove uneven lighting and background tint by dividing by a heavily
-    blurred version. Uses bilateral filter (NOT median) to preserve small
-    text like clue numbers while smoothing noise.
-    """
-    # No denoising — preserves small clue numbers inside grid cells
-    h, w = img.shape[:2]
-    ksize = max(h, w) // 4
-    ksize = ksize if ksize % 2 == 1 else ksize + 1
-    ksize = max(101, ksize)
-    background = cv2.GaussianBlur(img, (ksize, ksize), 0).astype(np.float64)
+    Remove uneven lighting, shadows, and newspaper background tint.
 
-    # Divide by background to normalize illumination
-    normalized = img.astype(np.float64) / np.maximum(background, 1.0)
+    Works by dividing the image by a heavily blurred version of itself.
+    This makes the background uniformly white while keeping text/lines dark.
+    """
+    # Denoise — median blur kills halftone dots while preserving edges
+    denoised = cv2.medianBlur(img, 3)
+
+    # Estimate the background using a large Gaussian blur
+    h, w = denoised.shape[:2]
+    ksize = max(h, w) // 8
+    ksize = ksize if ksize % 2 == 1 else ksize + 1
+    ksize = max(51, ksize)
+    background = cv2.GaussianBlur(denoised, (ksize, ksize), 0).astype(np.float64)
+
+    # Divide image by background to normalize illumination
+    normalized = denoised.astype(np.float64) / np.maximum(background, 1.0)
     normalized = normalized * 255.0
     normalized = np.clip(normalized, 0, 255).astype(np.uint8)
 
-    return normalized
+    # Stretch contrast to use the full dynamic range
+    p_low, p_high = np.percentile(normalized, (2, 98))
+    if p_high > p_low:
+        stretched = (normalized.astype(np.float64) - p_low) / (p_high - p_low) * 255.0
+        stretched = np.clip(stretched, 0, 255).astype(np.uint8)
+    else:
+        stretched = normalized
+
+    return stretched
 
 
 def _boost_contrast(img: np.ndarray) -> np.ndarray:
