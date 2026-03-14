@@ -183,6 +183,8 @@ var selectedCol = -1;
 var currentDifficulty = 'easy';
 var gameWon = false;
 var generating = false;
+var confirmPending = false;
+var confirmTimer = null;
 
 // ===== UTILITIES =====
 function deepCopy(arr) {
@@ -592,10 +594,19 @@ function hasProgress() {
 function newGame(difficulty) {
   if (generating) return;
 
-  // Confirm if game in progress
-  if (hasProgress()) {
-    if (!confirm('Start a new game? Current progress will be lost.')) return;
+  // Two-tap confirm if game in progress
+  if (hasProgress() && !confirmPending) {
+    confirmPending = true;
+    document.getElementById('status').innerHTML = 'Tap again to start new game';
+    if (confirmTimer) clearTimeout(confirmTimer);
+    confirmTimer = setTimeout(function() {
+      confirmPending = false;
+      document.getElementById('status').innerHTML = '';
+    }, 3000);
+    return;
   }
+  confirmPending = false;
+  if (confirmTimer) { clearTimeout(confirmTimer); confirmTimer = null; }
 
   generating = true;
   currentDifficulty = difficulty || 'easy';
