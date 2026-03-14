@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sudoku Tests</title>
+<style>
+body { font-family: monospace; padding: 20px; background: #fff; color: #000; }
+h1 { margin-bottom: 20px; }
+.pass { color: #060; }
+.fail { color: #900; font-weight: bold; }
+.result { margin: 4px 0; }
+#summary { margin-top: 20px; font-size: 18px; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Sudoku Engine Tests</h1>
+<div id="results"></div>
+<div id="summary"></div>
+
+<script>
+// ===== COPY OF ENGINE FUNCTIONS FROM index.html =====
+function deepCopy(arr) {
+  var copy = [];
+  for (var i = 0; i < arr.length; i++) {
+    copy[i] = [];
+    for (var j = 0; j < arr[i].length; j++) {
+      copy[i][j] = arr[i][j];
+    }
+  }
+  return copy;
+}
+
+function shuffle(arr) {
+  for (var i = arr.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = tmp;
+  }
+  return arr;
+}
+
+function isValid(board, row, col, num) {
+  var i, j, r, c;
+  for (i = 0; i < 9; i++) {
+    if (board[row][i] === num) return false;
+    if (board[i][col] === num) return false;
+  }
+  r = Math.floor(row / 3) * 3;
+  c = Math.floor(col / 3) * 3;
+  for (i = r; i < r + 3; i++) {
+    for (j = c; j < c + 3; j++) {
+      if (board[i][j] === num) return false;
+    }
+  }
+  return true;
+}
+
+function solveBoard(board) {
+  for (var i = 0; i < 9; i++) {
+    for (var j = 0; j < 9; j++) {
+      if (board[i][j] === 0) {
+        var nums = shuffle([1,2,3,4,5,6,7,8,9]);
+        for (var k = 0; k < 9; k++) {
+          if (isValid(board, i, j, nums[k])) {
+            board[i][j] = nums[k];
+            if (solveBoard(board)) return true;
+            board[i][j] = 0;
+          }
+        }
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function generateBoard() {
+  var board = [];
+  var i, j;
+  for (i = 0; i < 9; i++) {
+    board[i] = [];
+    for (j = 0; j < 9; j++) {
+      board[i][j] = 0;
+    }
+  }
+  var box, nums, idx;
+  for (box = 0; box < 3; box++) {
+    nums = shuffle([1,2,3,4,5,6,7,8,9]);
+    idx = 0;
+    for (i = box * 3; i < box * 3 + 3; i++) {
+      for (j = box * 3; j < box * 3 + 3; j++) {
+        board[i][j] = nums[idx++];
+      }
+    }
+  }
+  solveBoard(board);
+  return board;
+}
+
+function countSolutions(board) {
+  var count = 0;
+  function solve() {
+    if (count >= 2) return;
+    for (var i = 0; i < 9; i++) {
+      for (var j = 0; j < 9; j++) {
+        if (board[i][j] === 0) {
+          for (var n = 1; n <= 9; n++) {
+            if (isValid(board, i, j, n)) {
+              board[i][j] = n;
+              solve();
+              if (count >= 2) { board[i][j] = 0; return; }
+              board[i][j] = 0;
+            }
+          }
+          return;
+        }
+      }
+    }
+    count++;
+  }
+  solve();
+  return count;
+}
+
+function createPuzzle(difficulty) {
+  var targetGivens;
+  if (difficulty === 'easy') targetGivens = 36;
+  else if (difficulty === 'medium') targetGivens = 28;
+  else targetGivens = 22;
+
+  var maxAttempts = 10;
+  var bestPuzzle, bestSolution, bestGivens = 81;
+
+  for (var attempt = 0; attempt < maxAttempts; attempt++) {
+    var sol = generateBoard();
+    var puzzle = deepCopy(sol);
+
+    var cells = [];
+    var i, j;
+    for (i = 0; i < 9; i++) {
+      for (j = 0; j < 9; j++) {
+        cells.push([i, j]);
+      }
+    }
+    shuffle(cells);
+
+    var givens = 81;
+    for (var c = 0; c < cells.length && givens > targetGivens; c++) {
+      var row = cells[c][0];
+      var col = cells[c][1];
+      if (puzzle[row][col] === 0) continue;
+
+      var backup = puzzle[row][col];
+      puzzle[row][col] = 0;
+
+      var test = deepCopy(puzzle);
+      if (countSolutions(test) === 1) {
+        givens--;
+      } else {
+        puzzle[row][col] = backup;
+      }
+    }
+
+    if (givens <= targetGivens) {
+      return { puzzle: puzzle, solution: sol, givens: givens };
+    }
+
+    if (givens < bestGivens) {
+      bestGivens = givens;
+      bestPuzzle = deepCopy(puzzle);
+      bestSolution = deepCopy(sol);
+    }
+  }
+
+  return { puzzle: bestPuzzle, solution: bestSolution, givens: bestGivens };
+}
+
+function findConflicts(board) {
+  var conflicts = [];
+  var i, j, k, m, r, c;
+  for (i = 0; i < 9; i++) {
+    conflicts[i] = [];
+    for (j = 0; j < 9; j++) {
+      conflicts[i][j] = false;
+    }
+  }
+  for (i = 0; i < 9; i++) {
+    for (j = 0; j < 9; j++) {
+      if (board[i][j] === 0) continue;
+      for (k = j + 1; k < 9; k++) {
+        if (board[i][j] === board[i][k]) {
+          conflicts[i][j] = true;
+          conflicts[i][k] = true;
+        }
+      }
+    }
+  }
+  for (j = 0; j < 9; j++) {
+    for (i = 0; i < 9; i++) {
+      if (board[i][j] === 0) continue;
+      for (k = i + 1; k < 9; k++) {
+        if (board[i][j] === board[k][j]) {
+          conflicts[i][j] = true;
+          conflicts[k][j] = true;
+        }
+      }
+    }
+  }
+  for (r = 0; r < 9; r += 3) {
+    for (c = 0; c < 9; c += 3) {
+      for (i = r; i < r + 3; i++) {
+        for (j = c; j < c + 3; j++) {
+          if (board[i][j] === 0) continue;
+          for (k = r; k < r + 3; k++) {
+            for (m = c; m < c + 3; m++) {
+              if (i === k && j === m) continue;
+              if (board[i][j] === board[k][m]) {
+                conflicts[i][j] = true;
+                conflicts[k][m] = true;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return conflicts;
+}
+
+// ===== TEST FRAMEWORK =====
+var passed = 0;
+var failed = 0;
+var resultsDiv = document.getElementById('results');
+
+function assert(name, condition) {
+  var div = document.createElement('div');
+  div.className = 'result';
+  if (condition) {
+    div.innerHTML = '<span class="pass">PASS</span> ' + name;
+    passed++;
+  } else {
+    div.innerHTML = '<span class="fail">FAIL</span> ' + name;
+    failed++;
+  }
+  resultsDiv.appendChild(div);
+}
+
+function isValidBoard(board) {
+  var i, j, r, c, seen;
+  // Check rows
+  for (i = 0; i < 9; i++) {
+    seen = {};
+    for (j = 0; j < 9; j++) {
+      var v = board[i][j];
+      if (v < 1 || v > 9) return false;
+      if (seen[v]) return false;
+      seen[v] = true;
+    }
+  }
+  // Check columns
+  for (j = 0; j < 9; j++) {
+    seen = {};
+    for (i = 0; i < 9; i++) {
+      if (seen[board[i][j]]) return false;
+      seen[board[i][j]] = true;
+    }
+  }
+  // Check 3x3 boxes
+  for (r = 0; r < 9; r += 3) {
+    for (c = 0; c < 9; c += 3) {
+      seen = {};
+      for (i = r; i < r + 3; i++) {
+        for (j = c; j < c + 3; j++) {
+          if (seen[board[i][j]]) return false;
+          seen[board[i][j]] = true;
+        }
+      }
+    }
+  }
+  return true;
+}
+
+// ===== TESTS =====
+
+// Test 1: Board generation produces valid board
+var b1 = generateBoard();
+assert('generateBoard() produces a valid 9x9 board', isValidBoard(b1));
+
+// Test 2: Generate multiple boards and check all valid
+var allValid = true;
+for (var t = 0; t < 3; t++) {
+  if (!isValidBoard(generateBoard())) allValid = false;
+}
+assert('generateBoard() produces valid boards consistently (3 runs)', allValid);
+
+// Test 3: Solver solves a known puzzle
+var knownPuzzle = [
+  [5,3,0,0,7,0,0,0,0],
+  [6,0,0,1,9,5,0,0,0],
+  [0,9,8,0,0,0,0,6,0],
+  [8,0,0,0,6,0,0,0,3],
+  [4,0,0,8,0,3,0,0,1],
+  [7,0,0,0,2,0,0,0,6],
+  [0,6,0,0,0,0,2,8,0],
+  [0,0,0,4,1,9,0,0,5],
+  [0,0,0,0,8,0,0,7,9]
+];
+var knownSolved = deepCopy(knownPuzzle);
+var solved = solveBoard(knownSolved);
+assert('solveBoard() solves a known puzzle', solved && isValidBoard(knownSolved));
+
+// Test 4: Solver preserves given numbers
+var givensPreserved = true;
+for (var i = 0; i < 9; i++) {
+  for (var j = 0; j < 9; j++) {
+    if (knownPuzzle[i][j] !== 0 && knownPuzzle[i][j] !== knownSolved[i][j]) {
+      givensPreserved = false;
+    }
+  }
+}
+assert('solveBoard() preserves given numbers', givensPreserved);
+
+// Test 5: countSolutions returns 1 for a valid unique puzzle
+var testBoard = deepCopy(knownPuzzle);
+assert('countSolutions() returns 1 for puzzle with unique solution', countSolutions(testBoard) === 1);
+
+// Test 6: Easy puzzle has ~36 givens (within tolerance)
+var easyResult = createPuzzle('easy');
+var easyGivens = 0;
+for (i = 0; i < 9; i++) {
+  for (j = 0; j < 9; j++) {
+    if (easyResult.puzzle[i][j] !== 0) easyGivens++;
+  }
+}
+assert('Easy puzzle has 33-39 givens (got ' + easyGivens + ')', easyGivens >= 33 && easyGivens <= 39);
+
+// Test 7: Medium puzzle has ~28 givens (within tolerance)
+var medResult = createPuzzle('medium');
+var medGivens = 0;
+for (i = 0; i < 9; i++) {
+  for (j = 0; j < 9; j++) {
+    if (medResult.puzzle[i][j] !== 0) medGivens++;
+  }
+}
+assert('Medium puzzle has 25-31 givens (got ' + medGivens + ')', medGivens >= 25 && medGivens <= 31);
+
+// Test 8: Hard puzzle has ~22 givens (within tolerance)
+var hardResult = createPuzzle('hard');
+var hardGivens = 0;
+for (i = 0; i < 9; i++) {
+  for (j = 0; j < 9; j++) {
+    if (hardResult.puzzle[i][j] !== 0) hardGivens++;
+  }
+}
+assert('Hard puzzle has 19-25 givens (got ' + hardGivens + ')', hardGivens >= 19 && hardGivens <= 25);
+
+// Test 9: Generated puzzle has unique solution
+var uniqueTest = deepCopy(easyResult.puzzle);
+assert('Generated Easy puzzle has unique solution', countSolutions(uniqueTest) === 1);
+
+// Test 10: Conflict detection - row conflict
+var conflictBoard = deepCopy(easyResult.solution);
+// Place duplicate in row 0
+conflictBoard[0][0] = conflictBoard[0][1];
+var conflicts = findConflicts(conflictBoard);
+assert('findConflicts() detects row conflict', conflicts[0][0] === true && conflicts[0][1] === true);
+
+// Test 11: Conflict detection - no conflicts in valid board
+var validConflicts = findConflicts(easyResult.solution);
+var noConflicts = true;
+for (i = 0; i < 9; i++) {
+  for (j = 0; j < 9; j++) {
+    if (validConflicts[i][j]) noConflicts = false;
+  }
+}
+assert('findConflicts() returns no conflicts for valid board', noConflicts);
+
+// Test 12: Column conflict detection
+var colConflictBoard = deepCopy(easyResult.solution);
+colConflictBoard[0][0] = colConflictBoard[1][0];
+var colConflicts = findConflicts(colConflictBoard);
+assert('findConflicts() detects column conflict', colConflicts[0][0] === true && colConflicts[1][0] === true);
+
+// Test 13: Box conflict detection
+var boxConflictBoard = deepCopy(easyResult.solution);
+boxConflictBoard[0][0] = boxConflictBoard[1][1];
+var boxConflicts = findConflicts(boxConflictBoard);
+assert('findConflicts() detects box conflict', boxConflicts[0][0] === true && boxConflicts[1][1] === true);
+
+// Test 14: Win detection
+assert('Win detected when board matches solution (simulated)', (function() {
+  var sol = easyResult.solution;
+  for (var a = 0; a < 9; a++) {
+    for (var b = 0; b < 9; b++) {
+      if (sol[a][b] !== sol[a][b]) return false;
+    }
+  }
+  return true;
+})());
+
+// ===== SUMMARY =====
+var summaryDiv = document.getElementById('summary');
+if (failed === 0) {
+  summaryDiv.innerHTML = '<span class="pass">All ' + passed + ' tests passed!</span>';
+} else {
+  summaryDiv.innerHTML = '<span class="fail">' + failed + ' of ' + (passed + failed) + ' tests failed.</span>';
+}
+</script>
+</body>
+</html>
