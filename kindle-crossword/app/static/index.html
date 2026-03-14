@@ -316,7 +316,8 @@ async function sendToKindle() {
     const res = await fetch(`/api/jobs/${currentJobId}/send`, { method: 'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Send failed');
-    $('sendBtn').textContent = 'Sent!';
+    $('sendBtn').textContent = 'Send to Kindle';
+    $('sendBtn').disabled = false;
     setStatus('PDF sent to your Kindle.');
     loadJobs();
   } catch (err) {
