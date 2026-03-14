@@ -19,6 +19,7 @@ import {
   Keyboard,
   Linking,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Session } from '../models/types';
 import { fetchSessions, createSession, addCloudSession, createCard } from '../api/client';
 import { StatusBadge } from '../components/StatusBadge';
@@ -27,6 +28,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 type ModalType = null | 'local' | 'cloud';
 
 export function SessionsScreen() {
+  const navigation = useNavigation<any>();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -127,7 +129,10 @@ export function SessionsScreen() {
     // Cloud sessions with a URL open in the browser
     if (item.source === 'cloud' && item.project_path.startsWith('http')) {
       Linking.openURL(item.project_path);
+      return;
     }
+    // Local sessions open the chat detail screen
+    navigation.navigate('SessionDetail', { sessionId: item.id, title: item.project_path });
   };
 
   const renderSession = ({ item }: { item: Session }) => (
