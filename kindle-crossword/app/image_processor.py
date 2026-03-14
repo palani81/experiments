@@ -48,11 +48,8 @@ def process_image(input_path: str, output_path: str, options: dict) -> dict:
     # Background normalization — removes shadows, uneven lighting, newspaper tint
     img = _normalize_background(img)
 
-    # Hard contrast — push darks to black, lights to white
-    img = _apply_contrast_curve(img)
-
-    # Detect and enhance horizontal/vertical grid lines
-    img = _enhance_grid_lines(img)
+    # Simple contrast boost — just stretch the histogram, no gamma tricks
+    img = _boost_contrast(img)
 
     # Resize for Kindle
     target = options.get("kindle_model", "scribe")
@@ -230,59 +227,19 @@ def _normalize_background(img: np.ndarray) -> np.ndarray:
     return normalized
 
 
-def _apply_contrast_curve(img: np.ndarray) -> np.ndarray:
+def _boost_contrast(img: np.ndarray) -> np.ndarray:
     """
-    Apply aggressive contrast to push toward black-and-white.
-    Uses percentile-based levels + strong gamma to get solid blacks
-    and clean whites while preserving small text detail.
+    Simple contrast boost: stretch histogram so darkest pixels go to 0
+    and lightest go to 255. No gamma, no grid detection, no tricks.
+    Just makes what's already dark darker and what's light lighter.
     """
-    # Find the actual black and white points in the image
-    p_black, p_white = np.percentile(img, (0.5, 99))
+    p_black, p_white = np.percentile(img, (2, 98))
 
     if p_white <= p_black:
         return img
 
-    # Map to 0-1 range using tight black/white points
-    result = (img.astype(np.float64) - p_black) / (p_white - p_black)
-    result = np.clip(result, 0, 1.0)
-
-    # Strong gamma (0.4) — aggressively darkens anything that isn't white.
-    # This makes grid lines, text, and numbers solidly black while
-    # keeping white cells truly white.
-    gamma = 0.4
-    result = np.power(result, gamma) * 255.0
+    result = (img.astype(np.float64) - p_black) / (p_white - p_black) * 255.0
     result = np.clip(result, 0, 255).astype(np.uint8)
-
-    return result
-
-
-def _enhance_grid_lines(img: np.ndarray) -> np.ndarray:
-    """
-    Detect horizontal and vertical lines using morphological operations
-    and set them to solid black. Uses shorter kernels to catch grid lines
-    in crosswords of various sizes.
-    """
-    h, w = img.shape[:2]
-    inverted = cv2.bitwise_not(img)
-
-    # Shorter kernels (w//30, h//30) catch thinner/shorter grid lines
-    # that longer kernels miss
-    h_len = max(15, w // 30)
-    h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (h_len, 1))
-    h_lines = cv2.morphologyEx(inverted, cv2.MORPH_OPEN, h_kernel)
-
-    v_len = max(15, h // 30)
-    v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, v_len))
-    v_lines = cv2.morphologyEx(inverted, cv2.MORPH_OPEN, v_kernel)
-
-    # Combine and dilate slightly
-    grid_mask = cv2.add(h_lines, v_lines)
-    dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
-    grid_mask = cv2.dilate(grid_mask, dilate_kernel, iterations=1)
-
-    # Set detected grid line pixels to solid black
-    result = img.copy()
-    result[grid_mask > 0] = 0
 
     return result
 
