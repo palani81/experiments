@@ -54,8 +54,9 @@ td.given {
   color: #000;
 }
 td.player {
-  font-weight: normal;
-  color: #333;
+  font-weight: bold;
+  color: #000;
+  font-style: italic;
 }
 td.selected {
   outline: 3px solid #000;
@@ -126,7 +127,7 @@ td.br { border-right: 3px solid #000; }
     color: #1a3a5c;
   }
   td.player {
-    color: #2b6cb0;
+    color: #1a65c4;
   }
   td.selected {
     outline-color: #2c5282;
@@ -181,6 +182,7 @@ var selectedRow = -1;
 var selectedCol = -1;
 var currentDifficulty = 'easy';
 var gameWon = false;
+var generating = false;
 
 // ===== UTILITIES =====
 function deepCopy(arr) {
@@ -555,11 +557,13 @@ function clearCell() {
 }
 
 function newGame(difficulty) {
+  if (generating) return;
+  generating = true;
+
   currentDifficulty = difficulty || 'easy';
   selectedRow = -1;
   selectedCol = -1;
   gameWon = false;
-  document.getElementById('status').innerHTML = '';
 
   // Update active button
   var btns = ['easy', 'medium', 'hard'];
@@ -572,18 +576,33 @@ function newGame(difficulty) {
     }
   }
 
-  var puzzle = createPuzzle(currentDifficulty);
-  board = deepCopy(puzzle);
+  // Show loading state, then generate after paint
+  document.getElementById('status').innerHTML = 'Generating...';
 
-  isGiven = [];
+  // Clear the grid while generating
   for (var i = 0; i < 9; i++) {
-    isGiven[i] = [];
     for (var j = 0; j < 9; j++) {
-      isGiven[i][j] = puzzle[i][j] !== 0;
+      var td = document.getElementById('cell-' + i + '-' + j);
+      if (td) { td.innerHTML = ''; }
     }
   }
 
-  renderBoard();
+  setTimeout(function() {
+    var puzzle = createPuzzle(currentDifficulty);
+    board = deepCopy(puzzle);
+
+    isGiven = [];
+    for (var i = 0; i < 9; i++) {
+      isGiven[i] = [];
+      for (var j = 0; j < 9; j++) {
+        isGiven[i][j] = puzzle[i][j] !== 0;
+      }
+    }
+
+    renderBoard();
+    document.getElementById('status').innerHTML = '';
+    generating = false;
+  }, 50);
 }
 
 // ===== INIT =====
