@@ -208,19 +208,15 @@ def _normalize_background(img: np.ndarray) -> np.ndarray:
     blurred version. Uses bilateral filter (NOT median) to preserve small
     text like clue numbers while smoothing noise.
     """
-    # Bilateral filter: smooths noise but preserves edges and small text.
-    # d=5, sigmaColor=75, sigmaSpace=75 — gentle enough for clue numbers.
-    denoised = cv2.bilateralFilter(img, d=5, sigmaColor=75, sigmaSpace=75)
-
-    # Very large blur for background estimation
-    h, w = denoised.shape[:2]
+    # No denoising — preserves small clue numbers inside grid cells
+    h, w = img.shape[:2]
     ksize = max(h, w) // 4
     ksize = ksize if ksize % 2 == 1 else ksize + 1
     ksize = max(101, ksize)
-    background = cv2.GaussianBlur(denoised, (ksize, ksize), 0).astype(np.float64)
+    background = cv2.GaussianBlur(img, (ksize, ksize), 0).astype(np.float64)
 
     # Divide by background to normalize illumination
-    normalized = denoised.astype(np.float64) / np.maximum(background, 1.0)
+    normalized = img.astype(np.float64) / np.maximum(background, 1.0)
     normalized = normalized * 255.0
     normalized = np.clip(normalized, 0, 255).astype(np.uint8)
 
