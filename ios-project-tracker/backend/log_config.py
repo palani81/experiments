@@ -3,7 +3,7 @@
 import logging
 import collections
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
 
 class RingBufferHandler(logging.Handler):
@@ -22,7 +22,7 @@ class RingBufferHandler(logging.Handler):
         }
         self.buffer.append(entry)
 
-    def get_logs(self, limit: int = 100, level: str | None = None) -> list[dict]:
+    def get_logs(self, limit: int = 100, level: Optional[str] = None) -> list[dict]:
         logs = list(self.buffer)
         if level:
             level_upper = level.upper()
