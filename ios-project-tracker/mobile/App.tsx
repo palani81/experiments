@@ -3,6 +3,9 @@
  */
 
 import React, { Component, useEffect } from 'react';
+import { enableScreens } from 'react-native-screens';
+enableScreens(false);
+
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -86,6 +89,7 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
 function BoardStack() {
   return (
     <Stack.Navigator
+      detachInactiveScreens={false}
       screenOptions={{
         headerShown: false,
         cardStyle: { backgroundColor: '#0a0a1a' },
@@ -117,6 +121,7 @@ function AppInner() {
     <NavigationContainer theme={DarkTheme}>
       <StatusBar style="light" />
       <Tab.Navigator
+        detachInactiveScreens={false}
         screenOptions={({ route }) => ({
           headerShown: false,
           freezeOnBlur: false,
