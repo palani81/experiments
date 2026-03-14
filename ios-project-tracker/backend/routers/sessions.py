@@ -133,7 +133,18 @@ async def reply_to_session(
 ):
     """Send a reply message to an active Claude Code session."""
     verify_token(authorization)
-    success = await send_reply_to_session(session_id, body.message)
+    try:
+        success = await send_reply_to_session(session_id, body.message)
+    except Exception as e:
+        log.error(f"Reply to {session_id[:12]} raised: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Reply failed: {e}",
+        )
     if not success:
-        raise HTTPException(status_code=500, detail="Failed to send reply")
+        raise HTTPException(
+            status_code=422,
+            detail="Could not deliver reply — session may no longer be active. "
+                   "Both CLI resume and tmux fallback failed.",
+        )
     return {"status": "sent", "session_id": session_id}
