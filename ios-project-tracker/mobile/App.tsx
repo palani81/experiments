@@ -6,7 +6,7 @@ import React, { Component, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createStackNavigator } from '@react-navigation/stack';
 import { Text, View, ScrollView } from 'react-native';
 
 import { BoardScreen } from './src/screens/BoardScreen';
@@ -16,7 +16,7 @@ import { CardDetailScreen } from './src/screens/CardDetailScreen';
 import { useSettingsStore } from './src/stores/settingsStore';
 
 const Tab = createBottomTabNavigator();
-const Stack = createNativeStackNavigator();
+const Stack = createStackNavigator();
 
 const DarkTheme = {
   ...DefaultTheme,
@@ -46,14 +46,14 @@ class ErrorBoundary extends Component<
     if (this.state.error) {
       return (
         <View style={{ flex: 1, backgroundColor: '#1a0000', padding: 40, paddingTop: 80 }}>
-          <Text style={{ color: '#ff4444', fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
+          <Text style={{ color: '#ff4444', fontSize: 20, fontWeight: '700', marginBottom: 16 }}>
             App Error
           </Text>
           <Text style={{ color: '#ff8888', fontSize: 14, marginBottom: 8 }}>
             {this.state.error.name}: {this.state.error.message}
           </Text>
           <ScrollView>
-            <Text style={{ color: '#aa6666', fontSize: 11, fontFamily: 'monospace' }}>
+            <Text style={{ color: '#aa6666', fontSize: 11 }}>
               {this.state.error.stack}
             </Text>
           </ScrollView>
@@ -88,7 +88,7 @@ function BoardStack() {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: '#0a0a1a' },
+        cardStyle: { backgroundColor: '#0a0a1a' },
       }}
     >
       <Stack.Screen name="BoardMain" component={BoardScreen} />
@@ -119,6 +119,7 @@ function AppInner() {
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
+          freezeOnBlur: false,
           tabBarStyle: {
             backgroundColor: '#13131f',
             borderTopColor: '#2a2a3e',

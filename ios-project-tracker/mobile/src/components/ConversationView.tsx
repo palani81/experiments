@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 12,
     borderRadius: 12,
-    maxWidth: '85%',
+    width: 280,
   },
   userMessage: {
     backgroundColor: '#3b82f620',
