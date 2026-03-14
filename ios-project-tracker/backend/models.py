@@ -6,13 +6,14 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 
-from ksuid import Ksuid
+import uuid
+
 from pydantic import BaseModel, Field
 
 
 def generate_id() -> str:
-    """Generate a time-sortable KSUID."""
-    return str(Ksuid())
+    """Generate a unique ID for cards."""
+    return uuid.uuid4().hex[:20]
 
 
 class CardStatus(str, Enum):
