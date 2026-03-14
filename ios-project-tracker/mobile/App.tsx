@@ -2,12 +2,12 @@
  * Claude Code Tracker — Root App with bottom tab navigation.
  */
 
-import React, { useEffect } from 'react';
+import React, { Component, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text } from 'react-native';
+import { Text, View, ScrollView } from 'react-native';
 
 import { BoardScreen } from './src/screens/BoardScreen';
 import { SessionsScreen } from './src/screens/SessionsScreen';
@@ -30,6 +30,39 @@ const DarkTheme = {
     notification: '#ef4444',
   },
 };
+
+// Error boundary to catch and display runtime errors on-screen
+class ErrorBoundary extends Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <View style={{ flex: 1, backgroundColor: '#1a0000', padding: 40, paddingTop: 80 }}>
+          <Text style={{ color: '#ff4444', fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
+            App Error
+          </Text>
+          <Text style={{ color: '#ff8888', fontSize: 14, marginBottom: 8 }}>
+            {this.state.error.name}: {this.state.error.message}
+          </Text>
+          <ScrollView>
+            <Text style={{ color: '#aa6666', fontSize: 11, fontFamily: 'monospace' }}>
+              {this.state.error.stack}
+            </Text>
+          </ScrollView>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const icons: Record<string, string> = {
@@ -73,7 +106,7 @@ function BoardStack() {
   );
 }
 
-export default function App() {
+function AppInner() {
   const { loadSettings } = useSettingsStore();
 
   useEffect(() => {
@@ -102,5 +135,13 @@ export default function App() {
         <Tab.Screen name="Settings" component={SettingsScreen} />
       </Tab.Navigator>
     </NavigationContainer>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppInner />
+    </ErrorBoundary>
   );
 }
