@@ -42,7 +42,10 @@ async function loadCards() {
 async function addCard(cardData: CardCreate) {
   try {
     const card = await api.createCard(cardData);
-    setState((s) => ({ cards: [card, ...s.cards] }));
+    setState((s) => {
+      if (s.cards.find((c) => c.id === card.id)) return {};
+      return { cards: [card, ...s.cards] };
+    });
   } catch (err: any) {
     setState({ error: err.message || 'Failed to create card' });
   }

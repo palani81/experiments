@@ -34,8 +34,8 @@ export function KanbanColumn({ status, cards, onCardPress }: KanbanColumnProps) 
             <Text style={styles.emptyText}>No cards</Text>
           </View>
         ) : (
-          cards.map((card) => (
-            <CardItem key={card.id} card={card} onPress={onCardPress} />
+          cards.map((card, index) => (
+            <CardItem key={`${card.id}-${index}`} card={card} onPress={onCardPress} />
           ))
         )}
       </ScrollView>
