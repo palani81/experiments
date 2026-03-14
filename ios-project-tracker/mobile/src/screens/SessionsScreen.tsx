@@ -53,7 +53,7 @@ function getTimeAgo(dateStr: string): string {
 
 function getLastMessage(session: Session): string | null {
   const messages = session.conversation;
-  if (messages.length === 0) return null;
+  if (!messages || messages.length === 0) return null;
   const last = messages[messages.length - 1];
   const content = last.content.slice(0, 80);
   return content + (last.content.length > 80 ? '...' : '');
