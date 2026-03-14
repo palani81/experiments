@@ -93,9 +93,10 @@ class ReplyRequest(BaseModel):
 
 
 class CreateSessionRequest(BaseModel):
-    project_path: str
-    prompt: str
-    title: str = ""
+    name: str = ""          # Session name (used as directory name + prompt context)
+    project_path: str = ""  # Optional — auto-created under ~/claude-sessions/ if empty
+    prompt: str = ""        # Optional — defaults to a general prompt using the name
+    title: str = ""         # Deprecated, kept for compat
 
 
 class WebSocketMessage(BaseModel):

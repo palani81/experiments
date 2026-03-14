@@ -2,6 +2,9 @@
 
 import asyncio
 import os
+import re
+
+from pathlib import Path
 
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
@@ -12,6 +15,9 @@ from services.cloud_poller import CloudPoller
 from services.session_monitor import SessionMonitor
 from services.session_input import send_reply_to_session, start_new_session_background
 from storage import storage
+
+# Default base directory for auto-created session projects
+SESSIONS_BASE_DIR = Path.home() / "claude-sessions"
 
 router = APIRouter()
 monitor = SessionMonitor()
@@ -45,30 +51,40 @@ async def get_session(session_id: str, authorization: str = Header(default="")):
     raise HTTPException(status_code=404, detail="Session not found")
 
 
+def _slugify(name: str) -> str:
+    """Convert a session name to a filesystem-safe slug."""
+    slug = re.sub(r"[^a-zA-Z0-9\s-]", "", name.lower().strip())
+    slug = re.sub(r"[\s]+", "-", slug)
+    return slug[:60] or "session"
+
+
 @router.post("")
 async def create_session(body: CreateSessionRequest, authorization: str = Header(default="")):
-    """Start a new Claude Code session in the given project directory."""
+    """Start a new Claude Code session. Only a name is required — everything else is auto-created."""
     verify_token(authorization)
 
-    project_path = os.path.expanduser(body.project_path)
-    if not os.path.isdir(project_path):
-        raise HTTPException(status_code=400, detail=f"Directory not found: {body.project_path}")
+    # Determine session name (fall back to title for backwards compat)
+    name = body.name.strip() or body.title.strip() or "New Session"
+
+    # Determine project path — auto-create under ~/claude-sessions/ if not provided
+    if body.project_path.strip():
+        project_path = os.path.expanduser(body.project_path)
+    else:
+        slug = _slugify(name)
+        project_path = str(SESSIONS_BASE_DIR / slug)
+
+    # Create directory if it doesn't exist
+    os.makedirs(project_path, exist_ok=True)
+
+    # Determine prompt — use the name as context if not provided
+    prompt = body.prompt.strip() if body.prompt.strip() else f"Work on: {name}"
 
     try:
-        await start_new_session_background(project_path, body.prompt)
+        await start_new_session_background(project_path, prompt)
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    # Auto-create a card for this session if a title was provided
-    if body.title:
-        card = Card(
-            title=body.title,
-            status=CardStatus.IN_PROGRESS,
-            project_path=body.project_path,
-        )
-        storage.create_card(card)
-
-    return {"status": "started", "project_path": body.project_path}
+    return {"status": "started", "project_path": project_path, "name": name}
 
 
 class AddCloudSessionRequest(BaseModel):

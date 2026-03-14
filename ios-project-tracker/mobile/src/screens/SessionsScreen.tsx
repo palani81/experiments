@@ -65,9 +65,7 @@ export function SessionsScreen() {
 
   // Add modal state
   const [addMode, setAddMode] = useState<AddMode>(null);
-  const [newTitle, setNewTitle] = useState('');
-  const [newProjectPath, setNewProjectPath] = useState('');
-  const [newPrompt, setNewPrompt] = useState('');
+  const [newName, setNewName] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -105,24 +103,18 @@ export function SessionsScreen() {
 
   const resetModal = () => {
     setAddMode(null);
-    setNewTitle('');
-    setNewProjectPath('');
-    setNewPrompt('');
+    setNewName('');
     setNewUrl('');
     Keyboard.dismiss();
   };
 
   const handleCreateLocal = async () => {
-    if (!newProjectPath.trim() || !newPrompt.trim()) {
-      Alert.alert('Missing fields', 'Project path and prompt are required.');
-      return;
-    }
+    const name = newName.trim() || 'New Session';
     setSubmitting(true);
     try {
-      await createSession(newProjectPath.trim(), newPrompt.trim(), newTitle.trim());
+      await createSession(name);
       resetModal();
-      Alert.alert('Session Started', 'A new Claude session has been kicked off.');
-      // Retry multiple times — backend monitor may take a few seconds to discover it
+      Alert.alert('Session Started', `"${name}" is running. It will appear here shortly.`);
       loadSessions();
       setTimeout(loadSessions, 3000);
       setTimeout(loadSessions, 8000);
@@ -138,7 +130,7 @@ export function SessionsScreen() {
       Alert.alert('Missing URL', 'Please paste the Claude conversation URL.');
       return;
     }
-    const title = newTitle.trim() || 'Claude Conversation';
+    const title = newName.trim() || 'Claude Conversation';
     const url = newUrl.trim();
     const urlParts = url.split('/');
     const sessionId = urlParts[urlParts.length - 1] || `conv-${Date.now()}`;
@@ -324,43 +316,27 @@ export function SessionsScreen() {
         </TouchableOpacity>
       </Modal>
 
-      {/* New Local Session Modal */}
+      {/* New Local Session Modal — just a name! */}
       <Modal visible={addMode === 'local'} transparent animationType="slide">
         <KeyboardAvoidingView
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={styles.formSheet}>
-            <Text style={styles.formTitle}>New Local Session</Text>
+            <Text style={styles.formTitle}>New Session</Text>
+            <Text style={styles.formSubtitle}>
+              Just give it a name. A project directory and prompt will be set up automatically.
+            </Text>
 
-            <Text style={styles.fieldLabel}>Name (optional)</Text>
             <TextInput
               style={styles.formInput}
-              value={newTitle}
-              onChangeText={setNewTitle}
+              value={newName}
+              onChangeText={setNewName}
               placeholder="e.g. Fix auth bug"
               placeholderTextColor="#6b7280"
-            />
-
-            <Text style={styles.fieldLabel}>Project Path</Text>
-            <TextInput
-              style={styles.formInput}
-              value={newProjectPath}
-              onChangeText={setNewProjectPath}
-              placeholder="e.g. ~/projects/my-app"
-              placeholderTextColor="#6b7280"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-
-            <Text style={styles.fieldLabel}>Prompt</Text>
-            <TextInput
-              style={[styles.formInput, styles.promptInput]}
-              value={newPrompt}
-              onChangeText={setNewPrompt}
-              placeholder="What should Claude work on?"
-              placeholderTextColor="#6b7280"
-              multiline
+              autoFocus
+              returnKeyType="go"
+              onSubmitEditing={handleCreateLocal}
             />
 
             <View style={styles.formActions}>
@@ -390,11 +366,11 @@ export function SessionsScreen() {
           <View style={styles.formSheet}>
             <Text style={styles.formTitle}>Link Cloud Session</Text>
 
-            <Text style={styles.fieldLabel}>Name</Text>
+            <Text style={styles.fieldLabel}>Name (optional)</Text>
             <TextInput
               style={styles.formInput}
-              value={newTitle}
-              onChangeText={setNewTitle}
+              value={newName}
+              onChangeText={setNewName}
               placeholder="e.g. iOS tracker session"
               placeholderTextColor="#6b7280"
             />
@@ -404,11 +380,12 @@ export function SessionsScreen() {
               style={styles.formInput}
               value={newUrl}
               onChangeText={setNewUrl}
-              placeholder="https://claude.ai/chat/... or /code/..."
+              placeholder="https://claude.ai/chat/..."
               placeholderTextColor="#6b7280"
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="url"
+              autoFocus
             />
 
             <View style={styles.formActions}>
@@ -723,6 +700,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: '700',
+    marginBottom: 4,
+  },
+  formSubtitle: {
+    color: '#6b7280',
+    fontSize: 13,
     marginBottom: 16,
   },
   fieldLabel: {
@@ -741,10 +723,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     color: '#e0e0e0',
     fontSize: 15,
-  },
-  promptInput: {
-    minHeight: 80,
-    textAlignVertical: 'top',
   },
   formActions: {
     flexDirection: 'row',
