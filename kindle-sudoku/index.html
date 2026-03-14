@@ -295,24 +295,43 @@ function solveBoard(board) {
 
 function countSolutions(board) {
   var count = 0;
-  function solve() {
-    if (count >= 2) return;
+  // Find the empty cell with fewest candidates (MRV heuristic)
+  function findBestCell() {
+    var bestCount = 10, bestRow = -1, bestCol = -1;
     for (var i = 0; i < 9; i++) {
       for (var j = 0; j < 9; j++) {
         if (board[i][j] === 0) {
+          var c = 0;
           for (var n = 1; n <= 9; n++) {
-            if (isValid(board, i, j, n)) {
-              board[i][j] = n;
-              solve();
-              if (count >= 2) { board[i][j] = 0; return; }
-              board[i][j] = 0;
-            }
+            if (isValid(board, i, j, n)) c++;
           }
-          return;
+          if (c === 0) return null; // dead end
+          if (c < bestCount) {
+            bestCount = c;
+            bestRow = i;
+            bestCol = j;
+            if (c === 1) return [bestRow, bestCol]; // only one option, no need to search further
+          }
         }
       }
     }
-    count++;
+    if (bestRow === -1) return false; // no empty cells = solved
+    return [bestRow, bestCol];
+  }
+  function solve() {
+    if (count >= 2) return;
+    var cell = findBestCell();
+    if (cell === false) { count++; return; } // solved
+    if (cell === null) return; // dead end
+    var row = cell[0], col = cell[1];
+    for (var n = 1; n <= 9; n++) {
+      if (isValid(board, row, col, n)) {
+        board[row][col] = n;
+        solve();
+        if (count >= 2) { board[row][col] = 0; return; }
+        board[row][col] = 0;
+      }
+    }
   }
   solve();
   return count;
@@ -322,9 +341,9 @@ function createPuzzle(difficulty) {
   var targetGivens;
   if (difficulty === 'easy') targetGivens = 36;
   else if (difficulty === 'medium') targetGivens = 28;
-  else targetGivens = 22;
+  else targetGivens = 26;
 
-  var maxAttempts = 10;
+  var maxAttempts = 3;
   var bestPuzzle, bestSolution, bestGivens = 81;
 
   for (var attempt = 0; attempt < maxAttempts; attempt++) {
