@@ -3,6 +3,11 @@
  */
 
 import React, { Component, useEffect } from 'react';
+import { LogBox } from 'react-native';
+
+// Suppress known react-native-screens warning in Expo Go
+LogBox.ignoreLogs(['Could not access feature flag']);
+
 import { enableScreens } from 'react-native-screens';
 enableScreens(false);
 
