@@ -1,5 +1,5 @@
 /**
- * Claude Code Tracker — Root App with bottom tab navigation.
+ * Claude Code Tracker — Root App with 2-tab navigation (Tasks + Settings).
  */
 
 import React, { Component, useEffect } from 'react';
@@ -12,8 +12,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Text, View, ScrollView } from 'react-native';
 
-import { BoardScreen } from './src/screens/BoardScreen';
-import { SessionsScreen } from './src/screens/SessionsScreen';
+import { TaskListScreen } from './src/screens/TaskListScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { CardDetailScreen } from './src/screens/CardDetailScreen';
 import { useSettingsStore } from './src/stores/settingsStore';
@@ -69,8 +68,7 @@ class ErrorBoundary extends Component<
 
 function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const icons: Record<string, string> = {
-    Board: 'B',
-    Sessions: 'S',
+    Tasks: 'T',
     Settings: 'G',
   };
   return (
@@ -86,7 +84,7 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   );
 }
 
-function BoardStack() {
+function TasksStack() {
   return (
     <Stack.Navigator
       detachInactiveScreens={false}
@@ -95,13 +93,13 @@ function BoardStack() {
         cardStyle: { backgroundColor: '#0a0a1a' },
       }}
     >
-      <Stack.Screen name="BoardMain" component={BoardScreen} />
+      <Stack.Screen name="TaskList" component={TaskListScreen} />
       <Stack.Screen
         name="CardDetail"
         component={CardDetailScreen}
         options={{
           headerShown: true,
-          headerTitle: 'Card Detail',
+          headerTitle: 'Task Detail',
           headerStyle: { backgroundColor: '#13131f' },
           headerTintColor: '#e0e0e0',
         }}
@@ -136,8 +134,7 @@ function AppInner() {
           tabBarIcon: ({ focused }) => <TabIcon label={route.name} focused={focused} />,
         })}
       >
-        <Tab.Screen name="Board" component={BoardStack} />
-        <Tab.Screen name="Sessions" component={SessionsScreen} />
+        <Tab.Screen name="Tasks" component={TasksStack} />
         <Tab.Screen name="Settings" component={SettingsScreen} />
       </Tab.Navigator>
     </NavigationContainer>
