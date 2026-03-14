@@ -45,9 +45,10 @@ def process_image(input_path: str, output_path: str, options: dict) -> dict:
     img = _to_grayscale(img)
 
     # Background normalization: removes shadows, uneven lighting, newspaper tint.
-    # This is the key step for phone photos — divides by a heavily blurred copy
-    # to flatten the background to white while preserving text/lines as dark.
     img = _normalize_background(img)
+
+    # Detect and enhance horizontal/vertical grid lines
+    img = _enhance_grid_lines(img)
 
     # Resize for Kindle
     target = options.get("kindle_model", "scribe")
@@ -262,6 +263,45 @@ def _normalize_background(img: np.ndarray) -> np.ndarray:
         stretched = normalized
 
     return stretched
+
+
+def _enhance_grid_lines(img: np.ndarray) -> np.ndarray:
+    """
+    Detect horizontal and vertical lines (crossword grid) using morphological
+    operations and darken them to solid black. This ensures grid lines are
+    clearly visible on e-ink even if they were thin in the source image.
+    """
+    h, w = img.shape[:2]
+
+    # Invert: lines become white on black background for morphological ops
+    inverted = cv2.bitwise_not(img)
+
+    # Detect horizontal lines using a wide horizontal kernel
+    # Length = image_width / 20 — long enough to catch grid lines, short enough
+    # to avoid picking up text
+    h_len = max(20, w // 20)
+    h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (h_len, 1))
+    h_lines = cv2.morphologyEx(inverted, cv2.MORPH_OPEN, h_kernel)
+
+    # Detect vertical lines using a tall vertical kernel
+    v_len = max(20, h // 20)
+    v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, v_len))
+    v_lines = cv2.morphologyEx(inverted, cv2.MORPH_OPEN, v_kernel)
+
+    # Combine detected lines
+    grid_mask = cv2.add(h_lines, v_lines)
+
+    # Dilate the detected lines slightly to thicken them (1-2px)
+    dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    grid_mask = cv2.dilate(grid_mask, dilate_kernel, iterations=1)
+
+    # Where grid lines were detected, set pixels to black (0)
+    # Use the mask as a blend: stronger detection = more darkening
+    grid_mask_f = grid_mask.astype(np.float64) / 255.0
+    result = img.astype(np.float64) * (1.0 - grid_mask_f)
+    result = np.clip(result, 0, 255).astype(np.uint8)
+
+    return result
 
 
 def _resize_for_kindle(img: np.ndarray, target: str = "scribe") -> np.ndarray:
