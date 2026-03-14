@@ -46,13 +46,10 @@ def process_image(input_path: str, output_path: str, options: dict) -> dict:
     img = _to_grayscale(img)
 
     # CLAHE: local contrast enhancement that makes text/lines darker relative
-    # to their surrounding background. Works well for newspaper photos where
-    # the background varies but you want to preserve all detail.
+    # to their surrounding background. No histogram stretch after — keeps
+    # the natural gray background which preserves small clue numbers.
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
     img = clahe.apply(img)
-
-    # Stretch histogram so darkest goes to black, lightest to white
-    img = _boost_contrast(img)
 
     # Resize for Kindle
     target = options.get("kindle_model", "scribe")
