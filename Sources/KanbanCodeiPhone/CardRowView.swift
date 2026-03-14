@@ -45,7 +45,7 @@ struct CardRowView: View {
         }
         .padding(12)
         .background(
-            isSelected ? Color.accentColor.opacity(0.12) : Color(.secondarySystemGroupedBackground),
+            isSelected ? Color.accentColor.opacity(0.12) : Color.gray.opacity(0.1),
             in: RoundedRectangle(cornerRadius: 10)
         )
         .overlay(
@@ -73,7 +73,7 @@ struct CardRowView: View {
         }
 
         Button {
-            UIPasteboard.general.string = card.id
+            copyToClipboard(card.id)
         } label: {
             Label("Copy Card ID", systemImage: "doc.on.doc")
         }
@@ -81,7 +81,7 @@ struct CardRowView: View {
         if let pr = card.link.prLink, let urlString = pr.url,
            let url = URL(string: urlString) {
             Button {
-                UIApplication.shared.open(url)
+                openURL(url)
             } label: {
                 Label("Open PR #\(pr.number)", systemImage: "arrow.up.right.square")
             }
@@ -91,7 +91,7 @@ struct CardRowView: View {
            let urlString = issue.url,
            let url = URL(string: urlString) {
             Button {
-                UIApplication.shared.open(url)
+                openURL(url)
             } label: {
                 Label("Open Issue #\(issue.number)", systemImage: "arrow.up.right.square")
             }
@@ -104,6 +104,23 @@ struct CardRowView: View {
         } label: {
             Label("Archive", systemImage: "archivebox")
         }
+    }
+
+    private func openURL(_ url: URL) {
+        #if os(iOS)
+        UIApplication.shared.open(url)
+        #else
+        NSWorkspace.shared.open(url)
+        #endif
+    }
+
+    private func copyToClipboard(_ string: String) {
+        #if os(iOS)
+        UIPasteboard.general.string = string
+        #else
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(string, forType: .string)
+        #endif
     }
 }
 
@@ -209,25 +226,27 @@ struct PRBadgeView: View {
 
     private var statusIcon: String {
         switch status {
-        case .open: "arrow.triangle.pull"
+        case .approved: "hand.thumbsup.fill"
         case .merged: "checkmark.circle.fill"
         case .closed: "xmark.circle.fill"
-        case .draft: "pencil.circle"
+        case .pendingCI: "pencil.circle"
         case .changesRequested: "exclamationmark.triangle.fill"
-        case .approved: "hand.thumbsup.fill"
-        case .reviewRequired: "eye.circle"
+        case .reviewNeeded: "eye.circle"
+        case .failing: "xmark.octagon.fill"
+        case .unresolved: "questionmark.circle"
         case nil: "questionmark.circle"
         }
     }
 
     private var statusColor: Color {
         switch status {
-        case .open, .reviewRequired: .green
+        case .approved, .reviewNeeded: .green
         case .merged: .purple
         case .closed: .red
-        case .draft: .secondary
+        case .pendingCI: .secondary
         case .changesRequested: .orange
-        case .approved: .green
+        case .failing: .red
+        case .unresolved: .orange
         case nil: .secondary
         }
     }

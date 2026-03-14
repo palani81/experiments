@@ -23,9 +23,11 @@ struct SettingsSheet: View {
 
                 Section("Connection") {
                     TextField("Server Host (optional)", text: $serverHost)
+                        #if os(iOS)
                         .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
                         .keyboardType(.URL)
+                        #endif
+                        .autocorrectionDisabled()
 
                     Text("Connect to a Mac running Kanban Code to sync sessions in real-time.")
                         .font(.caption)
@@ -39,7 +41,9 @@ struct SettingsSheet: View {
                 }
             }
             .navigationTitle("Settings")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }

@@ -17,12 +17,16 @@ struct NewTaskSheet: View {
 
                 Section("Project (optional)") {
                     TextField("Project path", text: $projectPath)
+                        #if os(iOS)
                         .textInputAutocapitalization(.never)
+                        #endif
                         .autocorrectionDisabled()
                 }
             }
             .navigationTitle("New Task")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

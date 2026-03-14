@@ -37,9 +37,11 @@ struct CardDetailSheet: View {
                 }
             }
             .navigationTitle(card.displayTitle)
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
             }
@@ -117,7 +119,7 @@ struct CardDetailSheet: View {
                     ForEach(card.link.prLinks, id: \.number) { pr in
                         Button {
                             if let urlString = pr.url, let url = URL(string: urlString) {
-                                UIApplication.shared.open(url)
+                                openURL(url)
                             }
                         } label: {
                             HStack {
@@ -152,7 +154,7 @@ struct CardDetailSheet: View {
                 Section("Issue") {
                     Button {
                         if let urlString = issue.url, let url = URL(string: urlString) {
-                            UIApplication.shared.open(url)
+                            openURL(url)
                         }
                     } label: {
                         HStack {
@@ -203,7 +205,7 @@ struct CardDetailSheet: View {
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemGroupedBackground))
+        .background(Color.gray.opacity(0.1))
     }
 
     // MARK: - Actions Tab
@@ -212,14 +214,14 @@ struct CardDetailSheet: View {
         List {
             Section {
                 Button {
-                    UIPasteboard.general.string = card.id
+                    copyToClipboard(card.id)
                 } label: {
                     Label("Copy Card ID", systemImage: "doc.on.doc")
                 }
 
                 if let sessionId = card.link.sessionLink?.sessionId {
                     Button {
-                        UIPasteboard.general.string = "claude --resume \(sessionId)"
+                        copyToClipboard("claude --resume \(sessionId)")
                     } label: {
                         Label("Copy Resume Command", systemImage: "terminal")
                     }
@@ -231,7 +233,7 @@ struct CardDetailSheet: View {
                     ForEach(card.link.prLinks, id: \.number) { pr in
                         if let urlString = pr.url, let url = URL(string: urlString) {
                             Button {
-                                UIApplication.shared.open(url)
+                                openURL(url)
                             } label: {
                                 Label("Open PR #\(pr.number)", systemImage: "arrow.up.right.square")
                             }
@@ -245,7 +247,7 @@ struct CardDetailSheet: View {
                let url = URL(string: urlString) {
                 Section("Issue") {
                     Button {
-                        UIApplication.shared.open(url)
+                        openURL(url)
                     } label: {
                         Label("Open Issue #\(issue.number)", systemImage: "arrow.up.right.square")
                     }
@@ -266,12 +268,30 @@ struct CardDetailSheet: View {
 
     private func prStatusColor(_ status: PRStatus) -> Color {
         switch status {
-        case .open, .reviewRequired: .green
+        case .approved, .reviewNeeded: .green
         case .merged: .purple
         case .closed: .red
-        case .draft: .secondary
+        case .pendingCI: .secondary
         case .changesRequested: .orange
-        case .approved: .green
+        case .failing: .red
+        case .unresolved: .orange
         }
+    }
+
+    private func openURL(_ url: URL) {
+        #if os(iOS)
+        UIApplication.shared.open(url)
+        #else
+        NSWorkspace.shared.open(url)
+        #endif
+    }
+
+    private func copyToClipboard(_ string: String) {
+        #if os(iOS)
+        UIPasteboard.general.string = string
+        #else
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(string, forType: .string)
+        #endif
     }
 }

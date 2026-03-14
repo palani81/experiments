@@ -27,8 +27,11 @@ struct ContentView: View {
                 cardListView
             }
             .navigationTitle("Kanban Code")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
+                #if os(iOS)
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         showSearch = true
@@ -52,6 +55,31 @@ struct ContentView: View {
                         Image(systemName: "ellipsis.circle")
                     }
                 }
+                #else
+                ToolbarItem(placement: .automatic) {
+                    Button {
+                        showSearch = true
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                    }
+                }
+                ToolbarItem(placement: .automatic) {
+                    Menu {
+                        Button {
+                            showNewTask = true
+                        } label: {
+                            Label("New Task", systemImage: "plus")
+                        }
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Label("Settings", systemImage: "gear")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                }
+                #endif
             }
             .sheet(isPresented: $showNewTask) {
                 NewTaskSheet(onAdd: { name, project in
@@ -99,7 +127,7 @@ struct ContentView: View {
     private var columnPicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(columns, id: \.self) { column in
+                ForEach(Array(columns.enumerated()), id: \.element) { _, column in
                     let count = cards.filter { $0.column == column }.count
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -130,7 +158,7 @@ struct ContentView: View {
                         .background(
                             selectedColumn == column
                                 ? Color.accentColor
-                                : Color(.systemGray5),
+                                : Color.gray.opacity(0.2),
                             in: Capsule()
                         )
                         .foregroundStyle(
@@ -143,7 +171,7 @@ struct ContentView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
         }
-        .background(Color(.systemBackground))
+        .background(Color(white: 1.0, opacity: 0.001)) // transparent tap target
     }
 
     // MARK: - Card List
@@ -232,7 +260,7 @@ struct ContentView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemGroupedBackground))
+        .background(Color.gray.opacity(0.1))
     }
 
     // MARK: - Error Banner
@@ -356,7 +384,7 @@ struct ContentView: View {
                 source: .discovered,
                 sessionLink: SessionLink(sessionId: "session-004"),
                 worktreeLink: WorktreeLink(path: "/Users/dev/backend/.claude/worktrees/db-migration", branch: "feat/db-migration"),
-                prLinks: [PRLink(number: 123, url: "https://github.com/example/backend/pull/123", status: .open, title: "Database migration")]
+                prLinks: [PRLink(number: 123, url: "https://github.com/example/backend/pull/123", status: .approved, title: "Database migration")]
             )),
             KanbanCodeCard(link: Link(
                 name: "Setup CI/CD pipeline",
