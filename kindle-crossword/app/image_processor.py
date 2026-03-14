@@ -1,13 +1,14 @@
 """
 Image processor optimized for crossword puzzles on Kindle e-ink displays.
 
-Key improvements over v1:
-- Gentler adaptive thresholding that preserves thin grid lines and small clue numbers
-- Smarter contrast enhancement with lower CLAHE clip limit (1.5 vs 3.0)
-- Larger adaptive threshold block size (31 vs 15) to avoid destroying fine detail
-- Lanczos resampling for upscaling (sharpest for line art)
-- Optional morphological closing to reconnect broken grid lines
-- Higher unsharp mask radius for crisper lines on e-ink
+Pipeline:
+1. Perspective & rotation correction
+2. Grayscale conversion
+3. Background normalization (divide by blurred self) — removes shadows/lighting
+4. Hard contrast curve — push to near black-and-white while preserving detail
+5. Grid line detection & enhancement — darken H/V lines to solid black
+6. Resize for Kindle at 300 DPI
+7. Sharpen for e-ink clarity
 """
 import logging
 from typing import Any
@@ -44,8 +45,11 @@ def process_image(input_path: str, output_path: str, options: dict) -> dict:
 
     img = _to_grayscale(img)
 
-    # Background normalization: removes shadows, uneven lighting, newspaper tint.
+    # Background normalization — removes shadows, uneven lighting, newspaper tint
     img = _normalize_background(img)
+
+    # Hard contrast — push darks to black, lights to white
+    img = _apply_contrast_curve(img)
 
     # Detect and enhance horizontal/vertical grid lines
     img = _enhance_grid_lines(img)
@@ -54,13 +58,12 @@ def process_image(input_path: str, output_path: str, options: dict) -> dict:
     target = options.get("kindle_model", "scribe")
     img = _resize_for_kindle(img, target)
 
-    # Light sharpen to crisp up grid lines for e-ink
-    sharpness = options.get("sharpness", 1.2)
+    # Sharpen for e-ink clarity
+    sharpness = options.get("sharpness", 1.5)
     pil_img = _sharpen(img, sharpness)
 
     metadata["processed_size"] = pil_img.size
 
-    # Save at 300 DPI
     pil_img.save(output_path, format="PNG", optimize=False, dpi=(300, 300))
 
     return metadata
@@ -90,7 +93,6 @@ def _perspective_correction(img: np.ndarray) -> tuple[np.ndarray, bool]:
 
     h, w = img.shape[:2]
     image_area = h * w
-
     contours = sorted(contours, key=cv2.contourArea, reverse=True)
 
     for contour in contours[:5]:
@@ -146,19 +148,13 @@ def _order_points(pts: np.ndarray) -> np.ndarray:
 
 
 def _rotation_correction(img: np.ndarray) -> tuple[np.ndarray, float]:
-    """
-    Detect and correct small rotations (up to ±10°) using long horizontal/vertical
-    lines typical of crossword grids. Only corrects if there's strong consensus
-    among detected lines — avoids wild rotations from diagonal content.
-    """
+    """Correct small rotations using consensus of long horizontal lines."""
     if len(img.shape) == 3:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     else:
         gray = img
 
     h, w = gray.shape[:2]
-
-    # Use longer minLineLength relative to image size to only pick up grid lines
     min_line = max(150, min(h, w) // 6)
     edges = cv2.Canny(gray, 50, 150, apertureSize=3)
     lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=120,
@@ -167,8 +163,6 @@ def _rotation_correction(img: np.ndarray) -> tuple[np.ndarray, float]:
     if lines is None or len(lines) == 0:
         return img, 0.0
 
-    # Only consider lines that are nearly horizontal (within ±15° of horizontal)
-    # This filters out diagonal content, vertical lines, etc.
     angles = []
     for line in lines:
         x1, y1, x2, y2 = line[0]
@@ -177,25 +171,19 @@ def _rotation_correction(img: np.ndarray) -> tuple[np.ndarray, float]:
             angles.append(angle)
 
     if len(angles) < 5:
-        # Not enough horizontal lines to be confident
         return img, 0.0
 
     angles = np.array(angles)
     median_angle = float(np.median(angles))
 
-    # Only correct if the angle is small and consistent
-    # (std dev < 3° means the lines agree on the skew)
     if abs(median_angle) <= 0.3 or abs(median_angle) > 10:
         return img, 0.0
 
-    angle_std = float(np.std(angles))
-    if angle_std > 3.0:
-        # Lines disagree too much — don't correct
+    if float(np.std(angles)) > 3.0:
         return img, 0.0
 
     center = (w // 2, h // 2)
     matrix = cv2.getRotationMatrix2D(center, median_angle, 1.0)
-
     cos = abs(matrix[0, 0])
     sin = abs(matrix[0, 1])
     new_w = int(h * sin + w * cos)
@@ -219,87 +207,82 @@ def _to_grayscale(img: np.ndarray) -> np.ndarray:
 
 def _normalize_background(img: np.ndarray) -> np.ndarray:
     """
-    Remove uneven lighting, shadows, and newspaper background tint.
-
-    Works by dividing the image by a heavily blurred version of itself.
-    This makes the background uniformly white while keeping text/lines dark.
-    Much better than thresholding for phone photos of crosswords.
+    Remove uneven lighting and background tint by dividing by a heavily
+    blurred version. Uses bilateral filter (NOT median) to preserve small
+    text like clue numbers while smoothing noise.
     """
-    # Step 1: Denoise — median blur kills halftone dots while preserving edges
-    denoised = cv2.medianBlur(img, 3)
+    # Bilateral filter: smooths noise but preserves edges and small text.
+    # d=5, sigmaColor=75, sigmaSpace=75 — gentle enough for clue numbers.
+    denoised = cv2.bilateralFilter(img, d=5, sigmaColor=75, sigmaSpace=75)
 
-    # Step 2: Estimate the background using a very large Gaussian blur.
-    # The kernel MUST be much larger than grid line thickness so lines
-    # are treated as foreground, not background. Using max(h,w)//4 ensures
-    # even thin 1-2px grid lines survive normalization.
+    # Very large blur for background estimation
     h, w = denoised.shape[:2]
     ksize = max(h, w) // 4
-    ksize = ksize if ksize % 2 == 1 else ksize + 1  # must be odd
-    ksize = max(101, ksize)  # minimum 101
+    ksize = ksize if ksize % 2 == 1 else ksize + 1
+    ksize = max(101, ksize)
     background = cv2.GaussianBlur(denoised, (ksize, ksize), 0).astype(np.float64)
 
-    # Step 3: Divide image by background — this normalizes illumination.
-    # Result: background → ~1.0 (white), text → << 1.0 (dark)
+    # Divide by background to normalize illumination
     normalized = denoised.astype(np.float64) / np.maximum(background, 1.0)
-
-    # Step 4: Scale to full 0-255 range with contrast stretch
-    # Map the result so that 1.0 → 255 (white) and dark values → 0 (black)
     normalized = normalized * 255.0
     normalized = np.clip(normalized, 0, 255).astype(np.uint8)
 
-    # Step 5: Levels adjustment — set black and white points, then apply
-    # gamma to restore natural-looking contrast with solid blacks.
-    p_low, p_high = np.percentile(normalized, (1, 95))
-    if p_high > p_low:
-        stretched = (normalized.astype(np.float64) - p_low) / (p_high - p_low)
-        stretched = np.clip(stretched, 0, 1.0)
+    return normalized
 
-        # Gamma < 1.0 pushes midtones darker → restores solid blacks for
-        # grid lines and text without crushing white cells
-        gamma = 0.6
-        stretched = np.power(stretched, gamma) * 255.0
-        stretched = np.clip(stretched, 0, 255).astype(np.uint8)
-    else:
-        stretched = normalized
 
-    return stretched
+def _apply_contrast_curve(img: np.ndarray) -> np.ndarray:
+    """
+    Apply aggressive contrast to push toward black-and-white.
+    Uses percentile-based levels + strong gamma to get solid blacks
+    and clean whites while preserving small text detail.
+    """
+    # Find the actual black and white points in the image
+    p_black, p_white = np.percentile(img, (0.5, 99))
+
+    if p_white <= p_black:
+        return img
+
+    # Map to 0-1 range using tight black/white points
+    result = (img.astype(np.float64) - p_black) / (p_white - p_black)
+    result = np.clip(result, 0, 1.0)
+
+    # Strong gamma (0.4) — aggressively darkens anything that isn't white.
+    # This makes grid lines, text, and numbers solidly black while
+    # keeping white cells truly white.
+    gamma = 0.4
+    result = np.power(result, gamma) * 255.0
+    result = np.clip(result, 0, 255).astype(np.uint8)
+
+    return result
 
 
 def _enhance_grid_lines(img: np.ndarray) -> np.ndarray:
     """
-    Detect horizontal and vertical lines (crossword grid) using morphological
-    operations and darken them to solid black. This ensures grid lines are
-    clearly visible on e-ink even if they were thin in the source image.
+    Detect horizontal and vertical lines using morphological operations
+    and set them to solid black. Uses shorter kernels to catch grid lines
+    in crosswords of various sizes.
     """
     h, w = img.shape[:2]
-
-    # Invert: lines become white on black background for morphological ops
     inverted = cv2.bitwise_not(img)
 
-    # Detect horizontal lines using a wide horizontal kernel
-    # Length = image_width / 20 — long enough to catch grid lines, short enough
-    # to avoid picking up text
-    h_len = max(20, w // 20)
+    # Shorter kernels (w//30, h//30) catch thinner/shorter grid lines
+    # that longer kernels miss
+    h_len = max(15, w // 30)
     h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (h_len, 1))
     h_lines = cv2.morphologyEx(inverted, cv2.MORPH_OPEN, h_kernel)
 
-    # Detect vertical lines using a tall vertical kernel
-    v_len = max(20, h // 20)
+    v_len = max(15, h // 30)
     v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, v_len))
     v_lines = cv2.morphologyEx(inverted, cv2.MORPH_OPEN, v_kernel)
 
-    # Combine detected lines
+    # Combine and dilate slightly
     grid_mask = cv2.add(h_lines, v_lines)
-
-    # Dilate the detected lines slightly to thicken them (1-2px)
-    dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
     grid_mask = cv2.dilate(grid_mask, dilate_kernel, iterations=1)
 
-    # Where grid lines were detected, set pixels to black (0)
-    # Use the mask as a blend: stronger detection = more darkening
-    grid_mask_f = grid_mask.astype(np.float64) / 255.0
-    result = img.astype(np.float64) * (1.0 - grid_mask_f)
-    result = np.clip(result, 0, 255).astype(np.uint8)
+    # Set detected grid line pixels to solid black
+    result = img.copy()
+    result[grid_mask > 0] = 0
 
     return result
 
@@ -321,7 +304,6 @@ def _resize_for_kindle(img: np.ndarray, target: str = "scribe") -> np.ndarray:
     new_w = int(w * scale)
     new_h = int(h * scale)
 
-    # INTER_AREA for downscaling, INTER_LANCZOS4 for upscaling (sharpest for line art)
     interp = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_LANCZOS4
     resized = cv2.resize(img, (new_w, new_h), interpolation=interp)
 
@@ -336,7 +318,5 @@ def _resize_for_kindle(img: np.ndarray, target: str = "scribe") -> np.ndarray:
 def _sharpen(img: np.ndarray, sharpness: float) -> Image.Image:
     pil_img = Image.fromarray(img).convert("L")
     percent = int(sharpness * 100)
-    # radius=2.0 (vs old 1.5) — better for grid lines on e-ink
-    # threshold=3 (vs old 2) — avoids sharpening noise in empty cells
     sharpened = pil_img.filter(ImageFilter.UnsharpMask(radius=2.0, percent=percent, threshold=3))
     return sharpened
