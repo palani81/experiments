@@ -11,6 +11,8 @@ import {
   TouchableOpacity,
   Alert,
   Linking,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useCardStore } from '../stores/cardStore';
@@ -91,7 +93,11 @@ export function CardDetailScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
       {/* Card Header */}
       <View style={styles.header}>
         <Text style={styles.title}>{card.title}</Text>
@@ -145,7 +151,7 @@ export function CardDetailScreen() {
       {card.session_id && card.status === 'waiting' && (
         <ReplyComposer onSend={handleReply} />
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -2,7 +2,7 @@
  * Text input component for replying to Claude sessions.
  */
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   TextInput,
@@ -10,8 +10,7 @@ import {
   Text,
   StyleSheet,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
+  Keyboard,
 } from 'react-native';
 
 interface ReplyComposerProps {
@@ -27,11 +26,13 @@ export function ReplyComposer({
 }: ReplyComposerProps) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const inputRef = useRef<TextInput>(null);
 
   const handleSend = async () => {
     const message = text.trim();
     if (!message || sending || disabled) return;
 
+    Keyboard.dismiss();
     setSending(true);
     try {
       await onSend(message);
@@ -44,12 +45,10 @@ export function ReplyComposer({
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <View style={styles.inputRow}>
         <TextInput
+          ref={inputRef}
           style={styles.input}
           value={text}
           onChangeText={setText}
@@ -58,8 +57,6 @@ export function ReplyComposer({
           multiline
           maxLength={5000}
           editable={!disabled && !sending}
-          returnKeyType="send"
-          blurOnSubmit={false}
         />
         <TouchableOpacity
           style={[
@@ -76,7 +73,7 @@ export function ReplyComposer({
           )}
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
