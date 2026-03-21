@@ -540,6 +540,89 @@ def main():
         f.write(html)
     print(f"\nKindle HTML saved to: {output_path}")
 
+    # Regenerate index.html with all puzzles
+    generate_index(Path(output_path).parent, Path(path).parent)
+
+
+def generate_index(kindle_dir: Path, puzzles_dir: Path):
+    """Generate index.html listing all puzzles, sorted by date descending."""
+    from datetime import datetime
+
+    entries = []
+    for puzzle_path in sorted(puzzles_dir.glob("crossword_*.json"), reverse=True):
+        with open(puzzle_path) as f:
+            data = json.load(f)
+        meta = data["metadata"]
+        date = meta.get("date", "")
+        try:
+            dt = datetime.strptime(date, "%Y-%m-%d")
+            date_display = dt.strftime("%A, %B %-d, %Y")
+        except Exception:
+            date_display = date
+        rows = meta.get("grid_rows", meta["grid_size"])
+        cols = meta.get("grid_cols", meta["grid_size"])
+        entries.append({
+            "file": puzzle_path.stem + ".html",
+            "date": date_display,
+            "author": meta.get("author", "Unknown"),
+            "size": f"{rows}x{cols}",
+        })
+
+    items_html = ""
+    for e in entries:
+        items_html += (
+            f'  <li><a href="{e["file"]}">'
+            f'<div class="date">{e["date"]}</div>'
+            f'<div class="meta">By {e["author"]} &mdash; {e["size"]}</div>'
+            f'</a></li>\n'
+        )
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Crosswords</title>
+<style>
+  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+  body {{
+    font-family: Georgia, 'Times New Roman', serif;
+    background: #fff;
+    color: #000;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px 20px;
+    -webkit-text-size-adjust: none;
+  }}
+  h1 {{
+    font-size: 28px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: center;
+    border-bottom: 3px solid #000;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+  }}
+  .puzzle-list {{ list-style: none; padding: 0; }}
+  .puzzle-list li {{ border-bottom: 1px solid #ccc; padding: 12px 0; }}
+  .puzzle-list a {{ text-decoration: none; color: #000; display: block; }}
+  .puzzle-list .date {{ font-size: 20px; font-weight: bold; }}
+  .puzzle-list .meta {{ font-size: 14px; color: #444; margin-top: 2px; }}
+</style>
+</head>
+<body>
+<h1>Daily Crosswords</h1>
+<ul class="puzzle-list">
+{items_html}</ul>
+</body>
+</html>"""
+
+    index_path = kindle_dir / "index.html"
+    with open(index_path, "w") as f:
+        f.write(html)
+    print(f"Index saved to: {index_path}")
+
 
 if __name__ == "__main__":
     main()
