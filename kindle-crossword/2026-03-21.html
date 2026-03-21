@@ -18,18 +18,14 @@
   }
 
   /* Navigation */
-  .nav {
-    margin-bottom: 12px;
-  }
+  .nav { margin-bottom: 12px; }
   .nav a {
     font-size: 15px;
     color: #000;
     text-decoration: none;
     font-family: Arial, Helvetica, sans-serif;
   }
-  .nav a::before {
-    content: "\25C0\00A0";
-  }
+  .nav a::before { content: "\25C0\00A0"; }
 
   /* Header */
   .header {
@@ -44,53 +40,73 @@
     letter-spacing: 1px;
     text-transform: uppercase;
   }
-  .header .date {
-    font-size: 18px;
-    font-weight: bold;
-    margin-top: 2px;
-  }
-  .header .author {
-    font-size: 14px;
-    color: #444;
-    margin-top: 2px;
-  }
+  .header .date { font-size: 18px; font-weight: bold; margin-top: 2px; }
+  .header .author { font-size: 14px; color: #444; margin-top: 2px; }
 
-  /* Grid */
+  /* Grid — CSS Grid for guaranteed square cells */
   .grid-wrap {
-    text-align: center;
+    display: flex;
+    justify-content: center;
     margin: 14px 0;
   }
 
-  table.grid {
-    border-collapse: collapse;
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(15, 1fr);
     border: 3px solid #000;
-    display: inline-table;
+    width: min(100%, 690px);
+    /* For non-square grids, limit by column width */
   }
 
-  table.grid td {
-    width: 46px;
-    height: 46px;
+  .cell {
+    aspect-ratio: 1;
     border: 1px solid #000;
     position: relative;
-    vertical-align: top;
-    padding: 0;
     background: #fff;
   }
 
-  table.grid td.black {
+  .cell.black {
     background: #000;
     border-color: #000;
   }
 
-  table.grid td .n {
+  .cell .n {
     position: absolute;
     top: 1px;
     left: 2px;
-    font-size: 10px;
+    font-size: clamp(7px, 1.8vw, 11px);
     font-weight: bold;
     line-height: 1;
     color: #000;
     font-family: Arial, Helvetica, sans-serif;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* Writable input in each white cell */
+  .cell input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+    text-align: center;
+    font-size: clamp(14px, 3.5vw, 28px);
+    font-weight: bold;
+    font-family: Arial, Helvetica, sans-serif;
+    text-transform: uppercase;
+    padding-top: 18%;
+    color: #000;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: 0;
+  }
+
+  .cell input:focus {
+    background: #eee;
   }
 
   /* Clues */
@@ -100,9 +116,7 @@
     margin-top: 14px;
   }
 
-  .clues section {
-    flex: 1;
-  }
+  .clues section { flex: 1; }
 
   .clues h2 {
     font-size: 18px;
@@ -114,10 +128,7 @@
     margin-bottom: 6px;
   }
 
-  .clues ul {
-    list-style: none;
-    padding: 0;
-  }
+  .clues ul { list-style: none; padding: 0; }
 
   .clues li {
     font-size: 13px;
@@ -139,6 +150,7 @@
   @media print {
     .nav { display: none; }
     body { padding: 0; }
+    .cell input { padding-top: 25%; }
   }
 </style>
 </head>
@@ -153,23 +165,233 @@
 </div>
 
 <div class="grid-wrap">
-<table class="grid">
-<tr><td><span class="n">1</span></td><td><span class="n">2</span></td><td><span class="n">3</span></td><td><span class="n">4</span></td><td><span class="n">5</span></td><td><span class="n">6</span></td><td><span class="n">7</span></td><td><span class="n">8</span></td><td><span class="n">9</span></td><td class="black"></td><td><span class="n">10</span></td><td><span class="n">11</span></td><td><span class="n">12</span></td><td><span class="n">13</span></td><td><span class="n">14</span></td></tr>
-<tr><td><span class="n">15</span></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="black"></td><td><span class="n">16</span></td><td></td><td></td><td></td><td></td></tr>
-<tr><td><span class="n">17</span></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="black"></td><td></td><td></td><td><span class="n">18</span></td><td></td><td></td><td></td><td></td></tr>
-<tr><td><span class="n">19</span></td><td></td><td></td><td></td><td class="black"></td><td><span class="n">20</span></td><td></td><td><span class="n">21</span></td><td></td><td class="black"></td><td><span class="n">22</span></td><td></td><td></td><td></td><td></td></tr>
-<tr><td class="black"></td><td class="black"></td><td></td><td><span class="n">23</span></td><td></td><td></td><td></td><td></td><td class="black"></td><td><span class="n">24</span></td><td class="black"></td><td><span class="n">25</span></td><td></td><td></td><td></td></tr>
-<tr><td><span class="n">26</span></td><td><span class="n">27</span></td><td><span class="n">28</span></td><td></td><td class="black"></td><td class="black"></td><td><span class="n">29</span></td><td></td><td></td><td></td><td></td><td></td><td class="black"></td><td></td><td></td></tr>
-<tr><td><span class="n">30</span></td><td></td><td></td><td></td><td></td><td></td><td class="black"></td><td><span class="n">31</span></td><td></td><td class="black"></td><td></td><td></td><td><span class="n">32</span></td><td><span class="n">33</span></td><td></td></tr>
-<tr><td><span class="n">34</span></td><td></td><td></td><td></td><td></td><td></td><td><span class="n">35</span></td><td></td><td></td><td></td><td></td><td><span class="n">36</span></td><td></td><td></td><td></td></tr>
-<tr><td><span class="n">37</span></td><td></td><td></td><td></td><td></td><td><span class="n">38</span></td><td></td><td></td><td></td><td class="black"></td><td><span class="n">39</span></td><td></td><td class="black"></td><td></td><td></td></tr>
-<tr><td><span class="n">40</span></td><td></td><td><span class="n">41</span></td><td></td><td></td><td></td><td class="black"></td><td></td><td></td><td></td><td><span class="n">42</span></td><td></td><td></td><td></td><td></td></tr>
-<tr><td><span class="n">43</span></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td><span class="n">44</span></td><td></td><td></td><td></td><td></td><td class="black"></td><td class="black"></td></tr>
-<tr><td><span class="n">45</span></td><td></td><td></td><td></td><td></td><td class="black"></td><td><span class="n">46</span></td><td></td><td></td><td><span class="n">47</span></td><td class="black"></td><td><span class="n">48</span></td><td><span class="n">49</span></td><td><span class="n">50</span></td><td></td></tr>
-<tr><td><span class="n">51</span></td><td></td><td></td><td></td><td><span class="n">52</span></td><td></td><td></td><td></td><td class="black"></td><td></td><td></td><td><span class="n">53</span></td><td></td><td></td><td><span class="n">54</span></td></tr>
-<tr><td><span class="n">55</span></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="black"></td><td><span class="n">56</span></td><td></td><td></td><td></td><td></td></tr>
-<tr><td><span class="n">57</span></td><td></td><td></td><td></td><td></td><td class="black"></td><td><span class="n">58</span></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-</table>
+<div class="grid">
+<div class="cell"><span class="n">1</span><input type="text" maxlength="1" autocomplete="off" aria-label="1"></div>
+<div class="cell"><span class="n">2</span><input type="text" maxlength="1" autocomplete="off" aria-label="2"></div>
+<div class="cell"><span class="n">3</span><input type="text" maxlength="1" autocomplete="off" aria-label="3"></div>
+<div class="cell"><span class="n">4</span><input type="text" maxlength="1" autocomplete="off" aria-label="4"></div>
+<div class="cell"><span class="n">5</span><input type="text" maxlength="1" autocomplete="off" aria-label="5"></div>
+<div class="cell"><span class="n">6</span><input type="text" maxlength="1" autocomplete="off" aria-label="6"></div>
+<div class="cell"><span class="n">7</span><input type="text" maxlength="1" autocomplete="off" aria-label="7"></div>
+<div class="cell"><span class="n">8</span><input type="text" maxlength="1" autocomplete="off" aria-label="8"></div>
+<div class="cell"><span class="n">9</span><input type="text" maxlength="1" autocomplete="off" aria-label="9"></div>
+<div class="cell black"></div>
+<div class="cell"><span class="n">10</span><input type="text" maxlength="1" autocomplete="off" aria-label="10"></div>
+<div class="cell"><span class="n">11</span><input type="text" maxlength="1" autocomplete="off" aria-label="11"></div>
+<div class="cell"><span class="n">12</span><input type="text" maxlength="1" autocomplete="off" aria-label="12"></div>
+<div class="cell"><span class="n">13</span><input type="text" maxlength="1" autocomplete="off" aria-label="13"></div>
+<div class="cell"><span class="n">14</span><input type="text" maxlength="1" autocomplete="off" aria-label="14"></div>
+<div class="cell"><span class="n">15</span><input type="text" maxlength="1" autocomplete="off" aria-label="15"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell"><span class="n">16</span><input type="text" maxlength="1" autocomplete="off" aria-label="16"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">17</span><input type="text" maxlength="1" autocomplete="off" aria-label="17"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">18</span><input type="text" maxlength="1" autocomplete="off" aria-label="18"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">19</span><input type="text" maxlength="1" autocomplete="off" aria-label="19"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell"><span class="n">20</span><input type="text" maxlength="1" autocomplete="off" aria-label="20"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">21</span><input type="text" maxlength="1" autocomplete="off" aria-label="21"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell"><span class="n">22</span><input type="text" maxlength="1" autocomplete="off" aria-label="22"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell black"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">23</span><input type="text" maxlength="1" autocomplete="off" aria-label="23"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell"><span class="n">24</span><input type="text" maxlength="1" autocomplete="off" aria-label="24"></div>
+<div class="cell black"></div>
+<div class="cell"><span class="n">25</span><input type="text" maxlength="1" autocomplete="off" aria-label="25"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">26</span><input type="text" maxlength="1" autocomplete="off" aria-label="26"></div>
+<div class="cell"><span class="n">27</span><input type="text" maxlength="1" autocomplete="off" aria-label="27"></div>
+<div class="cell"><span class="n">28</span><input type="text" maxlength="1" autocomplete="off" aria-label="28"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell black"></div>
+<div class="cell"><span class="n">29</span><input type="text" maxlength="1" autocomplete="off" aria-label="29"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">30</span><input type="text" maxlength="1" autocomplete="off" aria-label="30"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell"><span class="n">31</span><input type="text" maxlength="1" autocomplete="off" aria-label="31"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">32</span><input type="text" maxlength="1" autocomplete="off" aria-label="32"></div>
+<div class="cell"><span class="n">33</span><input type="text" maxlength="1" autocomplete="off" aria-label="33"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">34</span><input type="text" maxlength="1" autocomplete="off" aria-label="34"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">35</span><input type="text" maxlength="1" autocomplete="off" aria-label="35"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">36</span><input type="text" maxlength="1" autocomplete="off" aria-label="36"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">37</span><input type="text" maxlength="1" autocomplete="off" aria-label="37"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">38</span><input type="text" maxlength="1" autocomplete="off" aria-label="38"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell"><span class="n">39</span><input type="text" maxlength="1" autocomplete="off" aria-label="39"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">40</span><input type="text" maxlength="1" autocomplete="off" aria-label="40"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">41</span><input type="text" maxlength="1" autocomplete="off" aria-label="41"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">42</span><input type="text" maxlength="1" autocomplete="off" aria-label="42"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">43</span><input type="text" maxlength="1" autocomplete="off" aria-label="43"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">44</span><input type="text" maxlength="1" autocomplete="off" aria-label="44"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell black"></div>
+<div class="cell"><span class="n">45</span><input type="text" maxlength="1" autocomplete="off" aria-label="45"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell"><span class="n">46</span><input type="text" maxlength="1" autocomplete="off" aria-label="46"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">47</span><input type="text" maxlength="1" autocomplete="off" aria-label="47"></div>
+<div class="cell black"></div>
+<div class="cell"><span class="n">48</span><input type="text" maxlength="1" autocomplete="off" aria-label="48"></div>
+<div class="cell"><span class="n">49</span><input type="text" maxlength="1" autocomplete="off" aria-label="49"></div>
+<div class="cell"><span class="n">50</span><input type="text" maxlength="1" autocomplete="off" aria-label="50"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">51</span><input type="text" maxlength="1" autocomplete="off" aria-label="51"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">52</span><input type="text" maxlength="1" autocomplete="off" aria-label="52"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">53</span><input type="text" maxlength="1" autocomplete="off" aria-label="53"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">54</span><input type="text" maxlength="1" autocomplete="off" aria-label="54"></div>
+<div class="cell"><span class="n">55</span><input type="text" maxlength="1" autocomplete="off" aria-label="55"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell"><span class="n">56</span><input type="text" maxlength="1" autocomplete="off" aria-label="56"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><span class="n">57</span><input type="text" maxlength="1" autocomplete="off" aria-label="57"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell"><span class="n">58</span><input type="text" maxlength="1" autocomplete="off" aria-label="58"></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+</div>
 </div>
 
 <div class="clues">
@@ -256,6 +478,27 @@
     </ul>
   </section>
 </div>
+
+<script>
+// Auto-advance: move to next cell after typing a letter
+document.querySelectorAll('.cell input').forEach(function(inp) {
+  inp.addEventListener('input', function() {
+    if (this.value.length >= 1) {
+      this.value = this.value.slice(-1).toUpperCase();
+      // Find next input
+      var all = Array.from(document.querySelectorAll('.cell input'));
+      var idx = all.indexOf(this);
+      if (idx >= 0 && idx < all.length - 1) {
+        all[idx + 1].focus();
+      }
+    }
+  });
+  // Select all text on focus for easy overwrite
+  inp.addEventListener('focus', function() {
+    this.select();
+  });
+});
+</script>
 
 </body>
 </html>
