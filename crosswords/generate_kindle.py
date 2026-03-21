@@ -193,26 +193,35 @@ def generate_html(puzzle: dict, grid: list[list[dict]], photo_filenames: list[st
   .header .source-photos {{ font-size: 12px; margin-top: 4px; }}
   .header .source-photos a {{ color: #333; }}
 
-  /* Grid — CSS Grid for guaranteed square cells */
+  /* Grid — uses table layout for maximum e-reader compatibility */
   .grid-wrap {{
-    display: flex;
-    justify-content: center;
+    text-align: center;
     margin: 14px 0;
   }}
 
   .grid {{
-    display: grid;
-    grid-template-columns: repeat({cols}, 1fr);
+    display: inline-table;
+    border-collapse: collapse;
     border: 3px solid #000;
-    width: min(100%, 690px);
-    /* For non-square grids, limit by column width */
+    max-width: 690px;
+    width: 100%;
+    table-layout: fixed;
+  }}
+
+  .grid-row {{
+    display: table-row;
   }}
 
   .cell {{
-    aspect-ratio: 1;
+    display: table-cell;
     border: 1px solid #000;
     position: relative;
     background: #fff;
+    vertical-align: top;
+    width: {col_pct}%;
+    /* padding-bottom trick for square cells (aspect-ratio fallback) */
+    height: 0;
+    padding-bottom: {col_pct}%;
   }}
 
   .cell.black {{
@@ -224,7 +233,7 @@ def generate_html(puzzle: dict, grid: list[list[dict]], photo_filenames: list[st
     position: absolute;
     top: 1px;
     left: 2px;
-    font-size: clamp(7px, 1.8vw, 11px);
+    font-size: 10px;
     font-weight: bold;
     line-height: 1;
     color: #000;
@@ -243,7 +252,7 @@ def generate_html(puzzle: dict, grid: list[list[dict]], photo_filenames: list[st
     border: none;
     background: transparent;
     text-align: center;
-    font-size: clamp(14px, 3.5vw, 28px);
+    font-size: 22px;
     font-weight: bold;
     font-family: Arial, Helvetica, sans-serif;
     text-transform: uppercase;
@@ -457,9 +466,10 @@ def generate_html(puzzle: dict, grid: list[list[dict]], photo_filenames: list[st
 
 
 def build_grid_html(grid: list[list[dict]], num_rows: int, num_cols: int) -> str:
-    """Build the HTML grid using CSS Grid with input fields for writing."""
-    cells = []
+    """Build the HTML grid using table layout for e-reader compatibility."""
+    rows_html = []
     for r in range(num_rows):
+        cells = []
         for c in range(num_cols):
             cell = grid[r][c]
             if cell["type"] == "black":
@@ -476,8 +486,9 @@ def build_grid_html(grid: list[list[dict]], num_rows: int, num_cols: int) -> str
                     f'aria-label="{cell["number"] or ""}">'
                     f'</div>'
                 )
+        rows_html.append('<div class="grid-row">\n' + "\n".join(cells) + "\n</div>")
 
-    return '<div class="grid">\n' + "\n".join(cells) + "\n</div>"
+    return '<div class="grid">\n' + "\n".join(rows_html) + "\n</div>"
 
 
 def build_clue_list(clues: dict, label: str) -> str:

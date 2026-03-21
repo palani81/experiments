@@ -45,26 +45,35 @@
   .header .source-photos { font-size: 12px; margin-top: 4px; }
   .header .source-photos a { color: #333; }
 
-  /* Grid — CSS Grid for guaranteed square cells */
+  /* Grid — uses table layout for maximum e-reader compatibility */
   .grid-wrap {
-    display: flex;
-    justify-content: center;
+    text-align: center;
     margin: 14px 0;
   }
 
   .grid {
-    display: grid;
-    grid-template-columns: repeat(15, 1fr);
+    display: inline-table;
+    border-collapse: collapse;
     border: 3px solid #000;
-    width: min(100%, 690px);
-    /* For non-square grids, limit by column width */
+    max-width: 690px;
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  .grid-row {
+    display: table-row;
   }
 
   .cell {
-    aspect-ratio: 1;
+    display: table-cell;
     border: 1px solid #000;
     position: relative;
     background: #fff;
+    vertical-align: top;
+    width: 6.6667%;
+    /* padding-bottom trick for square cells (aspect-ratio fallback) */
+    height: 0;
+    padding-bottom: 6.6667%;
   }
 
   .cell.black {
@@ -76,7 +85,7 @@
     position: absolute;
     top: 1px;
     left: 2px;
-    font-size: clamp(7px, 1.8vw, 11px);
+    font-size: 10px;
     font-weight: bold;
     line-height: 1;
     color: #000;
@@ -95,7 +104,7 @@
     border: none;
     background: transparent;
     text-align: center;
-    font-size: clamp(14px, 3.5vw, 28px);
+    font-size: 22px;
     font-weight: bold;
     font-family: Arial, Helvetica, sans-serif;
     text-transform: uppercase;
@@ -189,6 +198,7 @@
 
 <div class="grid-wrap">
 <div class="grid">
+<div class="grid-row">
 <div class="cell" data-r="0" data-c="0" data-num="1"><span class="n">1</span><input type="text" maxlength="1" autocomplete="off" aria-label="1"></div>
 <div class="cell" data-r="0" data-c="1" data-num="2"><span class="n">2</span><input type="text" maxlength="1" autocomplete="off" aria-label="2"></div>
 <div class="cell" data-r="0" data-c="2" data-num="3"><span class="n">3</span><input type="text" maxlength="1" autocomplete="off" aria-label="3"></div>
@@ -204,6 +214,8 @@
 <div class="cell" data-r="0" data-c="12" data-num="12"><span class="n">12</span><input type="text" maxlength="1" autocomplete="off" aria-label="12"></div>
 <div class="cell" data-r="0" data-c="13" data-num="13"><span class="n">13</span><input type="text" maxlength="1" autocomplete="off" aria-label="13"></div>
 <div class="cell" data-r="0" data-c="14" data-num="14"><span class="n">14</span><input type="text" maxlength="1" autocomplete="off" aria-label="14"></div>
+</div>
+<div class="grid-row">
 <div class="cell" data-r="1" data-c="0" data-num="15"><span class="n">15</span><input type="text" maxlength="1" autocomplete="off" aria-label="15"></div>
 <div class="cell" data-r="1" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="1" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
@@ -219,6 +231,8 @@
 <div class="cell" data-r="1" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="1" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="1" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+</div>
+<div class="grid-row">
 <div class="cell" data-r="2" data-c="0" data-num="17"><span class="n">17</span><input type="text" maxlength="1" autocomplete="off" aria-label="17"></div>
 <div class="cell" data-r="2" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="2" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
@@ -234,6 +248,8 @@
 <div class="cell" data-r="2" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="2" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="2" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+</div>
+<div class="grid-row">
 <div class="cell" data-r="3" data-c="0" data-num="19"><span class="n">19</span><input type="text" maxlength="1" autocomplete="off" aria-label="19"></div>
 <div class="cell" data-r="3" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="3" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
@@ -249,6 +265,8 @@
 <div class="cell" data-r="3" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="3" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="3" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+</div>
+<div class="grid-row">
 <div class="cell black"></div>
 <div class="cell black"></div>
 <div class="cell black"></div>
@@ -264,6 +282,8 @@
 <div class="cell" data-r="4" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="4" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="4" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+</div>
+<div class="grid-row">
 <div class="cell" data-r="5" data-c="0" data-num="26"><span class="n">26</span><input type="text" maxlength="1" autocomplete="off" aria-label="26"></div>
 <div class="cell" data-r="5" data-c="1" data-num="27"><span class="n">27</span><input type="text" maxlength="1" autocomplete="off" aria-label="27"></div>
 <div class="cell" data-r="5" data-c="2" data-num="28"><span class="n">28</span><input type="text" maxlength="1" autocomplete="off" aria-label="28"></div>
@@ -279,6 +299,8 @@
 <div class="cell" data-r="5" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="5" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell black"></div>
+</div>
+<div class="grid-row">
 <div class="cell" data-r="6" data-c="0" data-num="30"><span class="n">30</span><input type="text" maxlength="1" autocomplete="off" aria-label="30"></div>
 <div class="cell" data-r="6" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="6" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
@@ -294,6 +316,8 @@
 <div class="cell" data-r="6" data-c="12" data-num="32"><span class="n">32</span><input type="text" maxlength="1" autocomplete="off" aria-label="32"></div>
 <div class="cell" data-r="6" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="6" data-c="14" data-num="33"><span class="n">33</span><input type="text" maxlength="1" autocomplete="off" aria-label="33"></div>
+</div>
+<div class="grid-row">
 <div class="cell" data-r="7" data-c="0" data-num="34"><span class="n">34</span><input type="text" maxlength="1" autocomplete="off" aria-label="34"></div>
 <div class="cell" data-r="7" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="7" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
@@ -309,6 +333,8 @@
 <div class="cell" data-r="7" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="7" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="7" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+</div>
+<div class="grid-row">
 <div class="cell" data-r="8" data-c="0" data-num="37"><span class="n">37</span><input type="text" maxlength="1" autocomplete="off" aria-label="37"></div>
 <div class="cell" data-r="8" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="8" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
@@ -324,6 +350,8 @@
 <div class="cell" data-r="8" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="8" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="8" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+</div>
+<div class="grid-row">
 <div class="cell black"></div>
 <div class="cell" data-r="9" data-c="1" data-num="40"><span class="n">40</span><input type="text" maxlength="1" autocomplete="off" aria-label="40"></div>
 <div class="cell" data-r="9" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
@@ -339,6 +367,8 @@
 <div class="cell" data-r="9" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="9" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="9" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+</div>
+<div class="grid-row">
 <div class="cell" data-r="10" data-c="0" data-num="43"><span class="n">43</span><input type="text" maxlength="1" autocomplete="off" aria-label="43"></div>
 <div class="cell" data-r="10" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="10" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
@@ -354,6 +384,8 @@
 <div class="cell black"></div>
 <div class="cell black"></div>
 <div class="cell black"></div>
+</div>
+<div class="grid-row">
 <div class="cell" data-r="11" data-c="0" data-num="45"><span class="n">45</span><input type="text" maxlength="1" autocomplete="off" aria-label="45"></div>
 <div class="cell" data-r="11" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="11" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
@@ -369,6 +401,8 @@
 <div class="cell" data-r="11" data-c="12" data-num="48"><span class="n">48</span><input type="text" maxlength="1" autocomplete="off" aria-label="48"></div>
 <div class="cell" data-r="11" data-c="13" data-num="49"><span class="n">49</span><input type="text" maxlength="1" autocomplete="off" aria-label="49"></div>
 <div class="cell" data-r="11" data-c="14" data-num="50"><span class="n">50</span><input type="text" maxlength="1" autocomplete="off" aria-label="50"></div>
+</div>
+<div class="grid-row">
 <div class="cell" data-r="12" data-c="0" data-num="51"><span class="n">51</span><input type="text" maxlength="1" autocomplete="off" aria-label="51"></div>
 <div class="cell" data-r="12" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="12" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
@@ -384,6 +418,8 @@
 <div class="cell" data-r="12" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="12" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="12" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+</div>
+<div class="grid-row">
 <div class="cell" data-r="13" data-c="0" data-num="55"><span class="n">55</span><input type="text" maxlength="1" autocomplete="off" aria-label="55"></div>
 <div class="cell" data-r="13" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="13" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
@@ -399,6 +435,8 @@
 <div class="cell" data-r="13" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="13" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="13" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+</div>
+<div class="grid-row">
 <div class="cell" data-r="14" data-c="0" data-num="57"><span class="n">57</span><input type="text" maxlength="1" autocomplete="off" aria-label="57"></div>
 <div class="cell" data-r="14" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="14" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
@@ -414,6 +452,7 @@
 <div class="cell" data-r="14" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="14" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
 <div class="cell" data-r="14" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+</div>
 </div>
 </div>
 
