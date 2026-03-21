@@ -134,10 +134,9 @@ def find_line_positions(projection: np.ndarray, threshold: float, min_distance: 
 def classify_cells(
     warped_gray: np.ndarray,
     grid_size: int,
-    debug_img: np.ndarray | None = None,
 ) -> list[list[str]]:
     """
-    Classify each cell as 'black', 'white', or 'numbered' (with the number).
+    Classify each cell as black (#) or white (.).
     Returns a grid_size x grid_size matrix.
     """
     h, w = warped_gray.shape
@@ -161,15 +160,52 @@ def classify_cells(
 
             if mean_val < 100:
                 row.append("#")
-                if debug_img is not None:
-                    cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 0, 255), 2)
             else:
                 row.append(".")
-                if debug_img is not None:
-                    cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 255, 0), 1)
         grid.append(row)
 
     return grid
+
+
+def draw_debug_overlay(
+    warped: np.ndarray,
+    grid: list[list[str]],
+    numbers: dict[tuple[int, int], int],
+    grid_size: int,
+) -> np.ndarray:
+    """Draw debug overlay showing the FINAL grid classification and numbering."""
+    h, w = warped.shape[:2]
+    cell_h = h / grid_size
+    cell_w = w / grid_size
+
+    # Start with a lightened copy so overlays are visible
+    debug_img = cv2.addWeighted(warped, 0.5, np.full_like(warped, 255), 0.5, 0)
+
+    for r in range(grid_size):
+        for c in range(grid_size):
+            x1 = int(c * cell_w)
+            y1 = int(r * cell_h)
+            x2 = int((c + 1) * cell_w)
+            y2 = int((r + 1) * cell_h)
+
+            if grid[r][c] == "#":
+                # Solid black fill for detected black cells
+                cv2.rectangle(debug_img, (x1 + 1, y1 + 1), (x2 - 1, y2 - 1), (30, 30, 30), -1)
+                cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 0, 255), 2)
+            else:
+                # Thin green border for white cells
+                cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 180, 0), 1)
+
+            # Draw clue number if present
+            if (r, c) in numbers:
+                num = numbers[(r, c)]
+                cv2.putText(
+                    debug_img, str(num),
+                    (x1 + 3, y1 + 15),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (200, 0, 0), 1,
+                )
+
+    return debug_img
 
 
 def detect_numbers_in_cells(
@@ -384,9 +420,8 @@ def extract_crossword_grid(image_path: str, debug: bool = False) -> dict:
     print(f"  Detected: {grid_size}x{grid_size}")
 
     # Step 4: Classify cells (black vs white)
-    debug_img = warped.copy() if debug else None
     print("Classifying cells...")
-    grid = classify_cells(warped_gray, grid_size, debug_img)
+    grid = classify_cells(warped_gray, grid_size)
     black_count = sum(1 for r in grid for c in r if c == "#")
     print(f"  Black cells: {black_count}, White cells: {grid_size**2 - black_count}")
 
@@ -414,7 +449,10 @@ def extract_crossword_grid(image_path: str, debug: bool = False) -> dict:
 
     result = grid_to_json(grid, numbers, grid_size, image_path)
 
-    if debug and debug_img is not None:
+    if debug:
+        # Draw debug overlay on the FINAL refined grid (not the initial classification)
+        debug_img = draw_debug_overlay(warped, grid, numbers, grid_size)
+
         # Write debug images to output/ sibling directory
         img_stem = Path(image_path).stem
         output_dir = Path(image_path).parent.parent / "output"
