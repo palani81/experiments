@@ -90,5 +90,5 @@
     "down_only": [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 21, 25, 27, 28, 33, 41, 47, 49, 50, 52, 54],
     "both": [1, 10, 23, 26, 29, 31, 35, 36, 38, 39, 42, 43, 44, 48]
   },
-  "grid_notes": "Row 1 confirmed: black cell at column 10, numbers 1-9 (cols 1-9), 10-14 (cols 11-15). Remaining grid positions are approximate."
+  "grid_notes": "Grid extracted from IMG_5139.jpeg via extract_grid.py (verified accurate)."
 }
