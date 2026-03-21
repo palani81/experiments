@@ -290,7 +290,7 @@ def generate_html(puzzle: dict, grid: list[list[dict]], photo_filenames: list[st
   .clues ul {{ list-style: none; padding: 0; }}
 
   .clues li {{
-    font-size: 13px;
+    font-size: 16px;
     line-height: 1.3;
     margin-bottom: 3px;
     break-inside: avoid;
