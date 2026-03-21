@@ -107,83 +107,98 @@ def reconstruct_grid(puzzle: dict, size: int) -> list[list[dict]]:
 def generate_html(puzzle: dict, grid: list[list[dict]]) -> str:
     """Generate Kindle Scribe-optimized HTML."""
     meta = puzzle["metadata"]
-    rows = meta.get("grid_rows", meta["grid_size"])
+    num_rows = meta.get("grid_rows", meta["grid_size"])
     cols = meta.get("grid_cols", meta["grid_size"])
     clues = puzzle["clues"]
     date = meta.get("date", "")
     author = meta.get("author", "")
     title = meta.get("title", "The Daily Crossword")
 
+    # Format the date nicely
+    try:
+        from datetime import datetime
+        dt = datetime.strptime(date, "%Y-%m-%d")
+        date_display = dt.strftime("%A, %B %-d, %Y")
+    except Exception:
+        date_display = date
+
     # Build grid HTML
-    grid_html = build_grid_html(grid, rows, cols)
+    grid_html = build_grid_html(grid, num_rows, cols)
 
     # Build clue lists
     across_html = build_clue_list(clues["across"], "Across")
     down_html = build_clue_list(clues["down"], "Down")
 
-    # Cell size calculation for Kindle Scribe
-    # Target: grid takes about 60% of the page width
-    # At 1860px width, 60% = ~1116px, for 15 cells = ~74px per cell
-    cell_size = 46  # px — good balance for 15x15 on Kindle
+    # Cell size — 46px works well for 15-col grids on Kindle Scribe
+    cell_size = 46
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{title} — {date}</title>
+<title>{title} &mdash; {date}</title>
 <style>
-  @page {{
-    size: 1860px 2480px;
-    margin: 0;
-  }}
-
-  * {{
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }}
+  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
 
   body {{
     font-family: Georgia, 'Times New Roman', serif;
     background: #fff;
     color: #000;
-    width: 100%;
-    max-width: 1860px;
+    max-width: 800px;
     margin: 0 auto;
-    padding: 24px 32px;
+    padding: 16px 20px;
     -webkit-text-size-adjust: none;
+  }}
+
+  /* Navigation */
+  .nav {{
+    margin-bottom: 12px;
+  }}
+  .nav a {{
+    font-size: 15px;
+    color: #000;
+    text-decoration: none;
+    font-family: Arial, Helvetica, sans-serif;
+  }}
+  .nav a::before {{
+    content: "\\25C0\\00A0";
   }}
 
   /* Header */
   .header {{
     text-align: center;
-    margin-bottom: 16px;
-    border-bottom: 2px solid #000;
-    padding-bottom: 10px;
+    margin-bottom: 14px;
+    border-bottom: 3px solid #000;
+    padding-bottom: 8px;
   }}
   .header h1 {{
-    font-size: 28px;
+    font-size: 26px;
     font-weight: bold;
     letter-spacing: 1px;
     text-transform: uppercase;
   }}
-  .header .meta {{
-    font-size: 16px;
-    color: #333;
-    margin-top: 4px;
+  .header .date {{
+    font-size: 18px;
+    font-weight: bold;
+    margin-top: 2px;
+  }}
+  .header .author {{
+    font-size: 14px;
+    color: #444;
+    margin-top: 2px;
   }}
 
   /* Grid */
-  .grid-container {{
-    display: flex;
-    justify-content: center;
-    margin: 16px 0;
+  .grid-wrap {{
+    text-align: center;
+    margin: 14px 0;
   }}
 
   table.grid {{
     border-collapse: collapse;
     border: 3px solid #000;
+    display: inline-table;
   }}
 
   table.grid td {{
@@ -201,91 +216,89 @@ def generate_html(puzzle: dict, grid: list[list[dict]]) -> str:
     border-color: #000;
   }}
 
-  table.grid td .num {{
+  table.grid td .n {{
     position: absolute;
     top: 1px;
     left: 2px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: bold;
     line-height: 1;
     color: #000;
     font-family: Arial, Helvetica, sans-serif;
   }}
 
-  /* Clues section */
-  .clues-container {{
+  /* Clues */
+  .clues {{
     display: flex;
-    gap: 32px;
-    margin-top: 16px;
+    gap: 24px;
+    margin-top: 14px;
   }}
 
-  .clue-section {{
+  .clues section {{
     flex: 1;
   }}
 
-  .clue-section h2 {{
-    font-size: 20px;
+  .clues h2 {{
+    font-size: 18px;
     font-weight: bold;
     text-transform: uppercase;
+    letter-spacing: 1px;
     border-bottom: 2px solid #000;
-    padding-bottom: 4px;
-    margin-bottom: 8px;
+    padding-bottom: 3px;
+    margin-bottom: 6px;
   }}
 
-  .clue-list {{
+  .clues ul {{
     list-style: none;
     padding: 0;
-    column-count: 2;
-    column-gap: 20px;
   }}
 
-  .clue-list li {{
-    font-size: 14px;
-    line-height: 1.35;
-    margin-bottom: 4px;
+  .clues li {{
+    font-size: 13px;
+    line-height: 1.3;
+    margin-bottom: 3px;
     break-inside: avoid;
-    -webkit-column-break-inside: avoid;
   }}
 
-  .clue-list li .clue-num {{
-    font-weight: bold;
+  .clues li b {{
     display: inline-block;
-    min-width: 24px;
+    min-width: 22px;
     text-align: right;
     margin-right: 4px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
   }}
 
-  /* Print styles */
+  /* Print */
   @media print {{
-    body {{
-      padding: 0;
-    }}
-    .header {{
-      margin-bottom: 12px;
-    }}
+    .nav {{ display: none; }}
+    body {{ padding: 0; }}
   }}
 </style>
 </head>
 <body>
 
+<div class="nav"><a href="index.html">All Puzzles</a></div>
+
 <div class="header">
   <h1>{title}</h1>
-  <div class="meta">{date} &middot; By {author}</div>
+  <div class="date">{date_display}</div>
+  <div class="author">By {author}</div>
 </div>
 
-<div class="grid-container">
+<div class="grid-wrap">
 {grid_html}
 </div>
 
-<div class="clues-container">
-  <div class="clue-section">
+<div class="clues">
+  <section>
     <h2>Across</h2>
 {across_html}
-  </div>
-  <div class="clue-section">
+  </section>
+  <section>
     <h2>Down</h2>
 {down_html}
-  </div>
+  </section>
 </div>
 
 </body>
@@ -302,13 +315,13 @@ def build_grid_html(grid: list[list[dict]], num_rows: int, num_cols: int) -> str
         for c in range(num_cols):
             cell = grid[r][c]
             if cell["type"] == "black":
-                cells.append('    <td class="black"></td>')
+                cells.append('<td class="black"></td>')
             else:
-                num_span = ""
                 if cell["number"]:
-                    num_span = f'<span class="num">{cell["number"]}</span>'
-                cells.append(f'    <td>{num_span}</td>')
-        rows.append("  <tr>\n" + "\n".join(cells) + "\n  </tr>")
+                    cells.append(f'<td><span class="n">{cell["number"]}</span></td>')
+                else:
+                    cells.append('<td></td>')
+        rows.append("<tr>" + "".join(cells) + "</tr>")
 
     return '<table class="grid">\n' + "\n".join(rows) + "\n</table>"
 
@@ -318,10 +331,9 @@ def build_clue_list(clues: dict, label: str) -> str:
     items = []
     for num in sorted(clues.keys(), key=lambda x: int(x)):
         text = clues[num]
-        # Escape HTML special chars
         text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-        items.append(f'    <li><span class="clue-num">{num}</span> {text}</li>')
-    return '    <ul class="clue-list">\n' + "\n".join(items) + "\n    </ul>"
+        items.append(f'    <li><b>{num}</b> {text}</li>')
+    return '    <ul>\n' + "\n".join(items) + "\n    </ul>"
 
 
 def main():
