@@ -6,7 +6,9 @@ Extracts the empty grid structure (black/white cells and clue numbers)
 from a photograph of a newspaper crossword puzzle.
 
 Usage:
-    python3 extract_grid.py <image_path> [--output <output_path>] [--debug]
+    python3 extract_grid.py photos/<image> [--output <output_path>] [--debug]
+
+Output files are written to the output/ directory by default.
 
 Dependencies:
     pip install opencv-python-headless numpy Pillow
@@ -413,11 +415,15 @@ def extract_crossword_grid(image_path: str, debug: bool = False) -> dict:
     result = grid_to_json(grid, numbers, grid_size, image_path)
 
     if debug and debug_img is not None:
-        debug_path = str(Path(image_path).with_suffix(".debug.png"))
+        # Write debug images to output/ sibling directory
+        img_stem = Path(image_path).stem
+        output_dir = Path(image_path).parent.parent / "output"
+        output_dir.mkdir(exist_ok=True)
+        debug_path = str(output_dir / f"{img_stem}.debug.png")
         cv2.imwrite(debug_path, debug_img)
         print(f"\nDebug image saved: {debug_path}")
 
-        warped_path = str(Path(image_path).with_suffix(".warped.png"))
+        warped_path = str(output_dir / f"{img_stem}.warped.png")
         cv2.imwrite(warped_path, warped)
         print(f"Warped grid saved: {warped_path}")
 
@@ -476,7 +482,14 @@ def main():
     if args.size:
         print(f"\nNote: Grid size override not yet implemented. Detected: {result['grid_size']}")
 
-    output_path = args.output or str(Path(args.image).with_suffix(".grid.json"))
+    if args.output:
+        output_path = args.output
+    else:
+        # Default: write to output/ sibling directory
+        img_stem = Path(args.image).stem
+        output_dir = Path(args.image).parent.parent / "output"
+        output_dir.mkdir(exist_ok=True)
+        output_path = str(output_dir / f"{img_stem}.grid.json")
     with open(output_path, "w") as f:
         json.dump(result, f, indent=2)
     print(f"\nGrid saved to: {output_path}")
