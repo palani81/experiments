@@ -20,6 +20,8 @@ If something here sparks an idea or saves you time, that's a win.
 
 - **kindle-sudoku** — A Sudoku puzzle game optimized for Kindle e-reader devices. Single self-contained HTML file designed for Kindle's experimental WebKit browser and e-ink display. Features three difficulty levels (Easy, Medium, Hard), backtracking puzzle generator with unique-solution guarantee, touch-friendly high-contrast grayscale UI, conflict highlighting, and responsive layout for both basic Kindle (600x800) and Paperwhite (1072x1448). Pure ES5 JavaScript with zero external dependencies.
 
+- **kindle-crossword** — Daily newspaper crossword puzzles extracted from photos and rendered as clean HTML optimized for the Kindle Scribe's 10.2" e-ink display. Pipeline: photograph → OpenCV grid extraction → Tesseract OCR clue extraction → static HTML with numbered grid + clue lists. [View puzzles →](https://palani81.github.io/experiments/kindle-crossword/)
+
 ## License
 
 Projects in this repo are licensed under Apache 2.0 unless otherwise noted. See individual project folders for details.
