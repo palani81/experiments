@@ -129,8 +129,9 @@ def generate_html(puzzle: dict, grid: list[list[dict]]) -> str:
     across_html = build_clue_list(clues["across"], "Across")
     down_html = build_clue_list(clues["down"], "Down")
 
-    # Cell size — 46px works well for 15-col grids on Kindle Scribe
-    cell_size = 46
+    # Grid width as percentage of container so it scales on any screen
+    # Each cell uses aspect-ratio: 1 to guarantee square
+    col_pct = round(100 / cols, 4)
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -152,18 +153,14 @@ def generate_html(puzzle: dict, grid: list[list[dict]]) -> str:
   }}
 
   /* Navigation */
-  .nav {{
-    margin-bottom: 12px;
-  }}
+  .nav {{ margin-bottom: 12px; }}
   .nav a {{
     font-size: 15px;
     color: #000;
     text-decoration: none;
     font-family: Arial, Helvetica, sans-serif;
   }}
-  .nav a::before {{
-    content: "\\25C0\\00A0";
-  }}
+  .nav a::before {{ content: "\\25C0\\00A0"; }}
 
   /* Header */
   .header {{
@@ -178,53 +175,73 @@ def generate_html(puzzle: dict, grid: list[list[dict]]) -> str:
     letter-spacing: 1px;
     text-transform: uppercase;
   }}
-  .header .date {{
-    font-size: 18px;
-    font-weight: bold;
-    margin-top: 2px;
-  }}
-  .header .author {{
-    font-size: 14px;
-    color: #444;
-    margin-top: 2px;
-  }}
+  .header .date {{ font-size: 18px; font-weight: bold; margin-top: 2px; }}
+  .header .author {{ font-size: 14px; color: #444; margin-top: 2px; }}
 
-  /* Grid */
+  /* Grid — CSS Grid for guaranteed square cells */
   .grid-wrap {{
-    text-align: center;
+    display: flex;
+    justify-content: center;
     margin: 14px 0;
   }}
 
-  table.grid {{
-    border-collapse: collapse;
+  .grid {{
+    display: grid;
+    grid-template-columns: repeat({cols}, 1fr);
     border: 3px solid #000;
-    display: inline-table;
+    width: min(100%, 690px);
+    /* For non-square grids, limit by column width */
   }}
 
-  table.grid td {{
-    width: {cell_size}px;
-    height: {cell_size}px;
+  .cell {{
+    aspect-ratio: 1;
     border: 1px solid #000;
     position: relative;
-    vertical-align: top;
-    padding: 0;
     background: #fff;
   }}
 
-  table.grid td.black {{
+  .cell.black {{
     background: #000;
     border-color: #000;
   }}
 
-  table.grid td .n {{
+  .cell .n {{
     position: absolute;
     top: 1px;
     left: 2px;
-    font-size: 10px;
+    font-size: clamp(7px, 1.8vw, 11px);
     font-weight: bold;
     line-height: 1;
     color: #000;
     font-family: Arial, Helvetica, sans-serif;
+    z-index: 1;
+    pointer-events: none;
+  }}
+
+  /* Writable input in each white cell */
+  .cell input {{
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+    text-align: center;
+    font-size: clamp(14px, 3.5vw, 28px);
+    font-weight: bold;
+    font-family: Arial, Helvetica, sans-serif;
+    text-transform: uppercase;
+    padding-top: 18%;
+    color: #000;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: 0;
+  }}
+
+  .cell input:focus {{
+    background: #eee;
   }}
 
   /* Clues */
@@ -234,9 +251,7 @@ def generate_html(puzzle: dict, grid: list[list[dict]]) -> str:
     margin-top: 14px;
   }}
 
-  .clues section {{
-    flex: 1;
-  }}
+  .clues section {{ flex: 1; }}
 
   .clues h2 {{
     font-size: 18px;
@@ -248,10 +263,7 @@ def generate_html(puzzle: dict, grid: list[list[dict]]) -> str:
     margin-bottom: 6px;
   }}
 
-  .clues ul {{
-    list-style: none;
-    padding: 0;
-  }}
+  .clues ul {{ list-style: none; padding: 0; }}
 
   .clues li {{
     font-size: 13px;
@@ -273,6 +285,7 @@ def generate_html(puzzle: dict, grid: list[list[dict]]) -> str:
   @media print {{
     .nav {{ display: none; }}
     body {{ padding: 0; }}
+    .cell input {{ padding-top: 25%; }}
   }}
 </style>
 </head>
@@ -301,6 +314,27 @@ def generate_html(puzzle: dict, grid: list[list[dict]]) -> str:
   </section>
 </div>
 
+<script>
+// Auto-advance: move to next cell after typing a letter
+document.querySelectorAll('.cell input').forEach(function(inp) {{
+  inp.addEventListener('input', function() {{
+    if (this.value.length >= 1) {{
+      this.value = this.value.slice(-1).toUpperCase();
+      // Find next input
+      var all = Array.from(document.querySelectorAll('.cell input'));
+      var idx = all.indexOf(this);
+      if (idx >= 0 && idx < all.length - 1) {{
+        all[idx + 1].focus();
+      }}
+    }}
+  }});
+  // Select all text on focus for easy overwrite
+  inp.addEventListener('focus', function() {{
+    this.select();
+  }});
+}});
+</script>
+
 </body>
 </html>"""
 
@@ -308,22 +342,25 @@ def generate_html(puzzle: dict, grid: list[list[dict]]) -> str:
 
 
 def build_grid_html(grid: list[list[dict]], num_rows: int, num_cols: int) -> str:
-    """Build the HTML table for the crossword grid."""
-    rows = []
+    """Build the HTML grid using CSS Grid with input fields for writing."""
+    cells = []
     for r in range(num_rows):
-        cells = []
         for c in range(num_cols):
             cell = grid[r][c]
             if cell["type"] == "black":
-                cells.append('<td class="black"></td>')
+                cells.append('<div class="cell black"></div>')
             else:
+                num_span = ""
                 if cell["number"]:
-                    cells.append(f'<td><span class="n">{cell["number"]}</span></td>')
-                else:
-                    cells.append('<td></td>')
-        rows.append("<tr>" + "".join(cells) + "</tr>")
+                    num_span = f'<span class="n">{cell["number"]}</span>'
+                cells.append(
+                    f'<div class="cell">{num_span}'
+                    f'<input type="text" maxlength="1" autocomplete="off" '
+                    f'aria-label="{cell["number"] or ""}">'
+                    f'</div>'
+                )
 
-    return '<table class="grid">\n' + "\n".join(rows) + "\n</table>"
+    return '<div class="grid">\n' + "\n".join(cells) + "\n</div>"
 
 
 def build_clue_list(clues: dict, label: str) -> str:
