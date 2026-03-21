@@ -3,533 +3,641 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>The Daily Crossword — 2026-03-20</title>
+<title>The Daily Crossword &mdash; 2026-03-20</title>
 <style>
-  @page {
-    size: 1860px 2480px;
-    margin: 0;
-  }
-
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
     font-family: Georgia, 'Times New Roman', serif;
     background: #fff;
     color: #000;
-    width: 100%;
-    max-width: 1860px;
+    max-width: 800px;
     margin: 0 auto;
-    padding: 24px 32px;
+    padding: 16px 20px;
     -webkit-text-size-adjust: none;
   }
+
+  /* Navigation */
+  .nav { margin-bottom: 12px; }
+  .nav a {
+    font-size: 15px;
+    color: #000;
+    text-decoration: none;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .nav a::before { content: "\25C0\00A0"; }
 
   /* Header */
   .header {
     text-align: center;
-    margin-bottom: 16px;
-    border-bottom: 2px solid #000;
-    padding-bottom: 10px;
+    margin-bottom: 14px;
+    border-bottom: 3px solid #000;
+    padding-bottom: 8px;
   }
   .header h1 {
-    font-size: 28px;
+    font-size: 26px;
     font-weight: bold;
     letter-spacing: 1px;
     text-transform: uppercase;
   }
-  .header .meta {
-    font-size: 16px;
-    color: #333;
-    margin-top: 4px;
-  }
+  .header .date { font-size: 18px; font-weight: bold; margin-top: 2px; }
+  .header .author { font-size: 14px; color: #444; margin-top: 2px; }
+  .header .source-photos { font-size: 12px; margin-top: 4px; }
+  .header .source-photos a { color: #333; }
 
-  /* Grid */
-  .grid-container {
+  /* Grid — CSS Grid for guaranteed square cells */
+  .grid-wrap {
     display: flex;
     justify-content: center;
-    margin: 16px 0;
+    margin: 14px 0;
   }
 
-  table.grid {
-    border-collapse: collapse;
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(15, 1fr);
     border: 3px solid #000;
+    width: min(100%, 690px);
+    /* For non-square grids, limit by column width */
   }
 
-  table.grid td {
-    width: 46px;
-    height: 46px;
+  .cell {
+    aspect-ratio: 1;
     border: 1px solid #000;
     position: relative;
-    vertical-align: top;
-    padding: 0;
     background: #fff;
   }
 
-  table.grid td.black {
+  .cell.black {
     background: #000;
     border-color: #000;
   }
 
-  table.grid td .num {
+  .cell .n {
     position: absolute;
     top: 1px;
     left: 2px;
-    font-size: 11px;
+    font-size: clamp(7px, 1.8vw, 11px);
     font-weight: bold;
     line-height: 1;
     color: #000;
     font-family: Arial, Helvetica, sans-serif;
+    z-index: 1;
+    pointer-events: none;
   }
 
-  /* Clues section */
-  .clues-container {
+  /* Writable input in each white cell */
+  .cell input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+    text-align: center;
+    font-size: clamp(14px, 3.5vw, 28px);
+    font-weight: bold;
+    font-family: Arial, Helvetica, sans-serif;
+    text-transform: uppercase;
+    padding-top: 18%;
+    color: #000;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: 0;
+  }
+
+  .cell input:focus {
+    background: #eee;
+  }
+
+  /* Clues */
+  .clues {
     display: flex;
-    gap: 32px;
-    margin-top: 16px;
+    gap: 24px;
+    margin-top: 14px;
   }
 
-  .clue-section {
-    flex: 1;
-  }
+  .clues section { flex: 1; }
 
-  .clue-section h2 {
-    font-size: 20px;
+  .clues h2 {
+    font-size: 18px;
     font-weight: bold;
     text-transform: uppercase;
+    letter-spacing: 1px;
     border-bottom: 2px solid #000;
-    padding-bottom: 4px;
-    margin-bottom: 8px;
+    padding-bottom: 3px;
+    margin-bottom: 6px;
   }
 
-  .clue-list {
-    list-style: none;
-    padding: 0;
-    column-count: 2;
-    column-gap: 20px;
-  }
+  .clues ul { list-style: none; padding: 0; }
 
-  .clue-list li {
-    font-size: 14px;
-    line-height: 1.35;
-    margin-bottom: 4px;
+  .clues li {
+    font-size: 13px;
+    line-height: 1.3;
+    margin-bottom: 3px;
     break-inside: avoid;
-    -webkit-column-break-inside: avoid;
   }
 
-  .clue-list li .clue-num {
-    font-weight: bold;
+  .clues li b {
     display: inline-block;
-    min-width: 24px;
+    min-width: 22px;
     text-align: right;
     margin-right: 4px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
   }
 
-  /* Print styles */
+  /* Clue banner — sticky at top, shows clue for focused cell */
+  #clue-banner {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #f0f0f0;
+    border: 2px solid #000;
+    padding: 6px 10px;
+    font-size: 14px;
+    font-family: Arial, Helvetica, sans-serif;
+    line-height: 1.3;
+    min-height: 32px;
+    display: none;
+  }
+  #clue-banner.visible { display: block; }
+  #clue-banner .clue-dir { font-weight: bold; text-transform: uppercase; }
+
+  /* Print */
   @media print {
-    body {
-      padding: 0;
-    }
-    .header {
-      margin-bottom: 12px;
-    }
+    .nav { display: none; }
+    #clue-banner { display: none; }
+    body { padding: 0; }
+    .cell input { padding-top: 25%; }
   }
 </style>
 </head>
 <body>
 
+<div class="nav"><a href="index.html">All Puzzles</a></div>
+
 <div class="header">
   <h1>The Daily Crossword</h1>
-  <div class="meta">2026-03-20 &middot; By Rebecca Goldstein & Rachel Fabi</div>
+  <div class="date">Friday, March 20, 2026</div>
+  <div class="author">By Rebecca Goldstein & Rachel Fabi</div>
+  <div class="source-photos"><a href="IMG_5138.jpeg">Source photo</a></div>
 </div>
 
-<div class="grid-container">
-<table class="grid">
-  <tr>
-    <td><span class="num">1</span></td>
-    <td><span class="num">2</span></td>
-    <td><span class="num">3</span></td>
-    <td><span class="num">4</span></td>
-    <td><span class="num">5</span></td>
-    <td class="black"></td>
-    <td><span class="num">6</span></td>
-    <td><span class="num">7</span></td>
-    <td><span class="num">8</span></td>
-    <td><span class="num">9</span></td>
-    <td class="black"></td>
-    <td><span class="num">10</span></td>
-    <td><span class="num">11</span></td>
-    <td><span class="num">12</span></td>
-    <td><span class="num">13</span></td>
-  </tr>
-  <tr>
-    <td><span class="num">14</span></td>
-    <td></td>
-    <td></td>
-    <td class="black"></td>
-    <td><span class="num">15</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td><span class="num">16</span></td>
-    <td></td>
-    <td></td>
-  </tr>
-  <tr>
-    <td><span class="num">17</span></td>
-    <td></td>
-    <td><span class="num">18</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td class="black"></td>
-    <td></td>
-    <td></td>
-    <td><span class="num">19</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-  </tr>
-  <tr>
-    <td><span class="num">20</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td><span class="num">21</span></td>
-    <td></td>
-    <td><span class="num">22</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td class="black"></td>
-    <td class="black"></td>
-  </tr>
-  <tr>
-    <td><span class="num">23</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td class="black"></td>
-    <td><span class="num">24</span></td>
-    <td><span class="num">25</span></td>
-    <td><span class="num">26</span></td>
-    <td><span class="num">27</span></td>
-    <td></td>
-    <td></td>
-    <td class="black"></td>
-    <td><span class="num">28</span></td>
-    <td></td>
-    <td></td>
-  </tr>
-  <tr>
-    <td><span class="num">29</span></td>
-    <td><span class="num">30</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td class="black"></td>
-    <td><span class="num">31</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-  </tr>
-  <tr>
-    <td><span class="num">32</span></td>
-    <td></td>
-    <td></td>
-    <td><span class="num">34</span></td>
-    <td></td>
-    <td><span class="num">35</span></td>
-    <td></td>
-    <td><span class="num">36</span></td>
-    <td></td>
-    <td class="black"></td>
-    <td></td>
-    <td></td>
-    <td><span class="num">37</span></td>
-    <td></td>
-    <td></td>
-  </tr>
-  <tr>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td class="black"></td>
-    <td></td>
-    <td></td>
-    <td><span class="num">38</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-  </tr>
-  <tr>
-    <td></td>
-    <td><span class="num">39</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td><span class="num">40</span></td>
-    <td><span class="num">41</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td class="black"></td>
-    <td class="black"></td>
-  </tr>
-  <tr>
-    <td><span class="num">42</span></td>
-    <td></td>
-    <td></td>
-    <td class="black"></td>
-    <td><span class="num">43</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-  </tr>
-  <tr>
-    <td><span class="num">44</span></td>
-    <td></td>
-    <td></td>
-    <td><span class="num">45</span></td>
-    <td></td>
-    <td class="black"></td>
-    <td><span class="num">46</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td class="black"></td>
-    <td><span class="num">47</span></td>
-    <td><span class="num">48</span></td>
-    <td><span class="num">49</span></td>
-    <td><span class="num">50</span></td>
-  </tr>
-  <tr>
-    <td><span class="num">51</span></td>
-    <td></td>
-    <td><span class="num">52</span></td>
-    <td></td>
-    <td class="black"></td>
-    <td><span class="num">53</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-  </tr>
-  <tr>
-    <td class="black"></td>
-    <td class="black"></td>
-    <td><span class="num">54</span></td>
-    <td><span class="num">55</span></td>
-    <td><span class="num">56</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td><span class="num">57</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-  </tr>
-  <tr>
-    <td><span class="num">58</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td><span class="num">59</span></td>
-    <td></td>
-    <td></td>
-    <td class="black"></td>
-    <td><span class="num">60</span></td>
-    <td></td>
-    <td><span class="num">61</span></td>
-    <td></td>
-    <td></td>
-  </tr>
-  <tr>
-    <td><span class="num">62</span></td>
-    <td></td>
-    <td><span class="num">63</span></td>
-    <td></td>
-    <td><span class="num">64</span></td>
-    <td><span class="num">65</span></td>
-    <td><span class="num">66</span></td>
-    <td class="black"></td>
-    <td><span class="num">67</span></td>
-    <td></td>
-    <td><span class="num">68</span></td>
-    <td></td>
-    <td></td>
-    <td class="black"></td>
-    <td></td>
-  </tr>
-  <tr>
-    <td><span class="num">69</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td><span class="num">70</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-  </tr>
-  <tr>
-    <td><span class="num">71</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td class="black"></td>
-    <td><span class="num">72</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td class="black"></td>
-    <td><span class="num">73</span></td>
-    <td></td>
-    <td></td>
-    <td></td>
-  </tr>
-</table>
+<div id="clue-banner"></div>
+
+<div class="grid-wrap">
+<div class="grid">
+<div class="cell" data-r="0" data-c="0" data-num="1"><span class="n">1</span><input type="text" maxlength="1" autocomplete="off" aria-label="1"></div>
+<div class="cell" data-r="0" data-c="1" data-num="2"><span class="n">2</span><input type="text" maxlength="1" autocomplete="off" aria-label="2"></div>
+<div class="cell" data-r="0" data-c="2" data-num="3"><span class="n">3</span><input type="text" maxlength="1" autocomplete="off" aria-label="3"></div>
+<div class="cell" data-r="0" data-c="3" data-num="4"><span class="n">4</span><input type="text" maxlength="1" autocomplete="off" aria-label="4"></div>
+<div class="cell" data-r="0" data-c="4" data-num="5"><span class="n">5</span><input type="text" maxlength="1" autocomplete="off" aria-label="5"></div>
+<div class="cell black"></div>
+<div class="cell" data-r="0" data-c="6" data-num="6"><span class="n">6</span><input type="text" maxlength="1" autocomplete="off" aria-label="6"></div>
+<div class="cell" data-r="0" data-c="7" data-num="7"><span class="n">7</span><input type="text" maxlength="1" autocomplete="off" aria-label="7"></div>
+<div class="cell" data-r="0" data-c="8" data-num="8"><span class="n">8</span><input type="text" maxlength="1" autocomplete="off" aria-label="8"></div>
+<div class="cell" data-r="0" data-c="9" data-num="9"><span class="n">9</span><input type="text" maxlength="1" autocomplete="off" aria-label="9"></div>
+<div class="cell black"></div>
+<div class="cell" data-r="0" data-c="11" data-num="10"><span class="n">10</span><input type="text" maxlength="1" autocomplete="off" aria-label="10"></div>
+<div class="cell" data-r="0" data-c="12" data-num="11"><span class="n">11</span><input type="text" maxlength="1" autocomplete="off" aria-label="11"></div>
+<div class="cell" data-r="0" data-c="13" data-num="12"><span class="n">12</span><input type="text" maxlength="1" autocomplete="off" aria-label="12"></div>
+<div class="cell" data-r="0" data-c="14" data-num="13"><span class="n">13</span><input type="text" maxlength="1" autocomplete="off" aria-label="13"></div>
+<div class="cell" data-r="1" data-c="0" data-num="14"><span class="n">14</span><input type="text" maxlength="1" autocomplete="off" aria-label="14"></div>
+<div class="cell" data-r="1" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="1" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell" data-r="1" data-c="4" data-num="15"><span class="n">15</span><input type="text" maxlength="1" autocomplete="off" aria-label="15"></div>
+<div class="cell" data-r="1" data-c="5"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="1" data-c="6"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="1" data-c="7"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="1" data-c="8"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="1" data-c="9"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="1" data-c="10"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="1" data-c="11"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="1" data-c="12" data-num="16"><span class="n">16</span><input type="text" maxlength="1" autocomplete="off" aria-label="16"></div>
+<div class="cell" data-r="1" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="1" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="2" data-c="0" data-num="17"><span class="n">17</span><input type="text" maxlength="1" autocomplete="off" aria-label="17"></div>
+<div class="cell" data-r="2" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="2" data-c="2" data-num="18"><span class="n">18</span><input type="text" maxlength="1" autocomplete="off" aria-label="18"></div>
+<div class="cell" data-r="2" data-c="3"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="2" data-c="4"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="2" data-c="5"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="2" data-c="6"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="2" data-c="7"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell" data-r="2" data-c="9"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="2" data-c="10"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="2" data-c="11" data-num="19"><span class="n">19</span><input type="text" maxlength="1" autocomplete="off" aria-label="19"></div>
+<div class="cell" data-r="2" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="2" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="2" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="3" data-c="0" data-num="20"><span class="n">20</span><input type="text" maxlength="1" autocomplete="off" aria-label="20"></div>
+<div class="cell" data-r="3" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="3" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="3" data-c="3"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="3" data-c="4"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="3" data-c="5" data-num="21"><span class="n">21</span><input type="text" maxlength="1" autocomplete="off" aria-label="21"></div>
+<div class="cell" data-r="3" data-c="6"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="3" data-c="7" data-num="22"><span class="n">22</span><input type="text" maxlength="1" autocomplete="off" aria-label="22"></div>
+<div class="cell" data-r="3" data-c="8"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="3" data-c="9"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="3" data-c="10"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="3" data-c="11"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="3" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell black"></div>
+<div class="cell" data-r="4" data-c="0" data-num="23"><span class="n">23</span><input type="text" maxlength="1" autocomplete="off" aria-label="23"></div>
+<div class="cell" data-r="4" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="4" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="4" data-c="3"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell" data-r="4" data-c="5" data-num="24"><span class="n">24</span><input type="text" maxlength="1" autocomplete="off" aria-label="24"></div>
+<div class="cell" data-r="4" data-c="6" data-num="25"><span class="n">25</span><input type="text" maxlength="1" autocomplete="off" aria-label="25"></div>
+<div class="cell" data-r="4" data-c="7" data-num="26"><span class="n">26</span><input type="text" maxlength="1" autocomplete="off" aria-label="26"></div>
+<div class="cell" data-r="4" data-c="8" data-num="27"><span class="n">27</span><input type="text" maxlength="1" autocomplete="off" aria-label="27"></div>
+<div class="cell" data-r="4" data-c="9"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="4" data-c="10"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell" data-r="4" data-c="12" data-num="28"><span class="n">28</span><input type="text" maxlength="1" autocomplete="off" aria-label="28"></div>
+<div class="cell" data-r="4" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="4" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="5" data-c="0" data-num="29"><span class="n">29</span><input type="text" maxlength="1" autocomplete="off" aria-label="29"></div>
+<div class="cell" data-r="5" data-c="1" data-num="30"><span class="n">30</span><input type="text" maxlength="1" autocomplete="off" aria-label="30"></div>
+<div class="cell" data-r="5" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="5" data-c="3"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="5" data-c="4"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="5" data-c="5"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell" data-r="5" data-c="7" data-num="31"><span class="n">31</span><input type="text" maxlength="1" autocomplete="off" aria-label="31"></div>
+<div class="cell" data-r="5" data-c="8"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="5" data-c="9"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="5" data-c="10"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="5" data-c="11"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="5" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="5" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="5" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="6" data-c="0" data-num="32"><span class="n">32</span><input type="text" maxlength="1" autocomplete="off" aria-label="32"></div>
+<div class="cell" data-r="6" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="6" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="6" data-c="3" data-num="34"><span class="n">34</span><input type="text" maxlength="1" autocomplete="off" aria-label="34"></div>
+<div class="cell" data-r="6" data-c="4"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="6" data-c="5" data-num="35"><span class="n">35</span><input type="text" maxlength="1" autocomplete="off" aria-label="35"></div>
+<div class="cell" data-r="6" data-c="6"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="6" data-c="7" data-num="36"><span class="n">36</span><input type="text" maxlength="1" autocomplete="off" aria-label="36"></div>
+<div class="cell" data-r="6" data-c="8"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell" data-r="6" data-c="10"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="6" data-c="11"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="6" data-c="12" data-num="37"><span class="n">37</span><input type="text" maxlength="1" autocomplete="off" aria-label="37"></div>
+<div class="cell" data-r="6" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="6" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="7" data-c="0"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="7" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="7" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="7" data-c="3"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="7" data-c="4"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="7" data-c="5"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="7" data-c="6"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="7" data-c="7"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell" data-r="7" data-c="9"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="7" data-c="10"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="7" data-c="11" data-num="38"><span class="n">38</span><input type="text" maxlength="1" autocomplete="off" aria-label="38"></div>
+<div class="cell" data-r="7" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="7" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="7" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="8" data-c="0"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="8" data-c="1" data-num="39"><span class="n">39</span><input type="text" maxlength="1" autocomplete="off" aria-label="39"></div>
+<div class="cell" data-r="8" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="8" data-c="3"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="8" data-c="4"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="8" data-c="5"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="8" data-c="6" data-num="40"><span class="n">40</span><input type="text" maxlength="1" autocomplete="off" aria-label="40"></div>
+<div class="cell" data-r="8" data-c="7" data-num="41"><span class="n">41</span><input type="text" maxlength="1" autocomplete="off" aria-label="41"></div>
+<div class="cell" data-r="8" data-c="8"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="8" data-c="9"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="8" data-c="10"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="8" data-c="11"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="8" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell black"></div>
+<div class="cell" data-r="9" data-c="0" data-num="42"><span class="n">42</span><input type="text" maxlength="1" autocomplete="off" aria-label="42"></div>
+<div class="cell" data-r="9" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="9" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell" data-r="9" data-c="4" data-num="43"><span class="n">43</span><input type="text" maxlength="1" autocomplete="off" aria-label="43"></div>
+<div class="cell" data-r="9" data-c="5"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="9" data-c="6"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="9" data-c="7"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="9" data-c="8"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="9" data-c="9"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="9" data-c="10"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="9" data-c="11"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="9" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="9" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="9" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="10" data-c="0" data-num="44"><span class="n">44</span><input type="text" maxlength="1" autocomplete="off" aria-label="44"></div>
+<div class="cell" data-r="10" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="10" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="10" data-c="3" data-num="45"><span class="n">45</span><input type="text" maxlength="1" autocomplete="off" aria-label="45"></div>
+<div class="cell" data-r="10" data-c="4"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell" data-r="10" data-c="6" data-num="46"><span class="n">46</span><input type="text" maxlength="1" autocomplete="off" aria-label="46"></div>
+<div class="cell" data-r="10" data-c="7"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="10" data-c="8"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="10" data-c="9"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell" data-r="10" data-c="11" data-num="47"><span class="n">47</span><input type="text" maxlength="1" autocomplete="off" aria-label="47"></div>
+<div class="cell" data-r="10" data-c="12" data-num="48"><span class="n">48</span><input type="text" maxlength="1" autocomplete="off" aria-label="48"></div>
+<div class="cell" data-r="10" data-c="13" data-num="49"><span class="n">49</span><input type="text" maxlength="1" autocomplete="off" aria-label="49"></div>
+<div class="cell" data-r="10" data-c="14" data-num="50"><span class="n">50</span><input type="text" maxlength="1" autocomplete="off" aria-label="50"></div>
+<div class="cell" data-r="11" data-c="0" data-num="51"><span class="n">51</span><input type="text" maxlength="1" autocomplete="off" aria-label="51"></div>
+<div class="cell" data-r="11" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="11" data-c="2" data-num="52"><span class="n">52</span><input type="text" maxlength="1" autocomplete="off" aria-label="52"></div>
+<div class="cell" data-r="11" data-c="3"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell" data-r="11" data-c="5" data-num="53"><span class="n">53</span><input type="text" maxlength="1" autocomplete="off" aria-label="53"></div>
+<div class="cell" data-r="11" data-c="6"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="11" data-c="7"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="11" data-c="8"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="11" data-c="9"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="11" data-c="10"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="11" data-c="11"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="11" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="11" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="11" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell black"></div>
+<div class="cell" data-r="12" data-c="2" data-num="54"><span class="n">54</span><input type="text" maxlength="1" autocomplete="off" aria-label="54"></div>
+<div class="cell" data-r="12" data-c="3" data-num="55"><span class="n">55</span><input type="text" maxlength="1" autocomplete="off" aria-label="55"></div>
+<div class="cell" data-r="12" data-c="4" data-num="56"><span class="n">56</span><input type="text" maxlength="1" autocomplete="off" aria-label="56"></div>
+<div class="cell" data-r="12" data-c="5"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="12" data-c="6"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="12" data-c="7"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="12" data-c="8"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="12" data-c="9"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="12" data-c="10" data-num="57"><span class="n">57</span><input type="text" maxlength="1" autocomplete="off" aria-label="57"></div>
+<div class="cell" data-r="12" data-c="11"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="12" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="12" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="12" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="13" data-c="0" data-num="58"><span class="n">58</span><input type="text" maxlength="1" autocomplete="off" aria-label="58"></div>
+<div class="cell" data-r="13" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="13" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="13" data-c="3"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="13" data-c="4"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="13" data-c="5"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="13" data-c="6" data-num="59"><span class="n">59</span><input type="text" maxlength="1" autocomplete="off" aria-label="59"></div>
+<div class="cell" data-r="13" data-c="7"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="13" data-c="8"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell" data-r="13" data-c="10" data-num="60"><span class="n">60</span><input type="text" maxlength="1" autocomplete="off" aria-label="60"></div>
+<div class="cell" data-r="13" data-c="11"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="13" data-c="12" data-num="61"><span class="n">61</span><input type="text" maxlength="1" autocomplete="off" aria-label="61"></div>
+<div class="cell" data-r="13" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="13" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="14" data-c="0" data-num="62"><span class="n">62</span><input type="text" maxlength="1" autocomplete="off" aria-label="62"></div>
+<div class="cell" data-r="14" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="14" data-c="2" data-num="63"><span class="n">63</span><input type="text" maxlength="1" autocomplete="off" aria-label="63"></div>
+<div class="cell" data-r="14" data-c="3"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="14" data-c="4" data-num="64"><span class="n">64</span><input type="text" maxlength="1" autocomplete="off" aria-label="64"></div>
+<div class="cell" data-r="14" data-c="5" data-num="65"><span class="n">65</span><input type="text" maxlength="1" autocomplete="off" aria-label="65"></div>
+<div class="cell" data-r="14" data-c="6" data-num="66"><span class="n">66</span><input type="text" maxlength="1" autocomplete="off" aria-label="66"></div>
+<div class="cell black"></div>
+<div class="cell" data-r="14" data-c="8" data-num="67"><span class="n">67</span><input type="text" maxlength="1" autocomplete="off" aria-label="67"></div>
+<div class="cell" data-r="14" data-c="9"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="14" data-c="10" data-num="68"><span class="n">68</span><input type="text" maxlength="1" autocomplete="off" aria-label="68"></div>
+<div class="cell" data-r="14" data-c="11"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="14" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell" data-r="14" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="15" data-c="0" data-num="69"><span class="n">69</span><input type="text" maxlength="1" autocomplete="off" aria-label="69"></div>
+<div class="cell" data-r="15" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="15" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="15" data-c="3"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="15" data-c="4"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="15" data-c="5"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="15" data-c="6"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="15" data-c="7"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="15" data-c="8" data-num="70"><span class="n">70</span><input type="text" maxlength="1" autocomplete="off" aria-label="70"></div>
+<div class="cell" data-r="15" data-c="9"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="15" data-c="10"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="15" data-c="11"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="15" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="15" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="15" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="16" data-c="0" data-num="71"><span class="n">71</span><input type="text" maxlength="1" autocomplete="off" aria-label="71"></div>
+<div class="cell" data-r="16" data-c="1"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="16" data-c="2"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="16" data-c="3"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="16" data-c="4"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell" data-r="16" data-c="6" data-num="72"><span class="n">72</span><input type="text" maxlength="1" autocomplete="off" aria-label="72"></div>
+<div class="cell" data-r="16" data-c="7"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="16" data-c="8"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="16" data-c="9"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell black"></div>
+<div class="cell" data-r="16" data-c="11" data-num="73"><span class="n">73</span><input type="text" maxlength="1" autocomplete="off" aria-label="73"></div>
+<div class="cell" data-r="16" data-c="12"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="16" data-c="13"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+<div class="cell" data-r="16" data-c="14"><input type="text" maxlength="1" autocomplete="off" aria-label=""></div>
+</div>
 </div>
 
-<div class="clues-container">
-  <div class="clue-section">
+<div class="clues">
+  <section>
     <h2>Across</h2>
-    <ul class="clue-list">
-    <li><span class="clue-num">1</span> Framing pieces</li>
-    <li><span class="clue-num">6</span> Layer under a tee</li>
-    <li><span class="clue-num">10</span> Basketball commentator Rebecca</li>
-    <li><span class="clue-num">14</span> Swings and misses three times, say</li>
-    <li><span class="clue-num">15</span> Nudge</li>
-    <li><span class="clue-num">16</span> Leaving less of a bad taste, maybe</li>
-    <li><span class="clue-num">17</span> Pseudo?</li>
-    <li><span class="clue-num">19</span> Annual EDM festival in 22-Down</li>
-    <li><span class="clue-num">20</span> Fashionably nostalgic</li>
-    <li><span class="clue-num">21</span> __ the consequences</li>
-    <li><span class="clue-num">23</span> Evil act</li>
-    <li><span class="clue-num">24</span> Lab coat?</li>
-    <li><span class="clue-num">25</span> Neo?</li>
-    <li><span class="clue-num">29</span> Word of woe</li>
-    <li><span class="clue-num">31</span> Biological pouch</li>
-    <li><span class="clue-num">32</span> Maxims</li>
-    <li><span class="clue-num">33</span> Portions (out)</li>
-    <li><span class="clue-num">35</span> Covered in crystals?</li>
-    <li><span class="clue-num">37</span> Stalter of "Hacks"</li>
-    <li><span class="clue-num">38</span> Mono?</li>
-    <li><span class="clue-num">42</span> Also</li>
-    <li><span class="clue-num">43</span> Pair</li>
-    <li><span class="clue-num">44</span> Spot targeted by butterfly stretches</li>
-    <li><span class="clue-num">47</span> Takes up a lot of space</li>
-    <li><span class="clue-num">51</span> "__ been a minute"</li>
-    <li><span class="clue-num">53</span> Ibiza, por ejemplo</li>
-    <li><span class="clue-num">54</span> Mega?</li>
-    <li><span class="clue-num">57</span> Shade tree</li>
-    <li><span class="clue-num">58</span> Tax counterpart</li>
-    <li><span class="clue-num">59</span> Missing GI</li>
-    <li><span class="clue-num">60</span> Concession speech?</li>
-    <li><span class="clue-num">62</span> Down in the dumps</li>
-    <li><span class="clue-num">64</span> Anti?</li>
-    <li><span class="clue-num">68</span> Location, location, location</li>
-    <li><span class="clue-num">69</span> Transcript figs.</li>
-    <li><span class="clue-num">70</span> Racing shell</li>
-    <li><span class="clue-num">71</span> Leave in the lurch in the church</li>
-    <li><span class="clue-num">72</span> "Abominable" character named Everest</li>
-    <li><span class="clue-num">73</span> Word of woe</li>
+    <ul>
+    <li><b>1</b> Framing pieces</li>
+    <li><b>6</b> Layer under a tee</li>
+    <li><b>10</b> Basketball commentator Rebecca</li>
+    <li><b>14</b> Swings and misses three times, say</li>
+    <li><b>15</b> Nudge</li>
+    <li><b>16</b> Leaving less of a bad taste, maybe</li>
+    <li><b>17</b> Pseudo?</li>
+    <li><b>19</b> Annual EDM festival in 22-Down</li>
+    <li><b>20</b> Fashionably nostalgic</li>
+    <li><b>21</b> __ the consequences</li>
+    <li><b>23</b> Evil act</li>
+    <li><b>24</b> Lab coat?</li>
+    <li><b>25</b> Neo?</li>
+    <li><b>29</b> Word of woe</li>
+    <li><b>31</b> Biological pouch</li>
+    <li><b>32</b> Maxims</li>
+    <li><b>33</b> Portions (out)</li>
+    <li><b>35</b> Covered in crystals?</li>
+    <li><b>37</b> Stalter of "Hacks"</li>
+    <li><b>38</b> Mono?</li>
+    <li><b>42</b> Also</li>
+    <li><b>43</b> Pair</li>
+    <li><b>44</b> Spot targeted by butterfly stretches</li>
+    <li><b>47</b> Takes up a lot of space</li>
+    <li><b>51</b> "__ been a minute"</li>
+    <li><b>53</b> Ibiza, por ejemplo</li>
+    <li><b>54</b> Mega?</li>
+    <li><b>57</b> Shade tree</li>
+    <li><b>58</b> Tax counterpart</li>
+    <li><b>59</b> Missing GI</li>
+    <li><b>60</b> Concession speech?</li>
+    <li><b>62</b> Down in the dumps</li>
+    <li><b>64</b> Anti?</li>
+    <li><b>68</b> Location, location, location</li>
+    <li><b>69</b> Transcript figs.</li>
+    <li><b>70</b> Racing shell</li>
+    <li><b>71</b> Leave in the lurch in the church</li>
+    <li><b>72</b> "Abominable" character named Everest</li>
+    <li><b>73</b> Word of woe</li>
     </ul>
-  </div>
-  <div class="clue-section">
+  </section>
+  <section>
     <h2>Down</h2>
-    <ul class="clue-list">
-    <li><span class="clue-num">1</span> Peter Pan rival</li>
-    <li><span class="clue-num">2</span> In general</li>
-    <li><span class="clue-num">3</span> "Naked" rodents</li>
-    <li><span class="clue-num">4</span> Get three eights in blackjack, say</li>
-    <li><span class="clue-num">5</span> Unsmiling</li>
-    <li><span class="clue-num">6</span> Procedure practiced on mannequins: Abbr.</li>
-    <li><span class="clue-num">7</span> Preferring platonic relationships, informally</li>
-    <li><span class="clue-num">8</span> Cafe du __: New Orleans shop known for beignets</li>
-    <li><span class="clue-num">9</span> Collar danglers</li>
-    <li><span class="clue-num">10</span> Rapper __ Mama</li>
-    <li><span class="clue-num">11</span> Elects to participate</li>
-    <li><span class="clue-num">12</span> Strait off the coast of Siberia</li>
-    <li><span class="clue-num">13</span> Indonesian apes</li>
-    <li><span class="clue-num">16</span> Over-easy serving</li>
-    <li><span class="clue-num">18</span> Nemeses</li>
-    <li><span class="clue-num">22</span> Biscayne Bay city</li>
-    <li><span class="clue-num">24</span> Sibs and 'rents</li>
-    <li><span class="clue-num">26</span> Make like a banshee</li>
-    <li><span class="clue-num">27</span> Covertly included</li>
-    <li><span class="clue-num">28</span> Sushi bite sometimes served on a model boat</li>
-    <li><span class="clue-num">30</span> Vegan protein option</li>
-    <li><span class="clue-num">34</span> Winter break?</li>
-    <li><span class="clue-num">36</span> "We doing this?"</li>
-    <li><span class="clue-num">39</span> Decline to take the high road</li>
-    <li><span class="clue-num">40</span> Naan relative</li>
-    <li><span class="clue-num">41</span> Small bit of facial jewelry</li>
-    <li><span class="clue-num">45</span> "You won't get away with this!"</li>
-    <li><span class="clue-num">46</span> __ khao: Laotian crispy rice salad</li>
-    <li><span class="clue-num">47</span> High-ranking noncom</li>
-    <li><span class="clue-num">48</span> A __: literally, "from what is earlier"</li>
-    <li><span class="clue-num">49</span> Climber's descent</li>
-    <li><span class="clue-num">50</span> Absorbent</li>
-    <li><span class="clue-num">52</span> Foul mood</li>
-    <li><span class="clue-num">55</span> Have no reception, say</li>
-    <li><span class="clue-num">56</span> Coming Museum material</li>
-    <li><span class="clue-num">61</span> Killer whale</li>
-    <li><span class="clue-num">63</span> Have a snack</li>
-    <li><span class="clue-num">65</span> "Etc.," in Pittsburghese</li>
-    <li><span class="clue-num">66</span> Fed. stipend for some people with disabilities</li>
-    <li><span class="clue-num">67</span> "Srsly?"</li>
+    <ul>
+    <li><b>1</b> Peter Pan rival</li>
+    <li><b>2</b> In general</li>
+    <li><b>3</b> "Naked" rodents</li>
+    <li><b>4</b> Get three eights in blackjack, say</li>
+    <li><b>5</b> Unsmiling</li>
+    <li><b>6</b> Procedure practiced on mannequins: Abbr.</li>
+    <li><b>7</b> Preferring platonic relationships, informally</li>
+    <li><b>8</b> Cafe du __: New Orleans shop known for beignets</li>
+    <li><b>9</b> Collar danglers</li>
+    <li><b>10</b> Rapper __ Mama</li>
+    <li><b>11</b> Elects to participate</li>
+    <li><b>12</b> Strait off the coast of Siberia</li>
+    <li><b>13</b> Indonesian apes</li>
+    <li><b>16</b> Over-easy serving</li>
+    <li><b>18</b> Nemeses</li>
+    <li><b>22</b> Biscayne Bay city</li>
+    <li><b>24</b> Sibs and 'rents</li>
+    <li><b>26</b> Make like a banshee</li>
+    <li><b>27</b> Covertly included</li>
+    <li><b>28</b> Sushi bite sometimes served on a model boat</li>
+    <li><b>30</b> Vegan protein option</li>
+    <li><b>34</b> Winter break?</li>
+    <li><b>36</b> "We doing this?"</li>
+    <li><b>39</b> Decline to take the high road</li>
+    <li><b>40</b> Naan relative</li>
+    <li><b>41</b> Small bit of facial jewelry</li>
+    <li><b>45</b> "You won't get away with this!"</li>
+    <li><b>46</b> __ khao: Laotian crispy rice salad</li>
+    <li><b>47</b> High-ranking noncom</li>
+    <li><b>48</b> A __: literally, "from what is earlier"</li>
+    <li><b>49</b> Climber's descent</li>
+    <li><b>50</b> Absorbent</li>
+    <li><b>52</b> Foul mood</li>
+    <li><b>55</b> Have no reception, say</li>
+    <li><b>56</b> Coming Museum material</li>
+    <li><b>61</b> Killer whale</li>
+    <li><b>63</b> Have a snack</li>
+    <li><b>65</b> "Etc.," in Pittsburghese</li>
+    <li><b>66</b> Fed. stipend for some people with disabilities</li>
+    <li><b>67</b> "Srsly?"</li>
     </ul>
-  </div>
+  </section>
 </div>
+
+<script>
+(function() {
+  var CLUES = {"across": {"1": "Framing pieces", "6": "Layer under a tee", "10": "Basketball commentator Rebecca", "14": "Swings and misses three times, say", "15": "Nudge", "16": "Leaving less of a bad taste, maybe", "17": "Pseudo?", "19": "Annual EDM festival in 22-Down", "20": "Fashionably nostalgic", "21": "__ the consequences", "23": "Evil act", "24": "Lab coat?", "25": "Neo?", "29": "Word of woe", "31": "Biological pouch", "32": "Maxims", "33": "Portions (out)", "35": "Covered in crystals?", "37": "Stalter of \"Hacks\"", "38": "Mono?", "42": "Also", "43": "Pair", "44": "Spot targeted by butterfly stretches", "47": "Takes up a lot of space", "51": "\"__ been a minute\"", "53": "Ibiza, por ejemplo", "54": "Mega?", "57": "Shade tree", "58": "Tax counterpart", "59": "Missing GI", "60": "Concession speech?", "62": "Down in the dumps", "64": "Anti?", "68": "Location, location, location", "69": "Transcript figs.", "70": "Racing shell", "71": "Leave in the lurch in the church", "72": "\"Abominable\" character named Everest", "73": "Word of woe"}, "down": {"1": "Peter Pan rival", "2": "In general", "3": "\"Naked\" rodents", "4": "Get three eights in blackjack, say", "5": "Unsmiling", "6": "Procedure practiced on mannequins: Abbr.", "7": "Preferring platonic relationships, informally", "8": "Cafe du __: New Orleans shop known for beignets", "9": "Collar danglers", "10": "Rapper __ Mama", "11": "Elects to participate", "12": "Strait off the coast of Siberia", "13": "Indonesian apes", "16": "Over-easy serving", "18": "Nemeses", "22": "Biscayne Bay city", "24": "Sibs and 'rents", "26": "Make like a banshee", "27": "Covertly included", "28": "Sushi bite sometimes served on a model boat", "30": "Vegan protein option", "34": "Winter break?", "36": "\"We doing this?\"", "39": "Decline to take the high road", "40": "Naan relative", "41": "Small bit of facial jewelry", "45": "\"You won't get away with this!\"", "46": "__ khao: Laotian crispy rice salad", "47": "High-ranking noncom", "48": "A __: literally, \"from what is earlier\"", "49": "Climber's descent", "50": "Absorbent", "52": "Foul mood", "55": "Have no reception, say", "56": "Coming Museum material", "61": "Killer whale", "63": "Have a snack", "65": "\"Etc.,\" in Pittsburghese", "66": "Fed. stipend for some people with disabilities", "67": "\"Srsly?\""}};
+  var COLS = 15;
+  var STORAGE_KEY = 'crossword_2026-03-20';
+  var banner = document.getElementById('clue-banner');
+
+  // Build cell lookup
+  var cells = document.querySelectorAll('.cell[data-r]');
+  var cellMap = {};
+  cells.forEach(function(el) {
+    cellMap[el.dataset.r + ',' + el.dataset.c] = el;
+  });
+
+  // Persist cell values to localStorage
+  function saveState() {
+    var state = {};
+    cells.forEach(function(el) {
+      var inp = el.querySelector('input');
+      if (inp && inp.value) {
+        state[el.dataset.r + ',' + el.dataset.c] = inp.value;
+      }
+    });
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+  }
+
+  function loadState() {
+    try {
+      var state = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (!state) return;
+      for (var key in state) {
+        var el = cellMap[key];
+        if (el) {
+          var inp = el.querySelector('input');
+          if (inp) inp.value = state[key];
+        }
+      }
+    } catch(e) {}
+  }
+
+  // Find the across/down clue number for a given cell
+  function findClueForCell(r, c) {
+    var result = [];
+    for (var cc = c; cc >= 0; cc--) {
+      var el = cellMap[r + ',' + cc];
+      if (!el) break;
+      if (el.dataset.num && CLUES.across[el.dataset.num]) {
+        result.push({dir: 'Across', num: el.dataset.num, text: CLUES.across[el.dataset.num]});
+        break;
+      }
+    }
+    for (var rr = r; rr >= 0; rr--) {
+      var el = cellMap[rr + ',' + c];
+      if (!el) break;
+      if (el.dataset.num && CLUES.down[el.dataset.num]) {
+        result.push({dir: 'Down', num: el.dataset.num, text: CLUES.down[el.dataset.num]});
+        break;
+      }
+    }
+    return result;
+  }
+
+  function showClue(r, c) {
+    var clues = findClueForCell(r, c);
+    if (clues.length > 0) {
+      var html = clues.map(function(cl) {
+        return '<span class="clue-dir">' + cl.num + ' ' + cl.dir + ':</span> ' + cl.text;
+      }).join('<br>');
+      banner.innerHTML = html;
+      banner.className = 'visible';
+    }
+  }
+
+  // Auto-advance, clue display, and save on input
+  document.querySelectorAll('.cell input').forEach(function(inp) {
+    inp.addEventListener('input', function() {
+      if (this.value.length >= 1) {
+        this.value = this.value.slice(-1).toUpperCase();
+        var all = Array.from(document.querySelectorAll('.cell input'));
+        var idx = all.indexOf(this);
+        if (idx >= 0 && idx < all.length - 1) {
+          all[idx + 1].focus();
+        }
+      }
+      saveState();
+    });
+    inp.addEventListener('focus', function() {
+      this.select();
+      var cell = this.parentElement;
+      if (cell.dataset.r !== undefined) {
+        showClue(parseInt(cell.dataset.r), parseInt(cell.dataset.c));
+      }
+    });
+  });
+
+  // Restore saved state on load
+  loadState();
+})();
+</script>
 
 </body>
 </html>

@@ -6,7 +6,14 @@
     "publisher": "Tribune Content Agency, LLC",
     "grid_size": 15,
     "total_clues": 73,
-    "source_images": ["IMG_5041.jpeg", "IMG_5042.jpeg"]
+    "source_images": [
+      "IMG_5041.jpeg",
+      "IMG_5042.jpeg"
+    ],
+    "source_photos": [
+      "photos/IMG_5041.jpeg",
+      "photos/IMG_5042.jpeg"
+    ]
   },
   "clues": {
     "across": {

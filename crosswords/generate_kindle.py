@@ -20,6 +20,7 @@ Kindle Scribe specs:
 
 import argparse
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -104,7 +105,7 @@ def reconstruct_grid(puzzle: dict, size: int) -> list[list[dict]]:
     return grid
 
 
-def generate_html(puzzle: dict, grid: list[list[dict]]) -> str:
+def generate_html(puzzle: dict, grid: list[list[dict]], photo_filenames: list[str] | None = None) -> str:
     """Generate Kindle Scribe-optimized HTML."""
     meta = puzzle["metadata"]
     num_rows = meta.get("grid_rows", meta["grid_size"])
@@ -121,6 +122,18 @@ def generate_html(puzzle: dict, grid: list[list[dict]]) -> str:
         date_display = dt.strftime("%A, %B %-d, %Y")
     except Exception:
         date_display = date
+
+    # Build source photo links
+    photo_links_html = ""
+    if photo_filenames:
+        links = []
+        for i, fname in enumerate(photo_filenames):
+            label = f"Source photo {i + 1}" if len(photo_filenames) > 1 else "Source photo"
+            links.append(f'<a href="{fname}">{label}</a>')
+        photo_links_html = '  <div class="source-photos">' + " | ".join(links) + '</div>'
+
+    # Build clue data as JSON for the interactive banner
+    clues_json = json.dumps(clues)
 
     # Build grid HTML
     grid_html = build_grid_html(grid, num_rows, cols)
@@ -177,6 +190,8 @@ def generate_html(puzzle: dict, grid: list[list[dict]]) -> str:
   }}
   .header .date {{ font-size: 18px; font-weight: bold; margin-top: 2px; }}
   .header .author {{ font-size: 14px; color: #444; margin-top: 2px; }}
+  .header .source-photos {{ font-size: 12px; margin-top: 4px; }}
+  .header .source-photos a {{ color: #333; }}
 
   /* Grid — CSS Grid for guaranteed square cells */
   .grid-wrap {{
@@ -281,9 +296,27 @@ def generate_html(puzzle: dict, grid: list[list[dict]]) -> str:
     font-size: 12px;
   }}
 
+  /* Clue banner — sticky at top, shows clue for focused cell */
+  #clue-banner {{
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #f0f0f0;
+    border: 2px solid #000;
+    padding: 6px 10px;
+    font-size: 14px;
+    font-family: Arial, Helvetica, sans-serif;
+    line-height: 1.3;
+    min-height: 32px;
+    display: none;
+  }}
+  #clue-banner.visible {{ display: block; }}
+  #clue-banner .clue-dir {{ font-weight: bold; text-transform: uppercase; }}
+
   /* Print */
   @media print {{
     .nav {{ display: none; }}
+    #clue-banner {{ display: none; }}
     body {{ padding: 0; }}
     .cell input {{ padding-top: 25%; }}
   }}
@@ -297,7 +330,10 @@ def generate_html(puzzle: dict, grid: list[list[dict]]) -> str:
   <h1>{title}</h1>
   <div class="date">{date_display}</div>
   <div class="author">By {author}</div>
+{photo_links_html}
 </div>
+
+<div id="clue-banner"></div>
 
 <div class="grid-wrap">
 {grid_html}
@@ -315,24 +351,103 @@ def generate_html(puzzle: dict, grid: list[list[dict]]) -> str:
 </div>
 
 <script>
-// Auto-advance: move to next cell after typing a letter
-document.querySelectorAll('.cell input').forEach(function(inp) {{
-  inp.addEventListener('input', function() {{
-    if (this.value.length >= 1) {{
-      this.value = this.value.slice(-1).toUpperCase();
-      // Find next input
-      var all = Array.from(document.querySelectorAll('.cell input'));
-      var idx = all.indexOf(this);
-      if (idx >= 0 && idx < all.length - 1) {{
-        all[idx + 1].focus();
+(function() {{
+  var CLUES = {clues_json};
+  var COLS = {cols};
+  var STORAGE_KEY = 'crossword_{date}';
+  var banner = document.getElementById('clue-banner');
+
+  // Build cell lookup
+  var cells = document.querySelectorAll('.cell[data-r]');
+  var cellMap = {{}};
+  cells.forEach(function(el) {{
+    cellMap[el.dataset.r + ',' + el.dataset.c] = el;
+  }});
+
+  // Persist cell values to localStorage
+  function saveState() {{
+    var state = {{}};
+    cells.forEach(function(el) {{
+      var inp = el.querySelector('input');
+      if (inp && inp.value) {{
+        state[el.dataset.r + ',' + el.dataset.c] = inp.value;
+      }}
+    }});
+    try {{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }} catch(e) {{}}
+  }}
+
+  function loadState() {{
+    try {{
+      var state = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (!state) return;
+      for (var key in state) {{
+        var el = cellMap[key];
+        if (el) {{
+          var inp = el.querySelector('input');
+          if (inp) inp.value = state[key];
+        }}
+      }}
+    }} catch(e) {{}}
+  }}
+
+  // Find the across/down clue number for a given cell
+  function findClueForCell(r, c) {{
+    var result = [];
+    for (var cc = c; cc >= 0; cc--) {{
+      var el = cellMap[r + ',' + cc];
+      if (!el) break;
+      if (el.dataset.num && CLUES.across[el.dataset.num]) {{
+        result.push({{dir: 'Across', num: el.dataset.num, text: CLUES.across[el.dataset.num]}});
+        break;
       }}
     }}
+    for (var rr = r; rr >= 0; rr--) {{
+      var el = cellMap[rr + ',' + c];
+      if (!el) break;
+      if (el.dataset.num && CLUES.down[el.dataset.num]) {{
+        result.push({{dir: 'Down', num: el.dataset.num, text: CLUES.down[el.dataset.num]}});
+        break;
+      }}
+    }}
+    return result;
+  }}
+
+  function showClue(r, c) {{
+    var clues = findClueForCell(r, c);
+    if (clues.length > 0) {{
+      var html = clues.map(function(cl) {{
+        return '<span class="clue-dir">' + cl.num + ' ' + cl.dir + ':</span> ' + cl.text;
+      }}).join('<br>');
+      banner.innerHTML = html;
+      banner.className = 'visible';
+    }}
+  }}
+
+  // Auto-advance, clue display, and save on input
+  document.querySelectorAll('.cell input').forEach(function(inp) {{
+    inp.addEventListener('input', function() {{
+      if (this.value.length >= 1) {{
+        this.value = this.value.slice(-1).toUpperCase();
+        var all = Array.from(document.querySelectorAll('.cell input'));
+        var idx = all.indexOf(this);
+        if (idx >= 0 && idx < all.length - 1) {{
+          all[idx + 1].focus();
+        }}
+      }}
+      saveState();
+    }});
+    inp.addEventListener('focus', function() {{
+      this.select();
+      var cell = this.parentElement;
+      if (cell.dataset.r !== undefined) {{
+        showClue(parseInt(cell.dataset.r), parseInt(cell.dataset.c));
+      }}
+    }});
   }});
-  // Select all text on focus for easy overwrite
-  inp.addEventListener('focus', function() {{
-    this.select();
-  }});
-}});
+
+  // Restore saved state on load
+  loadState();
+}})();
 </script>
 
 </body>
@@ -351,10 +466,12 @@ def build_grid_html(grid: list[list[dict]], num_rows: int, num_cols: int) -> str
                 cells.append('<div class="cell black"></div>')
             else:
                 num_span = ""
+                num_attr = ""
                 if cell["number"]:
                     num_span = f'<span class="n">{cell["number"]}</span>'
+                    num_attr = f' data-num="{cell["number"]}"'
                 cells.append(
-                    f'<div class="cell">{num_span}'
+                    f'<div class="cell" data-r="{r}" data-c="{c}"{num_attr}>{num_span}'
                     f'<input type="text" maxlength="1" autocomplete="off" '
                     f'aria-label="{cell["number"] or ""}">'
                     f'</div>'
@@ -392,8 +509,6 @@ def main():
 
     grid = build_grid_data(puzzle)
 
-    html = generate_html(puzzle, grid)
-
     if args.output:
         output_path = args.output
     else:
@@ -401,6 +516,25 @@ def main():
         output_dir = Path(path).parent.parent / "kindle"
         output_dir.mkdir(exist_ok=True)
         output_path = str(output_dir / f"{stem}.html")
+
+    # Copy source photos to output directory and collect filenames for links
+    photo_filenames = None
+    source_photos = meta.get("source_photos", [])
+    if source_photos:
+        photo_filenames = []
+        puzzle_dir = Path(path).parent.parent
+        out_dir = Path(output_path).parent
+        for photo_path in source_photos:
+            src = puzzle_dir / photo_path
+            if src.exists():
+                dst = out_dir / src.name
+                shutil.copy2(str(src), str(dst))
+                photo_filenames.append(src.name)
+                print(f"  Copied source photo: {src.name}")
+            else:
+                print(f"  Warning: source photo not found: {src}")
+
+    html = generate_html(puzzle, grid, photo_filenames)
 
     with open(output_path, "w") as f:
         f.write(html)
