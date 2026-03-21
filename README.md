@@ -18,6 +18,8 @@ If something here sparks an idea or saves you time, that's a win.
 
 - **firetv-beta-apps** — A Fire TV app for on-device management of beta apps published through Amazon Appstore's Live App Testing (LAT). Built with Kotlin and Android Leanback library for native Fire TV UI. Lets 3P developers browse, install, update, and uninstall beta builds directly from their Fire TV. Features D-pad-optimized browse and detail screens, real-time download progress, in-app purchase reset for testing, Login with Amazon SSO auth, and notification preferences. MVVM architecture with Repository pattern, mock API layer with comprehensive documentation for swapping to real Amazon Appstore APIs, and 89 unit tests.
 
+- **kindle-crossword** — Daily newspaper crossword puzzles extracted from photos and rendered as clean HTML optimized for the Kindle Scribe's 10.2" e-ink display. Pipeline: photograph → OpenCV grid extraction → Tesseract OCR clue extraction → static HTML with numbered grid + clue lists. [View puzzles →](https://palani81.github.io/experiments/kindle-crossword/)
+
 ## License
 
 Projects in this repo are licensed under Apache 2.0 unless otherwise noted. See individual project folders for details.
