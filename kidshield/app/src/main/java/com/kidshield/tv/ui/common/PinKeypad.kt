@@ -41,10 +41,20 @@ fun PinKeypad(
                 row.forEach { key ->
                     Surface(
                         onClick = {
+                            android.util.Log.d("PinKeypad", "Button clicked: $key")
                             when (key) {
-                                -1 -> onBackspace()
-                                -2 -> onConfirm()
-                                else -> onDigit(key)
+                                -1 -> {
+                                    android.util.Log.d("PinKeypad", "Backspace clicked")
+                                    onBackspace()
+                                }
+                                -2 -> {
+                                    android.util.Log.d("PinKeypad", "Confirm clicked")
+                                    onConfirm()
+                                }
+                                else -> {
+                                    android.util.Log.d("PinKeypad", "Digit clicked: $key")
+                                    onDigit(key)
+                                }
                             }
                         },
                         modifier = Modifier.size(70.dp),

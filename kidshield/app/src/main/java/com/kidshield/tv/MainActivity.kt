@@ -67,9 +67,7 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 KidShieldNavGraph(
                     navController = navController,
-                    lockTaskHelper = lockTaskHelper,
-                    settingsRepository = settingsRepository,
-                    pinManager = pinManager
+                    lockTaskHelper = lockTaskHelper
                 )
             }
         }
