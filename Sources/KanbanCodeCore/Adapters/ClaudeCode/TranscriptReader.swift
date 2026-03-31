@@ -1,0 +1,502 @@
+import Foundation
+
+/// Reads conversation turns from a .jsonl transcript file.
+public enum TranscriptReader {
+
+    /// Result of a paginated read: turns + whether more exist before these.
+    public struct ReadResult: Sendable {
+        public let turns: [ConversationTurn]
+        public let totalLineCount: Int
+        public let hasMore: Bool
+    }
+
+    /// Read all conversation turns from a .jsonl file (legacy — use readTail for large files).
+    public static func readTurns(from filePath: String) async throws -> [ConversationTurn] {
+        let result = try await readTail(from: filePath, maxTurns: Int.max)
+        return result.turns
+    }
+
+    /// Read the last `maxTurns` conversation turns from a .jsonl file.
+    /// Reads the file efficiently: scans all lines but only parses the last N turns fully.
+    public static func readTail(from filePath: String, maxTurns: Int = 80) async throws -> ReadResult {
+        guard FileManager.default.fileExists(atPath: filePath) else {
+            return ReadResult(turns: [], totalLineCount: 0, hasMore: false)
+        }
+
+        let url = URL(fileURLWithPath: filePath)
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+
+        // First pass: count turns and record line offsets for the last N
+        var turnLineInfos: [(lineNumber: Int, line: String)] = []
+        var lineNumber = 0
+        var totalTurnCount = 0
+
+        for try await line in handle.bytes.lines {
+            lineNumber += 1
+            guard !line.isEmpty, line.contains("\"type\"") else { continue }
+
+            // Quick check: is this a user/assistant line?
+            guard let data = line.data(using: .utf8),
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let type = obj["type"] as? String,
+                  type == "user" || type == "assistant" else { continue }
+
+            // Skip caveat wrapper messages entirely
+            if type == "user" && JsonlParser.isCaveatMessage(obj) { continue }
+
+            totalTurnCount += 1
+            turnLineInfos.append((lineNumber, line))
+            // Keep only the last maxTurns entries in the ring
+            if turnLineInfos.count > maxTurns {
+                turnLineInfos.removeFirst()
+            }
+        }
+
+        // Second pass: parse only the turns we're keeping
+        let startIndex = totalTurnCount - turnLineInfos.count
+        var turns: [ConversationTurn] = []
+        turns.reserveCapacity(turnLineInfos.count)
+
+        for (i, info) in turnLineInfos.enumerated() {
+            guard let data = info.line.data(using: .utf8),
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let type = obj["type"] as? String else { continue }
+
+            // Stdout responses display as assistant-style turns
+            let role = (type == "user" && JsonlParser.isLocalCommandStdout(obj)) ? "assistant" : type
+
+            let blocks: [ContentBlock]
+            let textPreview: String
+
+            if type == "user" {
+                blocks = extractUserBlocks(from: obj)
+                textPreview = Self.buildTextPreview(blocks: blocks, role: role)
+            } else {
+                blocks = extractAssistantBlocks(from: obj)
+                textPreview = Self.buildTextPreview(blocks: blocks, role: role)
+            }
+
+            let timestamp = obj["timestamp"] as? String
+
+            turns.append(ConversationTurn(
+                index: startIndex + i,
+                lineNumber: info.lineNumber,
+                role: role,
+                textPreview: textPreview,
+                timestamp: timestamp,
+                contentBlocks: blocks
+            ))
+        }
+
+        return ReadResult(
+            turns: turns,
+            totalLineCount: lineNumber,
+            hasMore: totalTurnCount > turnLineInfos.count
+        )
+    }
+
+    /// Stream all conversation turns from a .jsonl file, yielding each turn as it's parsed.
+    /// Callers receive turns incrementally without waiting for the full file to load.
+    public static func streamAllTurns(from filePath: String) -> AsyncStream<ConversationTurn> {
+        AsyncStream { continuation in
+            let task = Task.detached {
+                guard FileManager.default.fileExists(atPath: filePath) else {
+                    continuation.finish()
+                    return
+                }
+                do {
+                    let url = URL(fileURLWithPath: filePath)
+                    let handle = try FileHandle(forReadingFrom: url)
+                    defer { try? handle.close() }
+
+                    var lineNumber = 0
+                    var turnIndex = 0
+
+                    for try await line in handle.bytes.lines {
+                        if Task.isCancelled { break }
+                        lineNumber += 1
+                        guard !line.isEmpty, line.contains("\"type\"") else { continue }
+
+                        guard let data = line.data(using: .utf8),
+                              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                              let type = obj["type"] as? String,
+                              type == "user" || type == "assistant" else { continue }
+
+                        // Skip caveat wrapper messages entirely
+                        if type == "user" && JsonlParser.isCaveatMessage(obj) { continue }
+
+                        // Stdout responses display as assistant-style turns
+                        let role = (type == "user" && JsonlParser.isLocalCommandStdout(obj)) ? "assistant" : type
+
+                        let blocks: [ContentBlock]
+                        let textPreview: String
+
+                        if type == "user" {
+                            blocks = extractUserBlocks(from: obj)
+                            textPreview = buildTextPreview(blocks: blocks, role: role)
+                        } else {
+                            blocks = extractAssistantBlocks(from: obj)
+                            textPreview = buildTextPreview(blocks: blocks, role: role)
+                        }
+
+                        let timestamp = obj["timestamp"] as? String
+
+                        continuation.yield(ConversationTurn(
+                            index: turnIndex,
+                            lineNumber: lineNumber,
+                            role: role,
+                            textPreview: textPreview,
+                            timestamp: timestamp,
+                            contentBlocks: blocks
+                        ))
+                        turnIndex += 1
+                    }
+                } catch {
+                    // File read error — just finish the stream
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    /// Scan for matching turn indices using the same content extraction as the reader.
+    /// Yields each matching turn index as found. Matches against the same text fields
+    /// that TurnBlockView displays (textPreview + contentBlocks[].text).
+    public static func scanForMatches(
+        from filePath: String,
+        query: String
+    ) -> AsyncStream<Int> {
+        AsyncStream { continuation in
+            let task = Task.detached {
+                guard FileManager.default.fileExists(atPath: filePath) else {
+                    continuation.finish()
+                    return
+                }
+                do {
+                    let url = URL(fileURLWithPath: filePath)
+                    let handle = try FileHandle(forReadingFrom: url)
+                    defer { try? handle.close() }
+
+                    var turnIndex = 0
+                    let queryLower = query.lowercased()
+
+                    for try await line in handle.bytes.lines {
+                        if Task.isCancelled { break }
+                        guard !line.isEmpty, line.contains("\"type\"") else { continue }
+
+                        guard let data = line.data(using: .utf8),
+                              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                              let type = obj["type"] as? String,
+                              type == "user" || type == "assistant" else { continue }
+
+                        // Skip caveat wrapper messages entirely
+                        if type == "user" && JsonlParser.isCaveatMessage(obj) { continue }
+
+                        // Stdout responses display as assistant-style turns
+                        let role = (type == "user" && JsonlParser.isLocalCommandStdout(obj)) ? "assistant" : type
+
+                        // Extract content the same way the reader/frontend does
+                        let blocks: [ContentBlock]
+                        if type == "user" {
+                            blocks = extractUserBlocks(from: obj)
+                        } else {
+                            blocks = extractAssistantBlocks(from: obj)
+                        }
+                        let textPreview = buildTextPreview(blocks: blocks, role: role)
+
+                        // Match against the same fields TurnBlockView.isSearchMatch checks
+                        if textPreview.lowercased().contains(queryLower)
+                            || blocks.contains(where: { $0.text.lowercased().contains(queryLower) }) {
+                            continuation.yield(turnIndex)
+                        }
+                        turnIndex += 1
+                    }
+                } catch { }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    /// Load earlier turns before the current set (for "load more" pagination).
+    public static func readRange(from filePath: String, turnRange: Range<Int>) async throws -> [ConversationTurn] {
+        guard FileManager.default.fileExists(atPath: filePath) else { return [] }
+
+        let url = URL(fileURLWithPath: filePath)
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+
+        var turns: [ConversationTurn] = []
+        var lineNumber = 0
+        var turnIndex = 0
+
+        for try await line in handle.bytes.lines {
+            lineNumber += 1
+            guard !line.isEmpty, line.contains("\"type\"") else { continue }
+
+            guard let data = line.data(using: .utf8),
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let type = obj["type"] as? String,
+                  type == "user" || type == "assistant" else { continue }
+
+            // Skip caveat wrapper messages entirely
+            if type == "user" && JsonlParser.isCaveatMessage(obj) { continue }
+
+            // Stdout responses display as assistant-style turns
+            let role = (type == "user" && JsonlParser.isLocalCommandStdout(obj)) ? "assistant" : type
+
+            defer { turnIndex += 1 }
+
+            // Skip turns outside our range
+            guard turnRange.contains(turnIndex) else {
+                if turnIndex >= turnRange.upperBound { break }
+                continue
+            }
+
+            let blocks: [ContentBlock]
+            let textPreview: String
+
+            if type == "user" {
+                blocks = extractUserBlocks(from: obj)
+                textPreview = Self.buildTextPreview(blocks: blocks, role: role)
+            } else {
+                blocks = extractAssistantBlocks(from: obj)
+                textPreview = Self.buildTextPreview(blocks: blocks, role: role)
+            }
+
+            let timestamp = obj["timestamp"] as? String
+
+            turns.append(ConversationTurn(
+                index: turnIndex,
+                lineNumber: lineNumber,
+                role: role,
+                textPreview: textPreview,
+                timestamp: timestamp,
+                contentBlocks: blocks
+            ))
+        }
+
+        return turns
+    }
+
+    // MARK: - User message parsing
+
+    static func extractUserBlocks(from obj: [String: Any]) -> [ContentBlock] {
+        // Hide caveat wrapper messages entirely
+        if JsonlParser.isCaveatMessage(obj) { return [] }
+
+        // User text can be at top level or inside message.content
+        if let text = JsonlParser.extractTextContent(from: obj) {
+            // Show slash commands cleanly (e.g. "/clear")
+            if let command = JsonlParser.parseLocalCommand(text) {
+                return [ContentBlock(kind: .text, text: command)]
+            }
+            // Show command stdout as plain text
+            if let stdout = JsonlParser.parseLocalCommandStdout(text) {
+                return [ContentBlock(kind: .text, text: stdout)]
+            }
+            // Strip any remaining metadata tags from mixed-content messages
+            let cleaned = JsonlParser.stripMetadataTags(text)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !cleaned.isEmpty {
+                return [ContentBlock(kind: .text, text: cleaned)]
+            }
+            return []
+        }
+
+        // Check for tool_result blocks in message.content
+        guard let message = obj["message"] as? [String: Any],
+              let content = message["content"] as? [[String: Any]] else {
+            return []
+        }
+
+        var blocks: [ContentBlock] = []
+        for block in content {
+            guard let blockType = block["type"] as? String else { continue }
+            switch blockType {
+            case "text":
+                if let text = block["text"] as? String, !text.isEmpty {
+                    blocks.append(ContentBlock(kind: .text, text: text))
+                }
+            case "tool_result":
+                let resultText: String
+                if let content = block["content"] as? String {
+                    let lines = content.components(separatedBy: "\n")
+                    resultText = lines.count > 1
+                        ? "Result (\(lines.count) lines)"
+                        : String(content.prefix(200))
+                } else {
+                    resultText = "Result"
+                }
+                blocks.append(ContentBlock(kind: .toolResult(toolName: nil), text: resultText))
+            default:
+                break
+            }
+        }
+        return blocks
+    }
+
+    // MARK: - Assistant message parsing
+
+    static func extractAssistantBlocks(from obj: [String: Any]) -> [ContentBlock] {
+        guard let message = obj["message"] as? [String: Any],
+              let content = message["content"] else {
+            return []
+        }
+
+        // Simple string content
+        if let text = content as? String {
+            return text.isEmpty ? [] : [ContentBlock(kind: .text, text: text)]
+        }
+
+        // Array of content blocks
+        guard let blocks = content as? [[String: Any]] else { return [] }
+
+        var result: [ContentBlock] = []
+        for block in blocks {
+            guard let blockType = block["type"] as? String else { continue }
+            switch blockType {
+            case "text":
+                if let text = block["text"] as? String, !text.isEmpty {
+                    result.append(ContentBlock(kind: .text, text: text))
+                }
+            case "tool_use":
+                result.append(parseToolUse(block))
+            case "thinking":
+                if let thinking = block["thinking"] as? String, !thinking.isEmpty {
+                    result.append(ContentBlock(kind: .thinking, text: String(thinking.prefix(500))))
+                }
+            default:
+                break
+            }
+        }
+        return result
+    }
+
+    // MARK: - Preview text
+
+    /// Build a descriptive text preview for a conversation turn.
+    static func buildTextPreview(blocks: [ContentBlock], role: String) -> String {
+        let textOnly = blocks.filter { if case .text = $0.kind { true } else { false } }
+            .map(\.text).joined(separator: "\n")
+
+        if !textOnly.isEmpty {
+            return String(textOnly.prefix(500))
+        }
+
+        if blocks.isEmpty { return "(empty)" }
+
+        if role == "user" {
+            // User messages with tool_result blocks
+            let resultCount = blocks.filter { if case .toolResult = $0.kind { true } else { false } }.count
+            if resultCount > 0 {
+                return "[tool result x\(resultCount)]"
+            }
+        } else {
+            // Assistant messages with tool_use blocks — list tool names
+            let toolNames = blocks.compactMap { block -> String? in
+                if case .toolUse(let name, _) = block.kind { return name }
+                return nil
+            }
+            if !toolNames.isEmpty {
+                let unique = Array(NSOrderedSet(array: toolNames)) as! [String]
+                return "[tool: \(unique.joined(separator: ", "))]"
+            }
+        }
+
+        return "(empty)"
+    }
+
+    // MARK: - Tool use parsing
+
+    static func parseToolUse(_ block: [String: Any]) -> ContentBlock {
+        let name = block["name"] as? String ?? "unknown"
+        let input = block["input"] as? [String: Any] ?? [:]
+
+        let (displayText, inputMap) = extractToolInfo(name: name, input: input)
+
+        return ContentBlock(
+            kind: .toolUse(name: name, input: inputMap),
+            text: displayText
+        )
+    }
+
+    /// Extract display text and key input fields for each tool type.
+    static func extractToolInfo(name: String, input: [String: Any]) -> (String, [String: String]) {
+        var inputMap: [String: String] = [:]
+
+        switch name {
+        case "Bash":
+            let command = input["command"] as? String ?? ""
+            let desc = input["description"] as? String
+            inputMap["command"] = command
+            if let desc { inputMap["description"] = desc }
+            let display = desc ?? String(command.prefix(200))
+            return ("\(name)(\(display))", inputMap)
+
+        case "Read":
+            let path = input["file_path"] as? String ?? ""
+            inputMap["file_path"] = path
+            return ("\(name)(\(shortenPath(path)))", inputMap)
+
+        case "Write":
+            let path = input["file_path"] as? String ?? ""
+            inputMap["file_path"] = path
+            return ("\(name)(\(shortenPath(path)))", inputMap)
+
+        case "Edit":
+            let path = input["file_path"] as? String ?? ""
+            inputMap["file_path"] = path
+            return ("\(name)(\(shortenPath(path)))", inputMap)
+
+        case "Grep":
+            let pattern = input["pattern"] as? String ?? ""
+            let path = input["path"] as? String
+            inputMap["pattern"] = pattern
+            if let path { inputMap["path"] = path }
+            let pathPart = path.map { " in \(shortenPath($0))" } ?? ""
+            return ("\(name)(\"\(pattern)\"\(pathPart))", inputMap)
+
+        case "Glob":
+            let pattern = input["pattern"] as? String ?? ""
+            inputMap["pattern"] = pattern
+            return ("\(name)(\(pattern))", inputMap)
+
+        case "Agent":
+            let prompt = input["prompt"] as? String ?? ""
+            let desc = input["description"] as? String ?? String(prompt.prefix(80))
+            inputMap["prompt"] = String(prompt.prefix(200))
+            return ("\(name)(\(desc))", inputMap)
+
+        case "Skill":
+            let skill = input["skill"] as? String ?? ""
+            inputMap["skill"] = skill
+            return ("\(name)(\(skill))", inputMap)
+
+        case "TaskCreate":
+            let subject = input["subject"] as? String ?? ""
+            inputMap["subject"] = subject
+            return ("\(name)(\(subject))", inputMap)
+
+        case "TaskUpdate":
+            let taskId = input["taskId"] as? String ?? ""
+            let status = input["status"] as? String
+            inputMap["taskId"] = taskId
+            if let status { inputMap["status"] = status }
+            let detail = status.map { "\(taskId): \($0)" } ?? taskId
+            return ("\(name)(\(detail))", inputMap)
+
+        default:
+            return (name, inputMap)
+        }
+    }
+
+    /// Shorten a file path for display — keep last 2-3 components.
+    static func shortenPath(_ path: String) -> String {
+        let components = path.components(separatedBy: "/").filter { !$0.isEmpty }
+        if components.count <= 3 { return path }
+        return ".../" + components.suffix(3).joined(separator: "/")
+    }
+}
